@@ -1,0 +1,83 @@
+// ---------------------------------------------------------------------------
+// MailWave — single stylesheet entry point.
+// Bootstrap is compiled from source so our tokens (1rem = 10px) apply to
+// every Bootstrap component, not just to our own classes.
+// ---------------------------------------------------------------------------
+
+@use 'variables' as v;
+
+// Icon font (plain CSS shipped with the bootstrap-icons package)
+@use 'bootstrap-icons/font/bootstrap-icons.css';
+
+@use 'bootstrap/scss/bootstrap' with (
+  $font-size-root: v.$font-size-root,
+  $font-size-base: v.$font-size-base,
+  $spacer: v.$spacer,
+  $font-family-sans-serif: v.$font-family-sans-serif,
+  $primary: v.$primary,
+  $secondary: v.$secondary,
+  $success: v.$success,
+  $info: v.$info,
+  $warning: v.$warning,
+  $danger: v.$danger,
+  $light: v.$light,
+  $dark: v.$dark,
+  $body-bg: v.$body-bg,
+  $body-color: v.$body-color,
+  $border-radius: v.$border-radius,
+  $border-radius-sm: v.$border-radius-sm,
+  $border-radius-lg: v.$border-radius-lg,
+  $border-radius-xl: v.$border-radius-xl,
+  $border-color: v.$border-color,
+  $h1-font-size: v.$h1-font-size,
+  $h2-font-size: v.$h2-font-size,
+  $h3-font-size: v.$h3-font-size,
+  $h4-font-size: v.$h4-font-size,
+  $h5-font-size: v.$h5-font-size,
+  $h6-font-size: v.$h6-font-size,
+  $input-btn-padding-y: v.$input-btn-padding-y,
+  $input-btn-padding-x: v.$input-btn-padding-x,
+  $input-btn-font-size: v.$input-btn-font-size,
+  $input-btn-padding-y-sm: v.$input-btn-padding-y-sm,
+  $input-btn-padding-x-sm: v.$input-btn-padding-x-sm,
+  $input-btn-font-size-sm: v.$input-btn-font-size-sm,
+  $input-btn-padding-y-lg: v.$input-btn-padding-y-lg,
+  $input-btn-padding-x-lg: v.$input-btn-padding-x-lg,
+  $input-btn-font-size-lg: v.$input-btn-font-size-lg,
+  $table-cell-padding-y: v.$table-cell-padding-y,
+  $table-cell-padding-x: v.$table-cell-padding-x,
+  $card-spacer-y: v.$card-spacer-y,
+  $card-spacer-x: v.$card-spacer-x,
+  $card-border-color: v.$card-border-color,
+  $card-cap-bg: v.$card-cap-bg,
+  $modal-content-border-color: v.$modal-content-border-color,
+  $modal-inner-padding: v.$modal-inner-padding,
+  $dropdown-font-size: v.$dropdown-font-size,
+  $dropdown-border-color: v.$dropdown-border-color,
+  $dropdown-padding-y: v.$dropdown-padding-y,
+  $dropdown-item-padding-y: v.$dropdown-item-padding-y,
+  $dropdown-item-padding-x: v.$dropdown-item-padding-x,
+  $badge-font-size: v.$badge-font-size,
+  $badge-padding-y: v.$badge-padding-y,
+  $badge-padding-x: v.$badge-padding-x,
+  $badge-border-radius: v.$badge-border-radius,
+  $progress-height: v.$progress-height,
+  $progress-bg: v.$progress-bg,
+  $progress-border-radius: v.$progress-border-radius,
+  $nav-link-font-size: v.$nav-link-font-size,
+  $nav-tabs-link-active-color: v.$nav-tabs-link-active-color,
+  $tooltip-font-size: v.$tooltip-font-size,
+  $form-label-font-size: v.$form-label-font-size,
+  $form-label-margin-bottom: v.$form-label-margin-bottom,
+  $form-label-font-weight: v.$form-label-font-weight,
+  $form-text-font-size: v.$form-text-font-size
+);
+
+@use 'theme'; // CSS variables — day/night + accent colour
+@use 'base';
+@use 'layout';
+@use 'components';
+@use 'charts';
+@use 'pages';
+@use 'features';
+@use 'utilities';

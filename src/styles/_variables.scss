@@ -1,0 +1,116 @@
+// ---------------------------------------------------------------------------
+// MailWave design tokens
+// Root font-size is 10px  =>  1rem = 10px  =>  1.4rem = 14px
+// ---------------------------------------------------------------------------
+
+// --- Bootstrap variable overrides (must load before bootstrap) -------------
+$font-size-root: 10px;   // html { font-size: 10px }
+$font-size-base: 1.4rem; // body text = 14px
+$spacer: 1.6rem;         // 1 spacing unit = 16px
+
+$font-family-sans-serif: 'Inter', 'Segoe UI', system-ui, -apple-system,
+  'Helvetica Neue', Arial, sans-serif;
+
+$primary: #4f46e5;
+$secondary: #64748b;
+$success: #16a34a;
+$info: #0891b2;
+$warning: #d97706;
+$danger: #dc2626;
+$light: #f6f7fb;
+$dark: #111827;
+
+$body-bg: #f6f7fb;
+$body-color: #1f2937;
+
+$border-radius: 0.8rem;
+$border-radius-sm: 0.6rem;
+$border-radius-lg: 1.2rem;
+$border-radius-xl: 1.6rem;
+$border-color: #e5e7eb;
+
+$h1-font-size: 2.6rem;
+$h2-font-size: 2.2rem;
+$h3-font-size: 1.9rem;
+$h4-font-size: 1.7rem;
+$h5-font-size: 1.5rem;
+$h6-font-size: 1.3rem;
+
+$input-btn-padding-y: 0.9rem;
+$input-btn-padding-x: 1.4rem;
+$input-btn-font-size: 1.4rem;
+$input-btn-padding-y-sm: 0.5rem;
+$input-btn-padding-x-sm: 1rem;
+$input-btn-font-size-sm: 1.3rem;
+$input-btn-padding-y-lg: 1.2rem;
+$input-btn-padding-x-lg: 2rem;
+$input-btn-font-size-lg: 1.6rem;
+
+$table-cell-padding-y: 1.2rem;
+$table-cell-padding-x: 1.4rem;
+
+$card-spacer-y: 2rem;
+$card-spacer-x: 2rem;
+$card-border-color: #e9ebf2;
+$card-cap-bg: transparent;
+
+$modal-content-border-color: #e9ebf2;
+$modal-inner-padding: 2.4rem;
+
+$dropdown-font-size: 1.4rem;
+$dropdown-border-color: #e9ebf2;
+$dropdown-padding-y: 0.6rem;
+$dropdown-item-padding-y: 0.8rem;
+$dropdown-item-padding-x: 1.4rem;
+
+$badge-font-size: 1.1rem;
+$badge-padding-y: 0.45rem;
+$badge-padding-x: 0.9rem;
+$badge-border-radius: 10rem;
+
+$progress-height: 0.8rem;
+$progress-bg: #e9ebf2;
+$progress-border-radius: 10rem;
+
+$nav-link-font-size: 1.4rem;
+$nav-tabs-link-active-color: $primary;
+
+$tooltip-font-size: 1.2rem;
+$form-label-font-size: 1.3rem;
+$form-label-margin-bottom: 0.6rem;
+$form-label-font-weight: 600;
+$form-text-font-size: 1.2rem;
+
+// --- MailWave-only tokens ---------------------------------------------------
+$mw-ink: #111827;
+$mw-ink-2: #374151;
+$mw-muted: #6b7280;
+$mw-muted-2: #9ca3af;
+$mw-line: #e9ebf2;
+$mw-line-strong: #dfe3ec;
+$mw-surface: #ffffff;
+$mw-bg: #f6f7fb;
+
+$mw-primary: #4f46e5;
+$mw-primary-dark: #4338ca;
+$mw-primary-soft: #eef2ff;
+$mw-success-soft: #e8f7ee;
+$mw-danger-soft: #fdecec;
+$mw-warning-soft: #fdf3e3;
+$mw-info-soft: #e5f6fa;
+
+$mw-sidebar-w: 25rem;
+$mw-sidebar-w-collapsed: 7.2rem;
+$mw-topbar-h: 6.6rem;
+
+$mw-shadow-xs: 0 1px 2px rgba(17, 24, 39, 0.05);
+$mw-shadow-sm: 0 1px 3px rgba(17, 24, 39, 0.07), 0 1px 2px rgba(17, 24, 39, 0.04);
+$mw-shadow-md: 0 4px 14px rgba(17, 24, 39, 0.08);
+$mw-shadow-lg: 0 12px 32px rgba(17, 24, 39, 0.12);
+
+$mw-chart-sent: #4f46e5;
+$mw-chart-opened: #0891b2;
+$mw-chart-clicked: #16a34a;
+$mw-chart-failed: #dc2626;
+$mw-chart-bounced: #d97706;
+$mw-chart-unsub: #9ca3af;

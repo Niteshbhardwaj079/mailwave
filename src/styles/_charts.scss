@@ -1,0 +1,359 @@
+@use 'variables' as v;
+
+// ---------------------------------------------------------------------------
+// Chart shells
+// ---------------------------------------------------------------------------
+.mw-chartcard__body {
+  padding: 1.6rem 1rem 0.4rem;
+}
+
+.mw-chart {
+  width: 100%;
+  height: 32rem;
+}
+
+.mw-chart--sm {
+  height: 24rem;
+}
+
+.mw-chart--xs {
+  height: 18rem;
+}
+
+// Recharts element theming (class hooks, no inline styles)
+.recharts-cartesian-axis-tick-value {
+  font-size: 1.15rem;
+  fill: var(--mw-muted);
+  font-weight: 600;
+}
+
+.recharts-cartesian-grid line {
+  stroke: var(--mw-canvas);
+}
+
+.recharts-tooltip-wrapper {
+  outline: none;
+}
+
+.mw-tooltip {
+  min-width: 16rem;
+  padding: 1.2rem 1.4rem;
+  border-radius: 1rem;
+  background-color: var(--mw-tooltip-bg);
+  box-shadow: var(--mw-shadow-lg);
+  color: #f9fafb;
+}
+
+.mw-tooltip__label {
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin-block-end: 0.8rem;
+  color: #fff;
+}
+
+.mw-tooltip__row {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  font-size: 1.25rem;
+  line-height: 2;
+}
+
+.mw-tooltip__swatch {
+  width: 0.9rem;
+  height: 0.9rem;
+  border-radius: 0.25rem;
+  flex: 0 0 auto;
+}
+
+.mw-tooltip__name {
+  flex: 1 1 auto;
+  color: #d1d5db;
+}
+
+.mw-tooltip__value {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+// --- Donut centre ----------------------------------------------------------
+.mw-donut {
+  position: relative;
+}
+
+.mw-donut__center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.mw-donut__value {
+  font-size: 2.6rem;
+  font-weight: 700;
+  color: var(--mw-ink);
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.mw-donut__label {
+  font-size: 1.15rem;
+  color: var(--mw-muted);
+  font-weight: 600;
+  margin-block-start: 0.4rem;
+}
+
+.mw-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+  margin-block-start: 1.6rem;
+}
+
+.mw-breakdown__row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-size: 1.3rem;
+}
+
+.mw-breakdown__name {
+  flex: 1 1 auto;
+  color: var(--mw-ink-2);
+  font-weight: 600;
+}
+
+.mw-breakdown__value {
+  font-weight: 700;
+  color: var(--mw-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.mw-breakdown__pct {
+  width: 5.4rem;
+  text-align: end;
+  color: var(--mw-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+// --- Opens-by-hour heatmap -------------------------------------------------
+.mw-heatmap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.mw-heatmap__row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.mw-heatmap__daylabel {
+  flex: 0 0 3.4rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--mw-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.mw-heatmap__cell {
+  flex: 1 1 0;
+  min-width: 1.6rem;
+  aspect-ratio: 1 / 1;
+  border: 0;
+  border-radius: 0.4rem;
+  padding: 0;
+  transition: transform 0.12s ease;
+
+  &:hover {
+    transform: scale(1.18);
+  }
+}
+
+.mw-heatmap__cell--l0 {
+  background-color: var(--mw-hover);
+}
+.mw-heatmap__cell--l1 {
+  background-color: #dcdcfb;
+}
+.mw-heatmap__cell--l2 {
+  background-color: #b9baf6;
+}
+.mw-heatmap__cell--l3 {
+  background-color: #8f8bee;
+}
+.mw-heatmap__cell--l4 {
+  background-color: #6a5fe6;
+}
+.mw-heatmap__cell--l5 {
+  background-color: #4f46e5;
+}
+
+.mw-heatmap__hours {
+  display: flex;
+  gap: 0.4rem;
+  padding-inline-start: 3.8rem;
+  margin-block-start: 0.4rem;
+}
+
+.mw-heatmap__hour {
+  flex: 1 1 0;
+  min-width: 1.6rem;
+  text-align: center;
+  font-size: 0.95rem;
+  color: var(--mw-muted-2);
+  font-weight: 600;
+}
+
+.mw-heatmap__scale {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.1rem;
+  color: var(--mw-muted);
+  font-weight: 600;
+}
+
+.mw-heatmap__swatch {
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 0.35rem;
+}
+
+// --- Funnel ----------------------------------------------------------------
+.mw-funnel {
+  display: flex;
+  flex-direction: column;
+  gap: 1.4rem;
+}
+
+.mw-funnel__step {
+  display: flex;
+  align-items: center;
+  gap: 1.4rem;
+}
+
+.mw-funnel__label {
+  flex: 0 0 10rem;
+  font-size: 1.3rem;
+  font-weight: 650;
+  color: var(--mw-ink-2);
+}
+
+.mw-funnel__track {
+  display: block;
+  flex: 1 1 auto;
+  height: 3.6rem;
+  border-radius: 0.8rem;
+  background-color: var(--mw-hover);
+  overflow: hidden;
+}
+
+.mw-funnel__fill {
+  display: block;
+  height: 100%;
+  border-radius: 0.8rem;
+  transition: width 0.5s ease;
+}
+
+.mw-funnel__fill--sent {
+  background: linear-gradient(90deg, #4f46e5, var(--mw-primary-light));
+}
+.mw-funnel__fill--opened {
+  background: linear-gradient(90deg, var(--mw-info), var(--mw-info));
+}
+.mw-funnel__fill--clicked {
+  background: linear-gradient(90deg, var(--mw-success), var(--mw-success));
+}
+
+.mw-funnel__pct {
+  flex: 0 0 11rem;
+  text-align: end;
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--mw-ink);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.mw-funnel__pct small {
+  display: block;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--mw-muted);
+}
+
+// --- Top links list --------------------------------------------------------
+.mw-linkstat {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+  padding: 1.2rem 0;
+  border-block-end: 1px dashed var(--mw-line);
+
+  &:last-child {
+    border-block-end: 0;
+  }
+}
+
+.mw-linkstat__body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.mw-linkstat__name {
+  font-size: 1.35rem;
+  font-weight: 650;
+  color: var(--mw-ink);
+}
+
+.mw-linkstat__url {
+  font-size: 1.15rem;
+  color: var(--mw-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mw-linkstat__count {
+  flex: 0 0 auto;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--mw-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 767.98px) {
+  .mw-chart {
+    height: 26rem;
+  }
+
+  .mw-chart--sm {
+    height: 22rem;
+  }
+
+  .mw-funnel__label {
+    flex-basis: 7rem;
+    font-size: 1.2rem;
+  }
+
+  .mw-funnel__pct {
+    flex-basis: 5.4rem;
+    font-size: 1.2rem;
+  }
+
+  .mw-heatmap__hours {
+    padding-inline-start: 3.8rem;
+  }
+}

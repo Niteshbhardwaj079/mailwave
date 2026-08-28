@@ -1,0 +1,277 @@
+// ---------------------------------------------------------------------------
+// Runtime theme.
+//
+// Everything the eye sees is a CSS custom property, so day/night and the accent
+// colour can change instantly without rebuilding. Three groups:
+//   1. :root                 -> light mode values
+//   2. [data-theme='dark']   -> the handful of values that differ at night
+//   3. [data-accent='...']   -> one block per accent colour
+// ---------------------------------------------------------------------------
+
+:root {
+  // Surfaces
+  --mw-bg: #f6f7fb;
+  --mw-surface: #ffffff;
+  --mw-surface-2: #fafbfd; // table heads, card feet, quiet panels
+  --mw-hover: #f4f5f9;
+  --mw-canvas: #eef0f6; // area behind an email preview
+  --mw-code-bg: #0f172a;
+  --mw-code-ink: #e2e8f0;
+  --mw-tooltip-bg: #111827;
+
+  // Lines
+  --mw-line: #e9ebf2;
+  --mw-line-strong: #dfe3ec;
+  --mw-track: #eceef5; // progress bars, empty heatmap cells
+
+  // Text
+  --mw-ink: #111827;
+  --mw-ink-2: #374151;
+  --mw-muted: #6b7280;
+  --mw-muted-2: #9ca3af;
+
+  // Status colours
+  --mw-success: #16a34a;
+  --mw-danger: #dc2626;
+  --mw-warning: #d97706;
+  --mw-info: #0891b2;
+  --mw-success-soft: #e8f7ee;
+  --mw-danger-soft: #fdecec;
+  --mw-warning-soft: #fdf3e3;
+  --mw-info-soft: #e5f6fa;
+  --mw-success-ink: #15803d;
+  --mw-danger-ink: #b91c1c;
+  --mw-warning-ink: #b45309;
+  --mw-info-ink: #0e7490;
+
+  // Chart series (the accent block below re-points --mw-chart-sent)
+  --mw-chart-opened: #0891b2;
+  --mw-chart-clicked: #16a34a;
+  --mw-chart-failed: #dc2626;
+  --mw-chart-bounced: #d97706;
+  --mw-chart-unsub: #9ca3af;
+  --mw-chart-grid: #eef0f6;
+
+  // Shadows
+  --mw-shadow-xs: 0 1px 2px rgba(17, 24, 39, 0.05);
+  --mw-shadow-sm: 0 1px 3px rgba(17, 24, 39, 0.07), 0 1px 2px rgba(17, 24, 39, 0.04);
+  --mw-shadow-md: 0 4px 14px rgba(17, 24, 39, 0.08);
+  --mw-shadow-lg: 0 12px 32px rgba(17, 24, 39, 0.12);
+
+  --mw-on-primary: #ffffff;
+
+  color-scheme: light;
+}
+
+// ---------------------------------------------------------------------------
+// Night
+// ---------------------------------------------------------------------------
+[data-theme='dark'] {
+  --mw-bg: #0b1220;
+  --mw-surface: #141c2b;
+  --mw-surface-2: #18212f;
+  --mw-hover: #1d2637;
+  --mw-canvas: #0b1220;
+  --mw-code-bg: #060b14;
+  --mw-code-ink: #dbe3f0;
+  --mw-tooltip-bg: #0b1220;
+
+  --mw-line: #253046;
+  --mw-line-strong: #2f3b53;
+  --mw-track: #222d40;
+
+  --mw-ink: #f1f5f9;
+  --mw-ink-2: #cbd5e1;
+  --mw-muted: #94a3b8;
+  --mw-muted-2: #64748b;
+
+  --mw-success: #22c55e;
+  --mw-danger: #f87171;
+  --mw-warning: #fbbf24;
+  --mw-info: #22d3ee;
+  --mw-success-soft: #10291c;
+  --mw-danger-soft: #2d1618;
+  --mw-warning-soft: #2c2010;
+  --mw-info-soft: #0d2630;
+  --mw-success-ink: #6ee7a8;
+  --mw-danger-ink: #fca5a5;
+  --mw-warning-ink: #fcd34d;
+  --mw-info-ink: #67e8f9;
+
+  --mw-chart-opened: #22d3ee;
+  --mw-chart-clicked: #4ade80;
+  --mw-chart-failed: #f87171;
+  --mw-chart-bounced: #fbbf24;
+  --mw-chart-unsub: #64748b;
+  --mw-chart-grid: #253046;
+
+  --mw-shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --mw-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.45), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --mw-shadow-md: 0 4px 14px rgba(0, 0, 0, 0.5);
+  --mw-shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.6);
+
+  // On night mode the accent becomes a light tint, so text on it must be dark
+  --mw-on-primary: #0b1220;
+
+  color-scheme: dark;
+}
+
+// ---------------------------------------------------------------------------
+// Accent colours. Keep the hex values in step with src/config/themeColors.js
+// ---------------------------------------------------------------------------
+@mixin accent($base, $dark, $light, $soft, $soft-dark) {
+  --mw-primary: #{$base};
+  --mw-primary-dark: #{$dark};
+  --mw-primary-light: #{$light};
+  --mw-primary-soft: #{$soft};
+  --mw-chart-sent: #{$base};
+
+  &[data-theme='dark'] {
+    --mw-primary: #{$light};
+    --mw-primary-dark: #{$light};
+    --mw-primary-soft: #{$soft-dark};
+    --mw-chart-sent: #{$light};
+  }
+}
+
+:root,
+[data-accent='indigo'] {
+  @include accent(#4f46e5, #4338ca, #8b83f0, #eef2ff, #1e1b4b);
+}
+
+[data-accent='blue'] {
+  @include accent(#2563eb, #1d4ed8, #7aa5f7, #eff6ff, #17233f);
+}
+
+[data-accent='teal'] {
+  @include accent(#0d9488, #0f766e, #5eD6c9, #effcf9, #0c2b28);
+}
+
+[data-accent='green'] {
+  @include accent(#16a34a, #15803d, #6ee7a8, #effaf3, #0f2a1c);
+}
+
+[data-accent='amber'] {
+  @include accent(#d97706, #b45309, #fbbf24, #fff8ec, #2c2010);
+}
+
+[data-accent='rose'] {
+  @include accent(#e11d48, #be123c, #fb7185, #fff1f4, #2f1119);
+}
+
+[data-accent='purple'] {
+  @include accent(#9333ea, #7e22ce, #c084fc, #faf3ff, #251034);
+}
+
+[data-accent='slate'] {
+  @include accent(#475569, #334155, #94a3b8, #f4f6f9, #1a2333);
+}
+
+// ---------------------------------------------------------------------------
+// Bootstrap components follow the accent too.
+// Bootstrap compiles $primary at build time, so these few rules re-point the
+// pieces that carry brand colour.
+// ---------------------------------------------------------------------------
+.btn-primary {
+  --bs-btn-color: var(--mw-on-primary);
+  --bs-btn-hover-color: var(--mw-on-primary);
+  --bs-btn-active-color: var(--mw-on-primary);
+  --bs-btn-disabled-color: var(--mw-on-primary);
+  --bs-btn-bg: var(--mw-primary);
+  --bs-btn-border-color: var(--mw-primary);
+  --bs-btn-hover-bg: var(--mw-primary-dark);
+  --bs-btn-hover-border-color: var(--mw-primary-dark);
+  --bs-btn-active-bg: var(--mw-primary-dark);
+  --bs-btn-active-border-color: var(--mw-primary-dark);
+  --bs-btn-disabled-bg: var(--mw-primary);
+  --bs-btn-disabled-border-color: var(--mw-primary);
+}
+
+.btn-outline-primary {
+  --bs-btn-hover-color: var(--mw-on-primary);
+  --bs-btn-active-color: var(--mw-on-primary);
+  --bs-btn-color: var(--mw-primary);
+  --bs-btn-border-color: var(--mw-primary);
+  --bs-btn-hover-bg: var(--mw-primary);
+  --bs-btn-hover-border-color: var(--mw-primary);
+  --bs-btn-active-bg: var(--mw-primary);
+  --bs-btn-active-border-color: var(--mw-primary);
+  --bs-btn-disabled-color: var(--mw-primary);
+  --bs-btn-disabled-border-color: var(--mw-primary);
+}
+
+.form-check-input:checked {
+  background-color: var(--mw-primary);
+  border-color: var(--mw-primary);
+}
+
+.form-check-input:focus,
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--mw-primary);
+  box-shadow: 0 0 0 0.25rem rgba(79, 70, 229, 0.15);
+}
+
+.form-range::-webkit-slider-thumb {
+  background-color: var(--mw-primary);
+}
+
+.form-range::-moz-range-thumb {
+  background-color: var(--mw-primary);
+}
+
+.text-primary {
+  color: var(--mw-primary) !important;
+}
+
+// Surfaces Bootstrap paints itself
+[data-theme='dark'] {
+  --bs-body-bg: var(--mw-bg);
+  --bs-body-color: var(--mw-ink-2);
+  --bs-border-color: var(--mw-line);
+  --bs-emphasis-color: var(--mw-ink);
+  --bs-secondary-color: var(--mw-muted);
+
+  .form-control,
+  .form-select,
+  .input-group-text {
+    background-color: var(--mw-surface-2);
+    border-color: var(--mw-line-strong);
+    color: var(--mw-ink);
+  }
+
+  .form-control::placeholder {
+    color: var(--mw-muted-2);
+  }
+
+  .form-select {
+    // Bootstrap's caret is a dark SVG; lighten it for night use
+    filter: brightness(1);
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%2394a3b8' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
+  }
+
+  .dropdown-menu {
+    --bs-dropdown-bg: var(--mw-surface);
+    --bs-dropdown-link-color: var(--mw-ink-2);
+    --bs-dropdown-link-hover-bg: var(--mw-hover);
+    --bs-dropdown-link-hover-color: var(--mw-ink);
+    --bs-dropdown-border-color: var(--mw-line);
+    --bs-dropdown-divider-bg: var(--mw-line);
+  }
+
+  .list-group {
+    --bs-list-group-bg: var(--mw-surface);
+    --bs-list-group-color: var(--mw-ink-2);
+    --bs-list-group-border-color: var(--mw-line);
+    --bs-list-group-action-hover-bg: var(--mw-hover);
+    --bs-list-group-action-hover-color: var(--mw-ink);
+  }
+
+  .btn-outline-secondary {
+    --bs-btn-color: var(--mw-ink-2);
+    --bs-btn-border-color: var(--mw-line-strong);
+    --bs-btn-hover-bg: var(--mw-hover);
+    --bs-btn-hover-border-color: var(--mw-line-strong);
+    --bs-btn-hover-color: var(--mw-ink);
+  }
+}

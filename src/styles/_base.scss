@@ -1,0 +1,75 @@
+@use 'variables' as v;
+
+// html font-size is set to 10px by Bootstrap's $font-size-root override.
+// Everything below is written in rem, so 1rem === 10px.
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--mw-bg);
+  color: var(--mw-ink-2);
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  color: var(--mw-ink);
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+a {
+  text-decoration: none;
+  color: var(--mw-primary);
+
+  &:hover {
+    color: var(--mw-primary-dark);
+  }
+}
+
+hr {
+  border-color: var(--mw-line);
+  opacity: 1;
+}
+
+::-webkit-scrollbar {
+  width: 0.8rem;
+  height: 0.8rem;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--mw-line-strong);
+  border-radius: 10rem;
+
+  &:hover {
+    background: var(--mw-muted-2);
+  }
+}
+
+:focus-visible {
+  outline: 2px solid var(--mw-primary);
+  outline-offset: 2px;
+}
