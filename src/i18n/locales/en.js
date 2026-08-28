@@ -1054,4 +1054,27 @@ export default {
   'users.deptPlaceholder': 'Marketing',
 
   'common.loading': 'Loading…',
+
+  // --- Toasts (screen ke kone me aane wale message) ---
+  'toast.region': 'Notifications',
+  'common.undo': 'Undo',
+  'toast.templateSaved': 'Template saved',
+  'toast.templateDeleted': 'Template deleted',
+  'toast.templateCopied': 'Template copied',
+  'toast.imageAdded': 'Image added',
+  'toast.imageRemoved': 'Image removed',
+  'toast.linkCopied': 'Link copied',
+  'toast.userSaved': 'User details saved',
+  'toast.userInvited': 'Invite sent',
+  'toast.userEnabled': 'Account turned on',
+  'toast.userDisabled': 'Account turned off',
+  'toast.roleCreated': 'Role created',
+  'toast.roleUpdated': 'Role updated',
+  'toast.roleDeleted': 'Role deleted',
+  'toast.roleInUse': '{count} people still have this role — move them first',
+  'toast.roleLocked': 'This role cannot be removed',
+  'toast.permissionsChanged': 'Permissions updated',
+  'toast.subscribersRemoved': '{count} people removed',
+  'toast.settingsSaved': 'Settings saved',
+  'toast.storageFull': 'Browser storage is full — remove a few large images',
 };

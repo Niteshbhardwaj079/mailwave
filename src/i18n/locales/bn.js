@@ -1035,4 +1035,28 @@ export default {
   'users.deptPlaceholder': 'মার্কেটিং',
 
   'common.loading': 'লোড হচ্ছে…',
+
+  // --- Toasts ---
+  'toast.region': 'বিজ্ঞপ্তি',
+  'common.undo': 'ফিরিয়ে নিন',
+  'toast.templateSaved': 'টেমপ্লেট সেভ হয়েছে',
+  'toast.templateDeleted': 'টেমপ্লেট মুছে ফেলা হয়েছে',
+  'toast.templateCopied': 'টেমপ্লেটের কপি হয়েছে',
+  'toast.imageAdded': 'ছবি যুক্ত হয়েছে',
+  'toast.imageRemoved': 'ছবি সরানো হয়েছে',
+  'toast.linkCopied': 'লিংক কপি হয়েছে',
+  'toast.userSaved': 'ব্যবহারকারীর তথ্য সেভ হয়েছে',
+  'toast.userInvited': 'আমন্ত্রণ পাঠানো হয়েছে',
+  'toast.userEnabled': 'অ্যাকাউন্ট চালু করা হয়েছে',
+  'toast.userDisabled': 'অ্যাকাউন্ট বন্ধ করা হয়েছে',
+  'toast.roleCreated': 'ভূমিকা তৈরি হয়েছে',
+  'toast.roleUpdated': 'ভূমিকা হালনাগাদ হয়েছে',
+  'toast.roleDeleted': 'ভূমিকা মুছে ফেলা হয়েছে',
+  'toast.roleInUse': '{count} জনের কাছে এখনও এই ভূমিকা আছে — আগে তাঁদের বদলান',
+  'toast.roleLocked': 'এই ভূমিকা মোছা যায় না',
+  'toast.permissionsChanged': 'অনুমতি হালনাগাদ হয়েছে',
+  'toast.subscribersRemoved': '{count} জনকে সরানো হয়েছে',
+  'toast.settingsSaved': 'সেটিংস সেভ হয়েছে',
+  'toast.storageFull': 'ব্রাউজারের স্টোরেজ ভরে গেছে — কয়েকটি বড় ছবি সরান',
+
 };

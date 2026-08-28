@@ -1053,4 +1053,28 @@ export default {
   'users.deptPlaceholder': 'Marketing',
 
   'common.loading': 'Chargement…',
+
+  // --- Toasts ---
+  'toast.region': 'Notifications',
+  'common.undo': 'Annuler',
+  'toast.templateSaved': 'Modèle enregistré',
+  'toast.templateDeleted': 'Modèle supprimé',
+  'toast.templateCopied': 'Modèle copié',
+  'toast.imageAdded': 'Image ajoutée',
+  'toast.imageRemoved': 'Image supprimée',
+  'toast.linkCopied': 'Lien copié',
+  'toast.userSaved': 'Informations de l’utilisateur enregistrées',
+  'toast.userInvited': 'Invitation envoyée',
+  'toast.userEnabled': 'Compte activé',
+  'toast.userDisabled': 'Compte désactivé',
+  'toast.roleCreated': 'Rôle créé',
+  'toast.roleUpdated': 'Rôle mis à jour',
+  'toast.roleDeleted': 'Rôle supprimé',
+  'toast.roleInUse': '{count} personnes ont encore ce rôle — déplacez-les d’abord',
+  'toast.roleLocked': 'Ce rôle ne peut pas être supprimé',
+  'toast.permissionsChanged': 'Autorisations mises à jour',
+  'toast.subscribersRemoved': '{count} personnes retirées',
+  'toast.settingsSaved': 'Réglages enregistrés',
+  'toast.storageFull': 'Le stockage du navigateur est plein — supprimez quelques images volumineuses',
+
 };

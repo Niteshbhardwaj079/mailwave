@@ -1035,4 +1035,28 @@ export default {
   'users.deptPlaceholder': 'Marketing',
 
   'common.loading': 'Cargando…',
+
+  // --- Toasts ---
+  'toast.region': 'Notificaciones',
+  'common.undo': 'Deshacer',
+  'toast.templateSaved': 'Plantilla guardada',
+  'toast.templateDeleted': 'Plantilla eliminada',
+  'toast.templateCopied': 'Plantilla copiada',
+  'toast.imageAdded': 'Imagen añadida',
+  'toast.imageRemoved': 'Imagen eliminada',
+  'toast.linkCopied': 'Enlace copiado',
+  'toast.userSaved': 'Datos del usuario guardados',
+  'toast.userInvited': 'Invitación enviada',
+  'toast.userEnabled': 'Cuenta activada',
+  'toast.userDisabled': 'Cuenta desactivada',
+  'toast.roleCreated': 'Rol creado',
+  'toast.roleUpdated': 'Rol actualizado',
+  'toast.roleDeleted': 'Rol eliminado',
+  'toast.roleInUse': '{count} personas todavía tienen este rol: muévelas primero',
+  'toast.roleLocked': 'Este rol no se puede eliminar',
+  'toast.permissionsChanged': 'Permisos actualizados',
+  'toast.subscribersRemoved': '{count} personas eliminadas',
+  'toast.settingsSaved': 'Ajustes guardados',
+  'toast.storageFull': 'El almacenamiento del navegador está lleno: quita algunas imágenes grandes',
+
 };

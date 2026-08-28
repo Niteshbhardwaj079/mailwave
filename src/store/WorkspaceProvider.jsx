@@ -5,6 +5,8 @@ import { starterTemplates } from '../data/starterHtml';
 import { systemEmailTemplates } from '../data/systemEmails';
 import { subscribers as seedSubscribers } from '../data/mockData';
 import { newId } from '../utils/ids';
+import { useToast } from '../components/ui/ToastProvider';
+import { useT } from '../i18n/I18nProvider';
 
 const KEYS = {
   version: 'mailwave.schemaVersion',
@@ -114,6 +116,11 @@ function nowStamp() {
 }
 
 export function WorkspaceProvider({ children }) {
+  // Har kaam ke baad screen ke kone me ek message — warna pata hi nahi chalta
+  // ki save hua ya nahi.
+  const toast = useToast();
+  const t = useT();
+
   const [templates, setTemplates] = useState(() => load(KEYS.templates, SEED_TEMPLATES));
   const [images, setImages] = useState(() => load(KEYS.images, []));
   // Roles and users can never be empty — an empty roles list would leave the
@@ -140,8 +147,12 @@ export function WorkspaceProvider({ children }) {
 
   useEffect(() => {
     const ok = save(KEYS.images, images);
-    if (!ok) setStorageWarning(true);
-  }, [images]);
+    if (!ok) {
+      setStorageWarning(true);
+      // Storage bhar gaya = chup-chap data kho raha hai. Yeh bolna zaroori hai.
+      toast.error(t('toast.storageFull'));
+    }
+  }, [images, toast, t]);
 
   useEffect(() => {
     save(KEYS.roles, roles);
@@ -208,9 +219,10 @@ export function WorkspaceProvider({ children }) {
         detail: isNew ? 'New HTML template saved' : 'Template HTML edited',
       });
 
+      toast.success(t('toast.templateSaved'), record.name);
       return record;
     },
-    [logActivity]
+    [logActivity, toast, t]
   );
 
   const deleteTemplate = useCallback(
@@ -220,8 +232,12 @@ export function WorkspaceProvider({ children }) {
 
       setTemplates((current) => current.filter((item) => item.id !== id));
       logActivity({ action: 'deleted', module: 'templates', item: found.name, detail: 'Template removed' });
+
+      // Delete par sirf "hat gaya" bolna kaafi nahi — wapas laane ka mauka bhi
+      // dena chahiye. Galti se delete ho jaye to yahi bachata hai.
+      toast.undo(t('toast.templateDeleted'), () => setTemplates((current) => [found, ...current]), found.name);
     },
-    [templates, logActivity]
+    [templates, logActivity, toast, t]
   );
 
   const duplicateTemplate = useCallback(
@@ -237,9 +253,11 @@ export function WorkspaceProvider({ children }) {
         item: copy.name,
         detail: 'Copied from an existing template',
       });
+
+      toast.success(t('toast.templateCopied'), copy.name);
       return copy;
     },
-    [templates, logActivity]
+    [templates, logActivity, toast, t]
   );
 
   const getTemplate = useCallback((id) => templates.find((item) => item.id === id) || null, [templates]);
@@ -250,14 +268,24 @@ export function WorkspaceProvider({ children }) {
       const record = { id: newId('img'), addedAt: nowStamp(), ...image };
       setImages((current) => [record, ...current]);
       logActivity({ action: 'created', module: 'templates', item: record.name, detail: 'Image added to the library' });
+
+      toast.success(t('toast.imageAdded'), record.name);
       return record;
     },
-    [logActivity]
+    [logActivity, toast, t]
   );
 
-  const removeImage = useCallback((id) => {
-    setImages((current) => current.filter((item) => item.id !== id));
-  }, []);
+  const removeImage = useCallback(
+    (id) => {
+      // Pehle padho, phir badlo. setState ke updater ke andar kuch aur karna
+      // mana hai — React use do baar chalata hai, aur toast do baar aa jata.
+      const removed = images.find((item) => item.id === id) ?? null;
+
+      setImages((current) => current.filter((item) => item.id !== id));
+      toast.success(t('toast.imageRemoved'), removed?.name);
+    },
+    [images, toast, t]
+  );
 
   // --- roles (created by the Super Admin) ----------------------------------
   const emptyPermissions = useCallback(
@@ -296,9 +324,10 @@ export function WorkspaceProvider({ children }) {
         after: `Role: ${name}`,
       });
 
+      toast.success(t('toast.roleCreated'), name);
       return record;
     },
-    [roles, emptyPermissions, logActivity]
+    [roles, emptyPermissions, logActivity, toast, t]
   );
 
   const updateRole = useCallback(
@@ -316,8 +345,9 @@ export function WorkspaceProvider({ children }) {
         })
       );
       logActivity({ action: 'updated', module: 'users', item: name || key, detail: 'Role details changed' });
+      toast.success(t('toast.roleUpdated'), name);
     },
-    [logActivity]
+    [logActivity, toast, t]
   );
 
   /**
@@ -328,10 +358,19 @@ export function WorkspaceProvider({ children }) {
     (key) => {
       const role = roles.find((item) => item.key === key);
       if (!role) return { ok: false, reason: 'missing' };
-      if (role.locked) return { ok: false, reason: 'locked' };
+
+      if (role.locked) {
+        toast.warning(t('toast.roleLocked'));
+        return { ok: false, reason: 'locked' };
+      }
 
       const inUse = users.filter((user) => user.role === key).length;
-      if (inUse > 0) return { ok: false, reason: 'inUse', count: inUse };
+      if (inUse > 0) {
+        // Chup-chap mana nahi karte — batate hain ki kitne logon ke paas hai
+        // aur pehle kya karna hai.
+        toast.warning(t('toast.roleInUse', { count: inUse }));
+        return { ok: false, reason: 'inUse', count: inUse };
+      }
 
       setRoles((current) => current.filter((item) => item.key !== key));
       logActivity({
@@ -341,9 +380,11 @@ export function WorkspaceProvider({ children }) {
         detail: 'Role removed',
         before: `Role: ${role.label || role.key}`,
       });
+
+      toast.success(t('toast.roleDeleted'), role.label || role.key);
       return { ok: true };
     },
-    [roles, users, logActivity]
+    [roles, users, logActivity, toast, t]
   );
 
   const duplicateRole = useCallback(
@@ -399,8 +440,12 @@ export function WorkspaceProvider({ children }) {
         item: roleKey,
         detail: `Set all permissions on ${moduleKey}`,
       });
+
+      // Ek-ek checkbox par toast nahi dete (checkbox khud dikh jata hai), par
+      // "sab chuno" ek bada badlaav hai — uska batana chahiye.
+      toast.success(t('toast.permissionsChanged'));
     },
-    [logActivity]
+    [logActivity, toast, t]
   );
 
   // --- users ---------------------------------------------------------------
@@ -421,8 +466,11 @@ export function WorkspaceProvider({ children }) {
         item: `${record.name} (${record.role})`,
         detail: isNew ? 'Invite email sent' : 'User details changed',
       });
+
+      // Naya user bana = invite gaya. Purana user = sirf details badli.
+      toast.success(isNew ? t('toast.userInvited') : t('toast.userSaved'), record.name);
     },
-    [logActivity]
+    [logActivity, toast, t]
   );
 
   const toggleUserStatus = useCallback(
@@ -440,8 +488,10 @@ export function WorkspaceProvider({ children }) {
         before: `Status: ${user.status}`,
         after: `Status: ${next}`,
       });
+
+      toast.success(next === 'Active' ? t('toast.userEnabled') : t('toast.userDisabled'), user.name);
     },
-    [users, logActivity]
+    [users, logActivity, toast, t]
   );
 
   // --- system emails -------------------------------------------------------
@@ -518,6 +568,9 @@ export function WorkspaceProvider({ children }) {
   // --- subscribers ---------------------------------------------------------
   const removeSubscribers = useCallback(
     (ids) => {
+      // Wapas laane ke liye pehle copy rakh lete hain.
+      const removed = subscribers.filter((item) => ids.includes(item.id));
+
       setSubscribers((current) => current.filter((item) => !ids.includes(item.id)));
       logActivity({
         action: 'deleted',
@@ -525,8 +578,12 @@ export function WorkspaceProvider({ children }) {
         item: `${ids.length} subscriber(s)`,
         detail: 'Removed from the subscriber list',
       });
+
+      toast.undo(t('toast.subscribersRemoved', { count: ids.length }), () =>
+        setSubscribers((current) => [...removed, ...current])
+      );
     },
-    [logActivity]
+    [subscribers, logActivity, toast, t]
   );
 
   // --- bulk actions on campaign recipients ---------------------------------

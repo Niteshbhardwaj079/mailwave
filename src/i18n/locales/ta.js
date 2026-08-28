@@ -1035,4 +1035,28 @@ export default {
   'users.deptPlaceholder': 'சந்தைப்படுத்தல்',
 
   'common.loading': 'ஏற்றப்படுகிறது…',
+
+  // --- Toasts ---
+  'toast.region': 'அறிவிப்புகள்',
+  'common.undo': 'செயல்தவிர்',
+  'toast.templateSaved': 'வார்ப்புரு சேமிக்கப்பட்டது',
+  'toast.templateDeleted': 'வார்ப்புரு நீக்கப்பட்டது',
+  'toast.templateCopied': 'வார்ப்புரு நகலெடுக்கப்பட்டது',
+  'toast.imageAdded': 'படம் சேர்க்கப்பட்டது',
+  'toast.imageRemoved': 'படம் நீக்கப்பட்டது',
+  'toast.linkCopied': 'இணைப்பு நகலெடுக்கப்பட்டது',
+  'toast.userSaved': 'பயனர் விவரம் சேமிக்கப்பட்டது',
+  'toast.userInvited': 'அழைப்பு அனுப்பப்பட்டது',
+  'toast.userEnabled': 'கணக்கு இயக்கப்பட்டது',
+  'toast.userDisabled': 'கணக்கு அணைக்கப்பட்டது',
+  'toast.roleCreated': 'பங்கு உருவாக்கப்பட்டது',
+  'toast.roleUpdated': 'பங்கு புதுப்பிக்கப்பட்டது',
+  'toast.roleDeleted': 'பங்கு நீக்கப்பட்டது',
+  'toast.roleInUse': '{count} பேரிடம் இன்னும் இந்தப் பங்கு உள்ளது — முதலில் அவர்களை மாற்றுங்கள்',
+  'toast.roleLocked': 'இந்தப் பங்கை நீக்க முடியாது',
+  'toast.permissionsChanged': 'அனுமதிகள் புதுப்பிக்கப்பட்டன',
+  'toast.subscribersRemoved': '{count} பேர் நீக்கப்பட்டனர்',
+  'toast.settingsSaved': 'அமைப்புகள் சேமிக்கப்பட்டன',
+  'toast.storageFull': 'உலாவியின் சேமிப்பு நிரம்பியது — சில பெரிய படங்களை நீக்குங்கள்',
+
 };

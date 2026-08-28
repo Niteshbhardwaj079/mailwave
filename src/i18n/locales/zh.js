@@ -1035,4 +1035,28 @@ export default {
   'users.deptPlaceholder': '市场部',
 
   'common.loading': '加载中…',
+
+  // --- Toasts ---
+  'toast.region': '通知',
+  'common.undo': '撤销',
+  'toast.templateSaved': '模板已保存',
+  'toast.templateDeleted': '模板已删除',
+  'toast.templateCopied': '模板已复制',
+  'toast.imageAdded': '图片已添加',
+  'toast.imageRemoved': '图片已删除',
+  'toast.linkCopied': '链接已复制',
+  'toast.userSaved': '用户资料已保存',
+  'toast.userInvited': '邀请已发送',
+  'toast.userEnabled': '账户已启用',
+  'toast.userDisabled': '账户已停用',
+  'toast.roleCreated': '角色已创建',
+  'toast.roleUpdated': '角色已更新',
+  'toast.roleDeleted': '角色已删除',
+  'toast.roleInUse': '还有 {count} 人拥有这个角色——请先把他们转到其他角色',
+  'toast.roleLocked': '这个角色无法删除',
+  'toast.permissionsChanged': '权限已更新',
+  'toast.subscribersRemoved': '已移除 {count} 人',
+  'toast.settingsSaved': '设置已保存',
+  'toast.storageFull': '浏览器存储已满——请删除几张大图',
+
 };

@@ -1035,4 +1035,28 @@ export default {
   'users.deptPlaceholder': 'التسويق',
 
   'common.loading': 'جارٍ التحميل…',
+
+  // --- Toasts ---
+  'toast.region': 'الإشعارات',
+  'common.undo': 'تراجع',
+  'toast.templateSaved': 'تم حفظ القالب',
+  'toast.templateDeleted': 'تم حذف القالب',
+  'toast.templateCopied': 'تم نسخ القالب',
+  'toast.imageAdded': 'تمت إضافة الصورة',
+  'toast.imageRemoved': 'تم حذف الصورة',
+  'toast.linkCopied': 'تم نسخ الرابط',
+  'toast.userSaved': 'تم حفظ بيانات المستخدم',
+  'toast.userInvited': 'تم إرسال الدعوة',
+  'toast.userEnabled': 'تم تفعيل الحساب',
+  'toast.userDisabled': 'تم إيقاف الحساب',
+  'toast.roleCreated': 'تم إنشاء الدور',
+  'toast.roleUpdated': 'تم تحديث الدور',
+  'toast.roleDeleted': 'تم حذف الدور',
+  'toast.roleInUse': 'لا يزال {count} شخصًا يحملون هذا الدور — انقلهم أولًا',
+  'toast.roleLocked': 'لا يمكن حذف هذا الدور',
+  'toast.permissionsChanged': 'تم تحديث الصلاحيات',
+  'toast.subscribersRemoved': 'تمت إزالة {count} شخصًا',
+  'toast.settingsSaved': 'تم حفظ الإعدادات',
+  'toast.storageFull': 'مساحة التخزين في المتصفح ممتلئة — احذف بعض الصور الكبيرة',
+
 };

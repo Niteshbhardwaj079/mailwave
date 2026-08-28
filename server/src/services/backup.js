@@ -185,14 +185,34 @@ export function startBackupSchedule() {
     }
   }
 
-  // Server chalu hote hi ek baar dekh lo (thoda ruk kar, taki boot slow na ho).
-  setTimeout(check, 30_000);
+  /**
+   * Server chalu hote hi EK BACKUP — chahe pichhla kitna bhi naya ho.
+   *
+   * Yeh sabse zaroori suraksha hai. PGlite ka folder achanak band hone par toot
+   * sakta hai. Har baar chalu hote hi backup lene ka matlab: bura se bura ho
+   * to sirf PICHHLI baar ke baad ka kaam jayega, poora data nahi.
+   *
+   * 4 second ruk kar isliye ki server pehle chalu ho jaye, warna pehla page
+   * khulne me der lagegi.
+   */
+  setTimeout(async () => {
+    try {
+      if (currentDriver() !== 'pglite') return;
+      await createBackup({ reason: 'startup' });
+    } catch (error) {
+      console.error('[backup] chalu hote hi backup nahi ban paya:', error);
+    }
+  }, 4_000);
+
   timer = setInterval(check, CHECK_EVERY);
 
   // Yeh timer server ko band hone se na roke.
   if (timer.unref) timer.unref();
 
-  console.log(`[backup] automatic backup chalu — har ${EVERY_DAYS} din, ${KEEP_COUNT} backup rakhe jayenge`);
+  console.log(
+    `[backup] Har baar chalu hone par backup banega. Uske baad har ${EVERY_DAYS} din. ` +
+      `Sabse naye ${KEEP_COUNT} rakhe jayenge.`
+  );
 }
 
 export function stopBackupSchedule() {

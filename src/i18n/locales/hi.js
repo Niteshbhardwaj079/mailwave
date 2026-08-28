@@ -1033,4 +1033,28 @@ export default {
   'users.deptPlaceholder': 'मार्केटिंग',
 
   'common.loading': 'लोड हो रहा है…',
+
+  // --- Toasts ---
+  'toast.region': 'सूचनाएँ',
+  'common.undo': 'वापस लें',
+  'toast.templateSaved': 'टेम्पलेट सेव हो गया',
+  'toast.templateDeleted': 'टेम्पलेट हटा दिया',
+  'toast.templateCopied': 'टेम्पलेट की कॉपी बन गई',
+  'toast.imageAdded': 'इमेज जुड़ गई',
+  'toast.imageRemoved': 'इमेज हटा दी',
+  'toast.linkCopied': 'लिंक कॉपी हो गया',
+  'toast.userSaved': 'यूज़र की जानकारी सेव हो गई',
+  'toast.userInvited': 'न्योता भेज दिया',
+  'toast.userEnabled': 'खाता चालू कर दिया',
+  'toast.userDisabled': 'खाता बंद कर दिया',
+  'toast.roleCreated': 'भूमिका बन गई',
+  'toast.roleUpdated': 'भूमिका अपडेट हो गई',
+  'toast.roleDeleted': 'भूमिका हटा दी',
+  'toast.roleInUse': '{count} लोगों के पास अभी यह भूमिका है — पहले उन्हें बदलें',
+  'toast.roleLocked': 'यह भूमिका हटाई नहीं जा सकती',
+  'toast.permissionsChanged': 'अनुमतियाँ अपडेट हो गईं',
+  'toast.subscribersRemoved': '{count} लोग हटा दिए गए',
+  'toast.settingsSaved': 'सेटिंग्स सेव हो गईं',
+  'toast.storageFull': 'ब्राउज़र का स्टोरेज भर गया — कुछ बड़ी इमेज हटाएँ',
+
 };

@@ -266,4 +266,140 @@ router.get(
   })
 );
 
+// --- import (Excel/CSV se aaye hue log) -------------------------------------
+//
+// Duplicate email ka poora hisaab yahan hota hai. Teen jagah duplicate ho
+// sakta hai, aur teenon pakde jate hain:
+//
+//   1. Jo email pehle se database me hai
+//   2. Jo email isi file me do baar aa gaya
+//   3. Jo suppression list me hai (unsubscribe/bounce ho chuka)
+//
+// Kuch bhi chup-chap nahi hota — har row ka natija wapas bheja jata hai, taki
+// screen par saaf dikhe ki kya hua aur kyun.
+
+/** Bahut aam galtiyan pakadta hai: spaces, "name <email>" wala format. */
+function cleanEmail(raw) {
+  const text = String(raw ?? '').trim();
+  const angle = text.match(/<([^>]+)>/);
+  return (angle ? angle[1] : text).trim().toLowerCase();
+}
+
+function looksLikeEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value);
+}
+
+router.post(
+  '/import',
+  requireModule('contacts', 'create'),
+  validate(z.object({
+    rows: z.array(z.record(z.any())).min(1, 'Import karne ke liye kuch to do').max(50_000),
+    groupId: z.string().trim().optional().nullable(),
+    // false rakho to sirf report milegi, kuch save nahi hoga (preview ke liye).
+    commit: z.boolean().default(true),
+  })),
+  asyncHandler(async (req, res) => {
+    const { rows, groupId, commit } = req.body;
+
+    // Ek hi baar database se sab uthate hain — har row par query karna 5000
+    // contacts par bahut slow ho jata.
+    const existing = await many('SELECT lower(email) AS email FROM contacts');
+    const suppressed = await many('SELECT lower(email) AS email FROM suppression');
+
+    const inDatabase = new Set(existing.map((r) => r.email));
+    const inSuppression = new Set(suppressed.map((r) => r.email));
+    const seenInFile = new Set();
+
+    const report = {
+      total: rows.length,
+      valid: 0,
+      invalid: 0,
+      duplicateInDatabase: 0,
+      duplicateInFile: 0,
+      suppressed: 0,
+      imported: 0,
+      // Screen par dikhane ke liye — pehli 200 problem wali rows.
+      problems: [],
+    };
+
+    const toInsert = [];
+
+    rows.forEach((row, index) => {
+      const rowNumber = index + 2; // header ko row 1 maan kar
+      const email = cleanEmail(row.email ?? row.Email ?? row['Email Address']);
+      const name = row.name ?? row.Name ?? row['Full Name'] ?? null;
+
+      function problem(reason, detail) {
+        if (report.problems.length < 200) {
+          report.problems.push({ row: rowNumber, email: email || null, name, reason, detail });
+        }
+      }
+
+      if (!email) {
+        report.invalid += 1;
+        problem('missing', 'Email khali hai');
+        return;
+      }
+      if (!looksLikeEmail(email)) {
+        report.invalid += 1;
+        problem('invalid', 'Email theek nahi lag raha');
+        return;
+      }
+      if (seenInFile.has(email)) {
+        report.duplicateInFile += 1;
+        problem('duplicateInFile', 'Yeh email isi file me pehle bhi aaya hai');
+        return;
+      }
+      if (inDatabase.has(email)) {
+        report.duplicateInDatabase += 1;
+        problem('duplicateInDatabase', 'Yeh email pehle se aapki list me hai');
+        seenInFile.add(email);
+        return;
+      }
+      if (inSuppression.has(email)) {
+        report.suppressed += 1;
+        problem('suppressed', 'Isne unsubscribe kiya tha ya bounce hua tha — isliye chhod diya');
+        seenInFile.add(email);
+        return;
+      }
+
+      seenInFile.add(email);
+      report.valid += 1;
+      toInsert.push({
+        email,
+        name,
+        phone: row.phone ?? row.Phone ?? row.Mobile ?? null,
+        company: row.company ?? row.Company ?? row['Company Name'] ?? null,
+        city: row.city ?? row.City ?? null,
+      });
+    });
+
+    // commit=false matlab sirf dikhao, save mat karo.
+    if (commit) {
+      for (const person of toInsert) {
+        // ON CONFLICT: agar do request ek saath aa jayein to bhi duplicate
+        // nahi banega — database khud rok deta hai.
+        const result = await query(
+          `INSERT INTO contacts (id, name, email, phone, company, city, group_id)
+           VALUES ($1,$2,$3,$4,$5,$6,$7)
+           ON CONFLICT (lower(email)) DO NOTHING`,
+          [newId('c'), person.name, person.email, person.phone, person.company, person.city, groupId || null]
+        );
+        if (result.affectedRows ?? result.rowCount) report.imported += 1;
+      }
+
+      await logActivity(req, {
+        action: 'created',
+        module: 'contacts',
+        item: `${report.imported} contacts`,
+        detail:
+          `Import: ${report.imported} jude, ${report.duplicateInDatabase} pehle se the, ` +
+          `${report.duplicateInFile} file me dobara the, ${report.invalid} galat the`,
+      });
+    }
+
+    res.json({ ok: true, committed: commit, report });
+  })
+);
+
 export default router;

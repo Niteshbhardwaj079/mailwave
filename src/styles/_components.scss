@@ -926,6 +926,140 @@
 }
 
 // ---------------------------------------------------------------------------
+// Toasts — screen ke kone me aane wale chhote message
+//
+// Desktop par niche-daaye. Mobile par niche-poori-chaudai, par tab bar ke UPAR
+// (warna tab bar ke peeche chhup jate) aur FAB se takrayein nahi.
+// ---------------------------------------------------------------------------
+.mw-toaster {
+  position: fixed;
+  z-index: 1080; // sheet/modal ke bhi upar, warna dialog ke peeche chhup jate
+  right: 1.6rem;
+  bottom: 1.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  width: min(38rem, calc(100vw - 3.2rem));
+  pointer-events: none; // peeche ke button click hote rahein
+
+  @media (max-width: 767.98px) {
+    right: 1.2rem;
+    left: 1.2rem;
+    // Tab bar aur FAB ke upar. Tab bar ki apni koi fixed height nahi hai,
+    // isliye uske content (icon + label + padding) ke hisaab se 7rem lete hain,
+    // aur phone ke niche wale safe area ko bhi jodte hain.
+    bottom: calc(7rem + env(safe-area-inset-bottom) + 1.2rem);
+    width: auto;
+  }
+}
+
+.mw-toast {
+  pointer-events: auto; // toast khud clickable rahe
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1.2rem 1.4rem;
+  border-radius: 1rem;
+  border: 1px solid var(--mw-line);
+  border-inline-start: 4px solid var(--mw-primary);
+  background-color: var(--mw-surface);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+  animation: mw-toast-in 0.22s ease-out;
+
+  // Jinhone "kam animation" set kar rakha hai, unke liye slide band.
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+@keyframes mw-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.8rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.mw-toast__icon {
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+  font-size: 1.8rem;
+  line-height: 1;
+}
+
+.mw-toast__body {
+  flex: 1 1 auto;
+  min-width: 0; // lamba text toast ko phaila na de
+}
+
+.mw-toast__title {
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: var(--mw-ink);
+  overflow-wrap: anywhere;
+}
+
+.mw-toast__detail {
+  margin-top: 0.2rem;
+  font-size: 1.3rem;
+  color: var(--mw-ink-2);
+  overflow-wrap: anywhere;
+}
+
+.mw-toast__action {
+  flex-shrink: 0;
+  align-self: center;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--mw-line-strong);
+  border-radius: 0.6rem;
+  background: transparent;
+  color: var(--mw-ink);
+  font-size: 1.3rem;
+  font-weight: 600;
+
+  &:hover {
+    background-color: var(--mw-surface-2);
+  }
+}
+
+.mw-toast__close {
+  flex-shrink: 0;
+  padding: 0.2rem;
+  border: 0;
+  background: transparent;
+  color: var(--mw-ink-2);
+  font-size: 1.2rem;
+  line-height: 1;
+
+  &:hover {
+    color: var(--mw-ink);
+  }
+}
+
+.mw-toast--success {
+  border-inline-start-color: var(--mw-success);
+  .mw-toast__icon { color: var(--mw-success); }
+}
+
+.mw-toast--error {
+  border-inline-start-color: var(--mw-danger);
+  .mw-toast__icon { color: var(--mw-danger); }
+}
+
+.mw-toast--warning {
+  border-inline-start-color: var(--mw-warning);
+  .mw-toast__icon { color: var(--mw-warning); }
+}
+
+.mw-toast--info {
+  border-inline-start-color: var(--mw-info);
+  .mw-toast__icon { color: var(--mw-info); }
+}
+
+// ---------------------------------------------------------------------------
 // Page loader — shown while a route's code-split chunk arrives
 // ---------------------------------------------------------------------------
 .mw-pageloader {
