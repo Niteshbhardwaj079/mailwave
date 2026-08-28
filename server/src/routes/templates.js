@@ -14,7 +14,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 
 import { many, one, query } from '../db/client.js';
-import { asyncHandler, notFound } from '../lib/http.js';
+import { asyncHandler, notFound, paginated, pagination } from '../lib/http.js';
 import { logActivity } from '../lib/activity.js';
 import { newId } from '../lib/ids.js';
 import { validate } from '../lib/validate.js';
@@ -57,8 +57,18 @@ router.get(
   '/',
   requireModule('templates', 'view'),
   asyncHandler(async (req, res) => {
-    const rows = await many(`${SELECT} ORDER BY t.updated_at DESC`);
-    res.json({ templates: rows.map(toApi) });
+    const totalRow = await one('SELECT count(*)::int AS n FROM templates');
+    const { page, limit, offset } = pagination(req, { defaultLimit: 24, maxLimit: 100 });
+
+    const rows = await many(
+      `${SELECT} ORDER BY t.updated_at DESC LIMIT $1 OFFSET $2`,
+      [limit, offset]
+    );
+
+    res.json({
+      ...paginated(rows.map(toApi), { page, limit }, totalRow?.n ?? 0),
+      templates: rows.map(toApi),
+    });
   })
 );
 

@@ -1059,4 +1059,12 @@ export default {
   'toast.settingsSaved': 'அமைப்புகள் சேமிக்கப்பட்டன',
   'toast.storageFull': 'உலாவியின் சேமிப்பு நிரம்பியது — சில பெரிய படங்களை நீக்குங்கள்',
 
+
+  // --- Pagination ---
+  'page.label': 'பக்கங்கள்',
+  'page.showing': '{total} இல் {from}–{to} காட்டப்படுகிறது',
+  'page.perPage': 'ஒரு பக்கத்திற்கு',
+  'page.prev': 'முந்தைய பக்கம்',
+  'page.next': 'அடுத்த பக்கம்',
+
 };

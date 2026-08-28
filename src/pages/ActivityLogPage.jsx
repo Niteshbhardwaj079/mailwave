@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 
 import PageHeader from '../components/ui/PageHeader';
-import { Card, CardFoot } from '../components/ui/Card';
+import { Card } from '../components/ui/Card';
+import Pagination, { usePagination } from '../components/ui/Pagination';
 import { Note, SearchInput } from '../components/ui/Controls';
 import FilterSelect, { FilterBar } from '../components/ui/FilterSelect';
 import EmptyState from '../components/ui/EmptyState';
@@ -59,6 +60,10 @@ export default function ActivityLogPage() {
       return userOk && actionOk && moduleOk && rangeOk && textOk;
     });
   }, [activity, query, user, action, module, range]);
+
+  // Activity log sabse tezi se badhta hai, isliye yahan pagination sabse
+  // zaroori hai.
+  const pager = usePagination(filtered, 50);
 
   function openDetail(event) {
     setDetailFor(activity.find((entry) => entry.id === event.currentTarget.dataset.id) || null);
@@ -166,7 +171,7 @@ export default function ActivityLogPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((entry) => (
+                  {pager.visible.map((entry) => (
                     <tr key={entry.id} data-id={entry.id} onClick={openDetail}>
                       <td>
                         <div className="mw-cellstack">
@@ -201,7 +206,7 @@ export default function ActivityLogPage() {
             </div>
 
             <div className="mw-reclist p-3">
-              {filtered.map((entry) => (
+              {pager.visible.map((entry) => (
                 <button key={entry.id} type="button" className="mw-rec" data-id={entry.id} onClick={openDetail}>
                   <div className="mw-rec__top">
                     <span className={`mw-logicon mw-kpi__icon--${toneOf(entry.action)}`} aria-hidden="true">
@@ -225,11 +230,28 @@ export default function ActivityLogPage() {
           </>
         )}
 
-        <CardFoot>
-          <span className="mw-fs-12 mw-text-muted">
-            {t('common.showing')} {filtered.length} {t('common.of')} {activity.length}
-          </span>
-        </CardFoot>
+        <Pagination
+
+
+          page={pager.page}
+
+
+          pages={pager.pages}
+
+
+          total={pager.total}
+
+
+          limit={pager.limit}
+
+
+          onPageChange={pager.setPage}
+
+
+          onLimitChange={pager.setLimit}
+
+
+        />
       </Card>
 
       <Note tone="info" icon="bi-shield-check">

@@ -1077,4 +1077,12 @@ export default {
   'toast.subscribersRemoved': '{count} people removed',
   'toast.settingsSaved': 'Settings saved',
   'toast.storageFull': 'Browser storage is full — remove a few large images',
+
+  // --- Pagination ---
+  'page.label': 'Pages',
+  'page.showing': 'Showing {from}–{to} of {total}',
+  'page.perPage': 'Per page',
+  'page.prev': 'Previous page',
+  'page.next': 'Next page',
+
 };

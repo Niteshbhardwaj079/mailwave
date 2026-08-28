@@ -1059,4 +1059,12 @@ export default {
   'toast.settingsSaved': 'تم حفظ الإعدادات',
   'toast.storageFull': 'مساحة التخزين في المتصفح ممتلئة — احذف بعض الصور الكبيرة',
 
+
+  // --- Pagination ---
+  'page.label': 'الصفحات',
+  'page.showing': 'عرض {from}–{to} من {total}',
+  'page.perPage': 'لكل صفحة',
+  'page.prev': 'الصفحة السابقة',
+  'page.next': 'الصفحة التالية',
+
 };

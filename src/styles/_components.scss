@@ -926,6 +926,123 @@
 }
 
 // ---------------------------------------------------------------------------
+// Pagination — table ke niche wala page control
+//
+// Mobile par ginti upar aur buttons niche chale jate hain, aur buttons ki
+// line side me scroll ho jati hai — page kabhi sideways nahi khisakta.
+// ---------------------------------------------------------------------------
+.mw-pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.2rem;
+  padding: 1.4rem 2rem;
+  border-block-start: 1px solid var(--mw-line);
+}
+
+.mw-pager__count {
+  margin: 0;
+  font-size: 1.25rem;
+  color: var(--mw-muted);
+}
+
+.mw-pager__controls {
+  display: flex;
+  align-items: center;
+  gap: 1.6rem;
+  min-width: 0;
+}
+
+.mw-pager__perpage {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0;
+  white-space: nowrap;
+
+  .form-select {
+    width: auto;
+    min-width: 7rem;
+  }
+}
+
+.mw-pager__perpage-label {
+  font-size: 1.25rem;
+  color: var(--mw-muted);
+}
+
+.mw-pager__pages {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  // Bahut saare page hon to yeh line khud scroll ho jaye, poora page nahi.
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.mw-pager__btn {
+  display: grid;
+  place-items: center;
+  // 3.6rem = ungli se aaram se daba sakein (touch target).
+  min-width: 3.6rem;
+  height: 3.6rem;
+  padding: 0 0.8rem;
+  border: 1px solid var(--mw-line);
+  border-radius: 0.8rem;
+  background-color: var(--mw-surface);
+  color: var(--mw-ink-2);
+  font-size: 1.3rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+
+  &:hover:not(:disabled) {
+    border-color: var(--mw-primary-light);
+    background-color: var(--mw-hover);
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  &.is-active {
+    border-color: var(--mw-primary);
+    background-color: var(--mw-primary);
+    color: #fff;
+  }
+}
+
+.mw-pager__gap {
+  padding: 0 0.4rem;
+  color: var(--mw-muted-2);
+}
+
+@media (max-width: 575.98px) {
+  .mw-pager {
+    justify-content: center;
+    padding: 1.2rem;
+  }
+
+  .mw-pager__controls {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+    width: 100%;
+  }
+
+  .mw-pager__pages {
+    justify-content: center;
+  }
+
+  // Chhoti screen par "per page" chhupa dete hain — jagah kam hai, aur
+  // default hi theek chalta hai.
+  .mw-pager__perpage {
+    justify-content: center;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Toasts — screen ke kone me aane wale chhote message
 //
 // Desktop par niche-daaye. Mobile par niche-poori-chaudai, par tab bar ke UPAR

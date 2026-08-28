@@ -1077,4 +1077,12 @@ export default {
   'toast.settingsSaved': 'Einstellungen gespeichert',
   'toast.storageFull': 'Der Browser-Speicher ist voll — entfernen Sie ein paar große Bilder',
 
+
+  // --- Pagination ---
+  'page.label': 'Seiten',
+  'page.showing': '{from}–{to} von {total} werden angezeigt',
+  'page.perPage': 'Pro Seite',
+  'page.prev': 'Vorherige Seite',
+  'page.next': 'Nächste Seite',
+
 };

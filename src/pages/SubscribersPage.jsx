@@ -3,7 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 
 import PageHeader from '../components/ui/PageHeader';
 import KpiCard from '../components/ui/KpiCard';
-import { Card, CardBody, CardFoot, CardHead } from '../components/ui/Card';
+import { Card, CardBody, CardHead } from '../components/ui/Card';
+import Pagination, { usePagination } from '../components/ui/Pagination';
 import { Note, SearchInput } from '../components/ui/Controls';
 import FilterSelect, { FilterBar } from '../components/ui/FilterSelect';
 import StatusPill from '../components/ui/StatusPill';
@@ -40,7 +41,12 @@ export default function SubscribersPage() {
     });
   }, [subscribers, query, campaignFilter, statusFilter]);
 
-  const visibleIds = useMemo(() => filtered.map((item) => item.id), [filtered]);
+  // Sirf ek page jitni rows render hoti hain — badi list par browser hang na ho.
+  const pager = usePagination(filtered, 25);
+
+  // Tick-box sirf dikh rahi rows par — warna "sab chuno" un logon ko bhi chun
+  // leta jo screen par hain hi nahi.
+  const visibleIds = useMemo(() => pager.visible.map((item) => item.id), [pager.visible]);
   const bulk = useBulkSelection(visibleIds);
   const selectedRows = useMemo(() => filtered.filter((item) => bulk.isSelected(item.id)), [filtered, bulk]);
 
@@ -218,7 +224,7 @@ export default function SubscribersPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((item) => (
+                  {pager.visible.map((item) => (
                     <tr key={item.id}>
                       <td className="mw-table__check">
                         <input
@@ -249,7 +255,7 @@ export default function SubscribersPage() {
             </div>
 
             <div className="mw-reclist p-3">
-              {filtered.map((item) => (
+              {pager.visible.map((item) => (
                 <div key={item.id} className={`mw-rec ${bulk.isSelected(item.id) ? 'is-selected' : ''}`.trim()}>
                   <div className="mw-rec__top">
                     <input
@@ -280,11 +286,28 @@ export default function SubscribersPage() {
           </>
         )}
 
-        <CardFoot>
-          <span className="mw-fs-12 mw-text-muted">
-            {t('common.showing')} {filtered.length} {t('common.of')} {subscribers.length}
-          </span>
-        </CardFoot>
+        <Pagination
+
+
+          page={pager.page}
+
+
+          pages={pager.pages}
+
+
+          total={pager.total}
+
+
+          limit={pager.limit}
+
+
+          onPageChange={pager.setPage}
+
+
+          onLimitChange={pager.setLimit}
+
+
+        />
       </Card>
 
       <Card>

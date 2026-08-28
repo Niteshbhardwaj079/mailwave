@@ -5,7 +5,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 
 import { many, one, query } from '../db/client.js';
-import { asyncHandler, badRequest, notFound } from '../lib/http.js';
+import { asyncHandler, badRequest, notFound, paginated, pagination } from '../lib/http.js';
 import { logActivity } from '../lib/activity.js';
 import { newId } from '../lib/ids.js';
 import { validate } from '../lib/validate.js';
@@ -91,8 +91,18 @@ router.get(
       clause = `WHERE c.status = $1`;
     }
 
-    const rows = await many(`${SELECT} ${clause} ORDER BY c.created_at DESC LIMIT 200`, params);
-    res.json({ campaigns: rows.map(toApi) });
+    const totalRow = await one(`SELECT count(*)::int AS n FROM campaigns c ${clause}`, params);
+    const { page, limit, offset } = pagination(req, { defaultLimit: 25, maxLimit: 100 });
+
+    const rows = await many(
+      `${SELECT} ${clause} ORDER BY c.created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+      [...params, limit, offset]
+    );
+
+    res.json({
+      ...paginated(rows.map(toApi), { page, limit }, totalRow?.n ?? 0),
+      campaigns: rows.map(toApi),
+    });
   })
 );
 
@@ -112,32 +122,49 @@ router.get(
   '/:id/recipients',
   requireModule('campaigns', 'view'),
   asyncHandler(async (req, res) => {
+    // Ek campaign me lakhon log ho sakte hain, isliye yahan pagination sabse
+    // zyada zaroori hai. Status se filter bhi kar sakte ho (?status=Failed).
+    const status = String(req.query.status ?? '').trim();
+    const params = [req.params.id];
+    let clause = 'WHERE campaign_id = $1';
+
+    if (status && status !== 'all') {
+      params.push(status);
+      clause += ` AND status = $${params.length}`;
+    }
+
+    const totalRow = await one(
+      `SELECT count(*)::int AS n FROM campaign_recipients ${clause}`,
+      params
+    );
+    const { page, limit, offset } = pagination(req, { defaultLimit: 50, maxLimit: 200 });
+
     const rows = await many(
       `SELECT id, email, name, status, error, sent_at, open_count, first_open_at,
               last_open_at, click_count, last_click_at, unsubscribed
          FROM campaign_recipients
-        WHERE campaign_id = $1
+        ${clause}
         ORDER BY sent_at DESC NULLS LAST, email
-        LIMIT 1000`,
-      [req.params.id]
+        LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+      [...params, limit, offset]
     );
 
-    res.json({
-      recipients: rows.map((r) => ({
-        id: r.id,
-        email: r.email,
-        name: r.name,
-        status: r.status,
-        error: r.error,
-        sentAt: r.sent_at,
-        openCount: r.open_count,
-        firstOpen: r.first_open_at,
-        lastOpen: r.last_open_at,
-        clickCount: r.click_count,
-        lastClick: r.last_click_at,
-        unsubscribed: r.unsubscribed,
-      })),
-    });
+    const items = rows.map((r) => ({
+      id: r.id,
+      email: r.email,
+      name: r.name,
+      status: r.status,
+      error: r.error,
+      sentAt: r.sent_at,
+      openCount: r.open_count,
+      firstOpen: r.first_open_at,
+      lastOpen: r.last_open_at,
+      clickCount: r.click_count,
+      lastClick: r.last_click_at,
+      unsubscribed: r.unsubscribed,
+    }));
+
+    res.json({ ...paginated(items, { page, limit }, totalRow?.n ?? 0), recipients: items });
   })
 );
 

@@ -1059,4 +1059,12 @@ export default {
   'toast.settingsSaved': '设置已保存',
   'toast.storageFull': '浏览器存储已满——请删除几张大图',
 
+
+  // --- Pagination ---
+  'page.label': '分页',
+  'page.showing': '显示第 {from}–{to} 条，共 {total} 条',
+  'page.perPage': '每页',
+  'page.prev': '上一页',
+  'page.next': '下一页',
+
 };

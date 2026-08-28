@@ -1059,4 +1059,12 @@ export default {
   'toast.settingsSaved': 'સેટિંગ્સ સેવ થઈ',
   'toast.storageFull': 'બ્રાઉઝરનો સ્ટોરેજ ભરાયો — થોડી મોટી ઈમેજ કાઢો',
 
+
+  // --- Pagination ---
+  'page.label': 'પેજ',
+  'page.showing': '{total} માંથી {from}–{to} દેખાય છે',
+  'page.perPage': 'પ્રતિ પેજ',
+  'page.prev': 'પાછલું પેજ',
+  'page.next': 'આગલું પેજ',
+
 };

@@ -10,7 +10,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 
 import { many, one, query } from '../db/client.js';
-import { asyncHandler, conflict, notFound } from '../lib/http.js';
+import { asyncHandler, conflict, notFound, paginated, pagination } from '../lib/http.js';
 import { logActivity } from '../lib/activity.js';
 import { newId } from '../lib/ids.js';
 import { validate } from '../lib/validate.js';
@@ -83,10 +83,27 @@ router.get(
     }
 
     const clause = where.length ? `WHERE ${where.join(' AND ')}` : '';
-    const rows = await many(`${SELECT} ${clause} ORDER BY c.added_on DESC LIMIT 500`, params);
-    const total = await one(`SELECT count(*)::int AS n FROM contacts c ${clause}`, params);
 
-    res.json({ contacts: rows.map(toApi), total: total?.n ?? 0 });
+    // Pehle ginti, phir sirf ek page jitni rows.
+    //
+    // Yeh isliye zaroori hai: 50,000 contacts ek saath bhejna server ki memory
+    // bhar dega aur browser ko hang kar dega. Aur pehle jo `LIMIT 500` likha
+    // tha wo usse bhi bura tha — 501 se aage ka data chup-chap gayab ho jata,
+    // kisi ko pata bhi nahi chalta.
+    const totalRow = await one(`SELECT count(*)::int AS n FROM contacts c ${clause}`, params);
+    const { page, limit, offset } = pagination(req, { defaultLimit: 50, maxLimit: 200 });
+
+    const rows = await many(
+      `${SELECT} ${clause} ORDER BY c.added_on DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+      [...params, limit, offset]
+    );
+
+    res.json({
+      ...paginated(rows.map(toApi), { page, limit }, totalRow?.n ?? 0),
+      // Purane naam ke saath bhi bhej rahe hain, taki jo code pehle se
+      // `contacts` padh raha hai wo tootey nahi.
+      contacts: rows.map(toApi),
+    });
   })
 );
 

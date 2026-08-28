@@ -1059,4 +1059,12 @@ export default {
   'toast.settingsSaved': 'सेटिंग्ज सेव्ह झाल्या',
   'toast.storageFull': 'ब्राउझरचा स्टोरेज भरला — काही मोठ्या प्रतिमा काढा',
 
+
+  // --- Pagination ---
+  'page.label': 'पाने',
+  'page.showing': '{total} पैकी {from}–{to} दिसत आहेत',
+  'page.perPage': 'प्रति पान',
+  'page.prev': 'मागील पान',
+  'page.next': 'पुढील पान',
+
 };

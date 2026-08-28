@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 
 import PageHeader from '../components/ui/PageHeader';
-import { Card, CardFoot, CardHead } from '../components/ui/Card';
+import { Card, CardHead } from '../components/ui/Card';
+import Pagination, { usePagination } from '../components/ui/Pagination';
 import { Note, SearchInput, Segmented } from '../components/ui/Controls';
 import FilterSelect, { FilterBar } from '../components/ui/FilterSelect';
 import StatusPill from '../components/ui/StatusPill';
@@ -67,6 +68,9 @@ export default function UsersPage() {
       return roleOk && statusOk && textOk;
     });
   }, [users, query, roleFilter, statusFilter, labels]);
+
+  // Sirf ek page jitni rows render hoti hain — badi list par browser hang na ho.
+  const pager = usePagination(filtered, 25);
 
   // --- users ---------------------------------------------------------------
   function openNewUser() {
@@ -330,7 +334,7 @@ export default function UsersPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filtered.map((user) => (
+                    {pager.visible.map((user) => (
                       <tr key={user.id}>
                         <td>
                           <div className="mw-cellstack">
@@ -390,7 +394,7 @@ export default function UsersPage() {
               </div>
 
               <div className="mw-reclist p-3">
-                {filtered.map((user) => (
+                {pager.visible.map((user) => (
                   <div key={user.id} className="mw-rec">
                     <div className="mw-rec__top">
                       <span className="mw-avatar mw-avatar--sm">{user.initials || initialsOf(user.name)}</span>
@@ -437,11 +441,28 @@ export default function UsersPage() {
             </>
           )}
 
-          <CardFoot>
-            <span className="mw-fs-12 mw-text-muted">
-              {t('common.showing')} {filtered.length} {t('common.of')} {users.length}
-            </span>
-          </CardFoot>
+          <Pagination
+
+
+            page={pager.page}
+
+
+            pages={pager.pages}
+
+
+            total={pager.total}
+
+
+            limit={pager.limit}
+
+
+            onPageChange={pager.setPage}
+
+
+            onLimitChange={pager.setLimit}
+
+
+          />
         </Card>
       ) : null}
 

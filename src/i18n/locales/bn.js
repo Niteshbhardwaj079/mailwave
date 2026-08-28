@@ -1059,4 +1059,12 @@ export default {
   'toast.settingsSaved': 'সেটিংস সেভ হয়েছে',
   'toast.storageFull': 'ব্রাউজারের স্টোরেজ ভরে গেছে — কয়েকটি বড় ছবি সরান',
 
+
+  // --- Pagination ---
+  'page.label': 'পাতা',
+  'page.showing': '{total}-এর মধ্যে {from}–{to} দেখানো হচ্ছে',
+  'page.perPage': 'প্রতি পাতায়',
+  'page.prev': 'আগের পাতা',
+  'page.next': 'পরের পাতা',
+
 };

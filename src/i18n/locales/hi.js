@@ -1057,4 +1057,12 @@ export default {
   'toast.settingsSaved': 'सेटिंग्स सेव हो गईं',
   'toast.storageFull': 'ब्राउज़र का स्टोरेज भर गया — कुछ बड़ी इमेज हटाएँ',
 
+
+  // --- Pagination ---
+  'page.label': 'पेज',
+  'page.showing': '{total} में से {from}–{to} दिख रहे हैं',
+  'page.perPage': 'प्रति पेज',
+  'page.prev': 'पिछला पेज',
+  'page.next': 'अगला पेज',
+
 };

@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import PageHeader from '../components/ui/PageHeader';
-import { Card, CardBody, CardFoot, CardHead } from '../components/ui/Card';
+import { Card, CardBody, CardHead } from '../components/ui/Card';
+import Pagination, { usePagination } from '../components/ui/Pagination';
 import { Note, SearchInput } from '../components/ui/Controls';
 import FilterSelect, { FilterBar } from '../components/ui/FilterSelect';
 import { useT } from '../i18n/I18nProvider';
@@ -50,7 +51,13 @@ export default function ContactsPage() {
     });
   }, [status, group, tag, query, removedIds]);
 
-  const visibleIds = useMemo(() => filtered.map((item) => item.id), [filtered]);
+  // Ek page jitni hi rows dikhti hain. 10,000 contacts ek saath render karna
+  // browser ko hang kar deta hai.
+  const pager = usePagination(filtered, 25);
+
+  // Tick-box sirf DIKH RAHI rows par lagta hai — warna "sab chuno" dabane par
+  // wo log bhi chun liye jate jo screen par hain hi nahi.
+  const visibleIds = useMemo(() => pager.visible.map((item) => item.id), [pager.visible]);
   const bulk = useBulkSelection(visibleIds);
   const selectedRows = useMemo(() => filtered.filter((item) => bulk.isSelected(item.id)), [filtered, bulk]);
 
@@ -254,7 +261,7 @@ export default function ContactsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((contact) => (
+                  {pager.visible.map((contact) => (
                     <tr key={contact.id}>
                       <td className="mw-table__check">
                         <input
@@ -305,7 +312,7 @@ export default function ContactsPage() {
             </div>
 
             <div className="mw-reclist p-3">
-              {filtered.map((contact) => (
+              {pager.visible.map((contact) => (
                 <div key={contact.id} className={`mw-rec ${bulk.isSelected(contact.id) ? 'is-selected' : ''}`.trim()}>
                   <div className="mw-rec__top">
                     <input
@@ -341,11 +348,14 @@ export default function ContactsPage() {
           </>
         )}
 
-        <CardFoot>
-          <span className="mw-fs-12 mw-text-muted">
-            {t('common.showing')} {filtered.length} {t('common.of')} {contacts.length}
-          </span>
-        </CardFoot>
+        <Pagination
+          page={pager.page}
+          pages={pager.pages}
+          total={pager.total}
+          limit={pager.limit}
+          onPageChange={pager.setPage}
+          onLimitChange={pager.setLimit}
+        />
       </Card>
 
       <Card>
