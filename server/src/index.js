@@ -2,12 +2,16 @@ import { createApp } from './app.js';
 import { env } from './env.js';
 import { migrate } from './db/migrate.js';
 import { closeDb } from './db/client.js';
+import { startBackupSchedule } from './services/backup.js';
 
 const app = createApp();
 
 // The schema is applied on every boot. It is idempotent, so a fresh checkout
 // and an existing database take exactly the same path.
 await migrate();
+
+// Har hafte apne aap backup — server chalu hote hi shuru ho jata hai.
+startBackupSchedule();
 
 const server = app.listen(env.port, () => {
   console.log(`MailWave API listening on http://localhost:${env.port}`);

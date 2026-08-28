@@ -12,6 +12,8 @@ import contactRoutes from './routes/contacts.js';
 import templateRoutes from './routes/templates.js';
 import campaignRoutes from './routes/campaigns.js';
 import trackRoutes from './routes/track.js';
+import accountRoutes from './routes/accounts.js';
+import backupRoutes from './routes/backup.js';
 
 export function createApp() {
   const app = express();
@@ -67,6 +69,11 @@ export function createApp() {
   app.use('/api/contacts', requireAuth, contactRoutes);
   app.use('/api/templates', requireAuth, templateRoutes);
   app.use('/api/campaigns', requireAuth, campaignRoutes);
+  app.use('/api/accounts', requireAuth, accountRoutes);
+
+  // Backup upload me poori file body me aati hai, JSON nahi — isliye express
+  // ke JSON parser se pehle raw stream chahiye. Route khud stream padhta hai.
+  app.use('/api/backups', requireAuth, backupRoutes);
 
   // Tracking PUBLIC hai — ise recipient ka mail app kholta hai, isliye yahan
   // requireAuth nahi lagta. Aur /api ke bahar hai taki link chhota rahe.

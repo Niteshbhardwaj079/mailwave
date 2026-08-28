@@ -17,6 +17,7 @@
 import nodemailer from 'nodemailer';
 
 import { badRequest } from '../lib/http.js';
+import { openSecrets } from '../lib/secretbox.js';
 
 const mode = (process.env.MAIL_TRANSPORT || 'smtp').toLowerCase();
 
@@ -49,7 +50,9 @@ async function getEtherealTransport() {
  * `secrets` column kabhi API se bahar nahi jata — sirf yahan padha jata hai.
  */
 function buildSmtpTransport(account) {
-  const secrets = account.secrets || {};
+  // Password database me encrypt hokar pada hai. Use yahin kholte hain, bhejne
+  // se theek pehle — baaki poore app me wo band hi rehta hai.
+  const secrets = openSecrets(account.secrets || {});
 
   if (!secrets.host || !secrets.user || !secrets.pass) {
     throw badRequest(

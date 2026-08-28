@@ -43,7 +43,13 @@ export const env = {
   nodeEnv: process.env.NODE_ENV || 'development',
   port: int(process.env.PORT, 4000),
 
-  /** Where PGlite keeps its data directory. */
+  // Asli Postgres ka pata. Bhara hua hai to wahi use hota hai.
+  // Client ke server par YEH BHARNA ZAROORI HAI — warna data ja sakta hai.
+  // Jaise: postgres://user:password@host:5432/mailwave
+  databaseUrl: process.env.DATABASE_URL || '',
+  databaseSsl: String(process.env.DATABASE_SSL || '').toLowerCase() === 'true',
+
+  /** PGlite ka folder — sirf tab kaam aata hai jab DATABASE_URL khali ho. */
   dataDir: process.env.DATA_DIR || resolve(serverRoot, 'data/pgdata'),
 
   jwtSecret: resolveSecret(),
