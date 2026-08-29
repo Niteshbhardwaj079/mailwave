@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import PageHeader from '../components/ui/PageHeader';
+import { appConfig } from '../config/appConfig';
 import { useT } from '../i18n/I18nProvider';
 import { Card } from '../components/ui/Card';
 import Sheet from '../components/ui/Sheet';
