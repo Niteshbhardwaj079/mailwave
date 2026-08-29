@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
 
 import PageHeader from '../components/ui/PageHeader';
-import { Card, CardHead } from '../components/ui/Card';
+import { Card, CardFoot, CardHead } from '../components/ui/Card';
 import Pagination, { usePagination } from '../components/ui/Pagination';
+import { useDebouncedValue } from '../utils/useDebouncedValue';
 import PageSizePicker from '../components/ui/PageSizePicker';
 import { Note, SearchInput, Segmented } from '../components/ui/Controls';
 import FilterSelect, { FilterBar } from '../components/ui/FilterSelect';
@@ -37,6 +38,9 @@ export default function UsersPage() {
 
   const [tab, setTab] = useState('people');
   const [query, setQuery] = useState('');
+  // Box me turant dikhta hai, par chhantai 200ms ruk kar — bade data par type
+  // karte waqt screen atakti nahi.
+  const search = useDebouncedValue(query, 200);
   const [roleFilter, setRoleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedRole, setSelectedRole] = useState(roles[1]?.key || roles[0].key);
@@ -57,7 +61,7 @@ export default function UsersPage() {
   );
 
   const filtered = useMemo(() => {
-    const text = query.trim().toLowerCase();
+    const text = search.trim().toLowerCase();
     return users.filter((user) => {
       const roleOk = roleFilter === 'all' || user.role === roleFilter;
       const statusOk = statusFilter === 'all' || user.status === statusFilter;
@@ -68,7 +72,7 @@ export default function UsersPage() {
         (labels[user.role] || '').toLowerCase().includes(text);
       return roleOk && statusOk && textOk;
     });
-  }, [users, query, roleFilter, statusFilter, labels]);
+  }, [users, search, roleFilter, statusFilter, labels]);
 
   // Sirf ek page jitni rows render hoti hain — badi list par browser hang na ho.
   const pager = usePagination(filtered, 50);

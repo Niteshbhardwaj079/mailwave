@@ -10,6 +10,7 @@ import FilterSelect, { FilterBar } from '../components/ui/FilterSelect';
 import { useT } from '../i18n/I18nProvider';
 import BulkBar, { SelectAllCheckbox } from '../components/ui/BulkBar';
 import { useBulkSelection } from '../utils/useBulkSelection';
+import { useDebouncedValue } from '../utils/useDebouncedValue';
 import { downloadCsv, objectsToRows } from '../utils/download';
 import SampleFileCard from '../components/ui/SampleFileCard';
 import StatusPill from '../components/ui/StatusPill';
@@ -28,6 +29,9 @@ export default function ContactsPage() {
   const [group, setGroup] = useState('All');
   const [tag, setTag] = useState('All');
   const [query, setQuery] = useState('');
+  // Box me turant dikhta hai, par chhantai 200ms ruk kar — bade data par type
+  // karte waqt screen atakti nahi.
+  const search = useDebouncedValue(query, 200);
   const [addOpen, setAddOpen] = useState(false);
 
   const allTags = useMemo(() => {
@@ -37,7 +41,7 @@ export default function ContactsPage() {
   }, []);
 
   const filtered = useMemo(() => {
-    const text = query.trim().toLowerCase();
+    const text = search.trim().toLowerCase();
     return contacts.filter((contact) => {
       if (removedIds.includes(contact.id)) return false;
       const statusOk = status === 'All' || contact.status === status;
@@ -50,7 +54,7 @@ export default function ContactsPage() {
         contact.company.toLowerCase().includes(text);
       return statusOk && groupOk && tagOk && textOk;
     });
-  }, [status, group, tag, query, removedIds]);
+  }, [status, group, tag, search, removedIds]);
 
   // Ek page jitni hi rows dikhti hain. 10,000 contacts ek saath render karna
   // browser ko hang kar deta hai.

@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import PageHeader from '../components/ui/PageHeader';
 import { Card } from '../components/ui/Card';
 import Pagination, { usePagination } from '../components/ui/Pagination';
+import { useDebouncedValue } from '../utils/useDebouncedValue';
 import PageSizePicker from '../components/ui/PageSizePicker';
 import { Note, SearchInput } from '../components/ui/Controls';
 import FilterSelect, { FilterBar } from '../components/ui/FilterSelect';
@@ -29,6 +30,9 @@ export default function ActivityLogPage() {
   const t = useT();
   const { activity } = useWorkspace();
   const [query, setQuery] = useState('');
+  // Box me turant dikhta hai, par chhantai 200ms ruk kar — bade data par type
+  // karte waqt screen atakti nahi.
+  const search = useDebouncedValue(query, 200);
   const [user, setUser] = useState('all');
   const [action, setAction] = useState('all');
   const [module, setModule] = useState('all');
@@ -47,7 +51,7 @@ export default function ActivityLogPage() {
   }, [activity]);
 
   const filtered = useMemo(() => {
-    const text = query.trim().toLowerCase();
+    const text = search.trim().toLowerCase();
     return activity.filter((entry) => {
       const userOk = user === 'all' || entry.userId === user;
       const actionOk = action === 'all' || entry.action === action;
@@ -60,7 +64,7 @@ export default function ActivityLogPage() {
         entry.detail.toLowerCase().includes(text);
       return userOk && actionOk && moduleOk && rangeOk && textOk;
     });
-  }, [activity, query, user, action, module, range]);
+  }, [activity, search, user, action, module, range]);
 
   // Activity log sabse tezi se badhta hai, isliye yahan pagination sabse
   // zaroori hai.

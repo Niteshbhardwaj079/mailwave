@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 import { PERMISSION_MODULES, ROLES, activityLog, teamUsers } from '../data/adminData';
 import { starterTemplates } from '../data/starterHtml';
@@ -141,42 +141,65 @@ export function WorkspaceProvider({ children }) {
   const [subscribers, setSubscribers] = useState(() => load(KEYS.subscribers, seedSubscribers));
   const [storageWarning, setStorageWarning] = useState(false);
 
-  useEffect(() => {
-    save(KEYS.templates, templates);
-  }, [templates]);
+  /**
+   * Browser me save karna — ek hi jagah se, aur FAIL HONE PAR CHUP NAHI.
+   *
+   * Do dikkatein theek karta hai:
+   *
+   * 1. Browser ki storage bhar sakti hai (lagbhag 5 MB). 50,000 log daalo to
+   *    save fail ho jata hai. Pehle yeh CHUP-CHAP fail hota tha — user ko
+   *    lagta data save ho gaya, hota nahi. Ab saaf message aata hai.
+   *
+   * 2. Har akshar par JSON.stringify chalana bade data par screen ko rok deta
+   *    hai. Isliye 400ms ruk kar likhte hain — beech me aur badlaav aaye to
+   *    sirf aakhri wala likha jata hai.
+   */
+  const saveTimers = useRef(new Map());
+  const warnedRef = useRef(false);
 
-  useEffect(() => {
-    const ok = save(KEYS.images, images);
-    if (!ok) {
-      setStorageWarning(true);
-      // Storage bhar gaya = chup-chap data kho raha hai. Yeh bolna zaroori hai.
-      toast.error(t('toast.storageFull'));
-    }
-  }, [images, toast, t]);
+  const persist = useCallback(
+    (key, value) => {
+      const timers = saveTimers.current;
+      clearTimeout(timers.get(key));
 
-  useEffect(() => {
-    save(KEYS.roles, roles);
-  }, [roles]);
+      timers.set(
+        key,
+        setTimeout(() => {
+          const ok = save(key, value);
+          timers.delete(key);
 
-  useEffect(() => {
-    save(KEYS.users, users);
-  }, [users]);
+          if (!ok) {
+            setStorageWarning(true);
+            // Ek hi baar bolte hain — har keystroke par toast bhar dena aur
+            // bura hota.
+            if (!warnedRef.current) {
+              warnedRef.current = true;
+              toast.error(t('toast.storageFull'));
+            }
+          }
+        }, 400)
+      );
+    },
+    [toast, t]
+  );
 
+  // Component hatne par bache hue timers saaf — warna React warning deta hai.
   useEffect(() => {
-    save(KEYS.activity, activity);
-  }, [activity]);
+    const timers = saveTimers.current;
+    return () => {
+      timers.forEach((timer) => clearTimeout(timer));
+      timers.clear();
+    };
+  }, []);
 
-  useEffect(() => {
-    save(KEYS.viewAs, viewAs);
-  }, [viewAs]);
-
-  useEffect(() => {
-    save(KEYS.systemEmails, systemEmails);
-  }, [systemEmails]);
-
-  useEffect(() => {
-    save(KEYS.subscribers, subscribers);
-  }, [subscribers]);
+  useEffect(() => persist(KEYS.templates, templates), [templates, persist]);
+  useEffect(() => persist(KEYS.images, images), [images, persist]);
+  useEffect(() => persist(KEYS.roles, roles), [roles, persist]);
+  useEffect(() => persist(KEYS.users, users), [users, persist]);
+  useEffect(() => persist(KEYS.activity, activity), [activity, persist]);
+  useEffect(() => persist(KEYS.viewAs, viewAs), [viewAs, persist]);
+  useEffect(() => persist(KEYS.systemEmails, systemEmails), [systemEmails, persist]);
+  useEffect(() => persist(KEYS.subscribers, subscribers), [subscribers, persist]);
 
   // --- activity ------------------------------------------------------------
   // Never call this from inside a setState updater: React runs updaters twice

@@ -12,6 +12,7 @@ import StatusPill from '../components/ui/StatusPill';
 import EmptyState from '../components/ui/EmptyState';
 import BulkBar, { SelectAllCheckbox } from '../components/ui/BulkBar';
 import { useBulkSelection } from '../utils/useBulkSelection';
+import { useDebouncedValue } from '../utils/useDebouncedValue';
 import { downloadCsv, objectsToRows } from '../utils/download';
 import { useT } from '../i18n/I18nProvider';
 import { useWorkspace } from '../store/WorkspaceProvider';
@@ -24,12 +25,15 @@ export default function SubscribersPage() {
   const { subscribers, removeSubscribers } = useWorkspace();
 
   const [query, setQuery] = useState('');
+  // Box me turant dikhta hai, par chhantai 200ms ruk kar — bade data par type
+  // karte waqt screen atakti nahi.
+  const search = useDebouncedValue(query, 200);
   const [campaignFilter, setCampaignFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [done, setDone] = useState('');
 
   const filtered = useMemo(() => {
-    const text = query.trim().toLowerCase();
+    const text = search.trim().toLowerCase();
     return subscribers.filter((item) => {
       const campaignOk = campaignFilter === 'all' || item.campaignId === campaignFilter;
       const statusOk = statusFilter === 'all' || item.status === statusFilter;
@@ -40,7 +44,7 @@ export default function SubscribersPage() {
         (item.company || '').toLowerCase().includes(text);
       return campaignOk && statusOk && textOk;
     });
-  }, [subscribers, query, campaignFilter, statusFilter]);
+  }, [subscribers, search, campaignFilter, statusFilter]);
 
   // Sirf ek page jitni rows render hoti hain — badi list par browser hang na ho.
   const pager = usePagination(filtered, 50);

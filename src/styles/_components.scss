@@ -1673,3 +1673,75 @@
     }
   }
 }
+
+// ---------------------------------------------------------------------------
+// Crash screen — jab kisi page me gadbad ho jaye
+// ---------------------------------------------------------------------------
+.mw-crash {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 1.2rem;
+  max-width: 52rem;
+  margin: 0 auto;
+  padding: 5rem 2rem;
+}
+
+.mw-crash__icon {
+  display: grid;
+  place-items: center;
+  width: 7.2rem;
+  height: 7.2rem;
+  border-radius: 50%;
+  background-color: var(--mw-warning-soft);
+  color: var(--mw-warning);
+  font-size: 3.2rem;
+}
+
+.mw-crash__title {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--mw-ink);
+}
+
+.mw-crash__text {
+  margin: 0;
+  font-size: 1.4rem;
+  color: var(--mw-muted);
+}
+
+.mw-crash__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.8rem;
+  margin-block-start: 0.8rem;
+}
+
+.mw-crash__details {
+  width: 100%;
+  margin-block-start: 1.6rem;
+  text-align: start;
+
+  summary {
+    cursor: pointer;
+    font-size: 1.25rem;
+    color: var(--mw-muted);
+  }
+
+  pre {
+    // Lamba stack trace page ko chauda na kar de.
+    overflow-x: auto;
+    max-height: 24rem;
+    margin-block-start: 0.8rem;
+    padding: 1.2rem;
+    border-radius: 0.8rem;
+    background-color: var(--mw-surface-2);
+    font-size: 1.1rem;
+    color: var(--mw-ink-2);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+}

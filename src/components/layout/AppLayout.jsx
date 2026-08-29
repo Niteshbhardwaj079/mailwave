@@ -5,6 +5,7 @@ import Sidebar from './Sidebar';
 import Topbar from './Topbar';
 import { pageTitleKeys, tabBarItems } from './navItems';
 import PageLoader from '../ui/PageLoader';
+import ErrorBoundary from '../ui/ErrorBoundary';
 import { useT } from '../../i18n/I18nProvider';
 import { useWorkspace } from '../../store/WorkspaceProvider';
 import { appConfig } from '../../config/appConfig';
@@ -59,10 +60,18 @@ export default function AppLayout() {
 
         <main className="mw-main">
           <div className="mw-main__inner">
-            {/* Its own boundary, so loading a page keeps the shell on screen. */}
-            <Suspense fallback={<PageLoader />}>
-              <Outlet />
-            </Suspense>
+            {/* Apni boundary, taki page load hote waqt shell screen par rahe. */}
+            {/* ErrorBoundary andar hai: ek page toote to sidebar aur topbar
+                apni jagah bane rehte hain, user kahin aur ja sakta hai.
+
+                key={location.pathname} isliye: URL badalte hi React is
+                boundary ko naya bana deta hai, to purana error apne aap bhool
+                jata hai. Iske liye alag code likhne ki zarurat nahi. */}
+            <ErrorBoundary key={location.pathname}>
+              <Suspense fallback={<PageLoader />}>
+                <Outlet />
+              </Suspense>
+            </ErrorBoundary>
           </div>
         </main>
       </div>

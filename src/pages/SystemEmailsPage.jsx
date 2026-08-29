@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 
 import PageHeader from '../components/ui/PageHeader';
+import { useDebouncedValue } from '../utils/useDebouncedValue';
 import { Card, CardBody, CardFoot, CardHead } from '../components/ui/Card';
 import { Note, SearchInput, Segmented } from '../components/ui/Controls';
 import FilterSelect, { FilterBar } from '../components/ui/FilterSelect';
@@ -18,11 +19,13 @@ export default function SystemEmailsPage() {
   const [selectedKey, setSelectedKey] = useState(systemEmails[0]?.key || '');
   const [group, setGroup] = useState('all');
   const [query, setQuery] = useState('');
+  // Box me turant, chhantai 200ms ruk kar — type karte waqt atakta nahi.
+  const search = useDebouncedValue(query, 200);
   const [tab, setTab] = useState('preview');
   const [saved, setSaved] = useState(false);
 
   const visible = useMemo(() => {
-    const text = query.trim().toLowerCase();
+    const text = search.trim().toLowerCase();
     return systemEmails.filter((item) => {
       const groupOk = group === 'all' || item.group === group;
       const textOk =
@@ -32,7 +35,7 @@ export default function SystemEmailsPage() {
         item.key.toLowerCase().includes(text);
       return groupOk && textOk;
     });
-  }, [systemEmails, group, query]);
+  }, [systemEmails, group, search]);
 
   const selected = systemEmails.find((item) => item.key === selectedKey) || systemEmails[0];
 

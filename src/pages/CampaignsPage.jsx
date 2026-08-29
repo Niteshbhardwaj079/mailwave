@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import PageHeader from '../components/ui/PageHeader';
+import { useDebouncedValue } from '../utils/useDebouncedValue';
 import { Card, CardFoot } from '../components/ui/Card';
 import { SearchInput } from '../components/ui/Controls';
 import FilterSelect, { FilterBar } from '../components/ui/FilterSelect';
@@ -34,11 +35,13 @@ export default function CampaignsPage() {
   const [status, setStatus] = useState('All');
   const [sort, setSort] = useState('date');
   const [query, setQuery] = useState('');
+  // Box me turant, chhantai 200ms ruk kar — type karte waqt atakta nahi.
+  const search = useDebouncedValue(query, 200);
   const [actionsFor, setActionsFor] = useState(null);
   const navigate = useNavigate();
 
   const filtered = useMemo(() => {
-    const text = query.trim().toLowerCase();
+    const text = search.trim().toLowerCase();
     const list = campaigns.filter((campaign) => {
       const statusOk = status === 'All' || campaign.status === status;
       const textOk =
@@ -51,7 +54,7 @@ export default function CampaignsPage() {
       if (sort === 'recipients') return b.recipients - a.recipients;
       return String(b.date).localeCompare(String(a.date));
     });
-  }, [status, sort, query]);
+  }, [status, sort, search]);
 
   const statusOptions = [
     { value: 'All', label: t('filter.allStatuses'), count: campaigns.length },

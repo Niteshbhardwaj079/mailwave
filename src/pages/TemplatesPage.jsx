@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import PageHeader from '../components/ui/PageHeader';
+import { useDebouncedValue } from '../utils/useDebouncedValue';
 import { Card, CardFoot } from '../components/ui/Card';
 import { SearchInput } from '../components/ui/Controls';
 import FilterSelect, { FilterBar } from '../components/ui/FilterSelect';
@@ -19,10 +20,12 @@ export default function TemplatesPage() {
   const [category, setCategory] = useState('All');
   const [sort, setSort] = useState('recent');
   const [query, setQuery] = useState('');
+  // Box me turant, chhantai 200ms ruk kar — type karte waqt atakta nahi.
+  const search = useDebouncedValue(query, 200);
   const [confirmFor, setConfirmFor] = useState(null);
 
   const visible = useMemo(() => {
-    const text = query.trim().toLowerCase();
+    const text = search.trim().toLowerCase();
     const list = templates.filter((template) => {
       const categoryOk = category === 'All' || template.category === category;
       const textOk = !text || template.name.toLowerCase().includes(text);
@@ -33,7 +36,7 @@ export default function TemplatesPage() {
       if (sort === 'name') return a.name.localeCompare(b.name);
       return String(b.updated).localeCompare(String(a.updated));
     });
-  }, [templates, category, sort, query]);
+  }, [templates, category, sort, search]);
 
   function goToNew() {
     navigate('/templates/new');

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 
 import PageHeader from '../components/ui/PageHeader';
+import { useDebouncedValue } from '../utils/useDebouncedValue';
 import KpiCard from '../components/ui/KpiCard';
 import { Card, CardBody, CardFoot, CardHead } from '../components/ui/Card';
 import { Note, SearchInput } from '../components/ui/Controls';
@@ -36,6 +37,8 @@ export default function CampaignAnalyticsPage() {
   const [frequency, setFrequency] = useState('0');
   const [dateRange, setDateRange] = useState('all');
   const [query, setQuery] = useState('');
+  // Box me turant, chhantai 200ms ruk kar — type karte waqt atakta nahi.
+  const search = useDebouncedValue(query, 200);
   const [logFor, setLogFor] = useState(null);
   const [bulkDone, setBulkDone] = useState('');
 
@@ -49,7 +52,7 @@ export default function CampaignAnalyticsPage() {
   const trend = useMemo(() => getCampaignTrend(campaign), [campaign]);
 
   const filtered = useMemo(() => {
-    const text = query.trim().toLowerCase();
+    const text = search.trim().toLowerCase();
     return rows.filter((row) => {
       if (removedIds.includes(row.id)) return false;
       const statusOk =
@@ -63,7 +66,7 @@ export default function CampaignAnalyticsPage() {
       const textOk = !text || row.name.toLowerCase().includes(text) || row.email.toLowerCase().includes(text);
       return statusOk && freqOk && textOk;
     });
-  }, [rows, status, frequency, query, removedIds]);
+  }, [rows, status, frequency, search, removedIds]);
 
   const visibleIds = useMemo(() => filtered.map((row) => row.id), [filtered]);
   const bulk = useBulkSelection(visibleIds);
