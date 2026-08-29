@@ -1069,4 +1069,9 @@ export default {
   'page.showRows': '{count} બતાવો',
   'bulk.allSelected': 'બધા {count} પસંદ થયા',
 
+  'set.supportEmail': 'સપોર્ટ ઈમેલ',
+  'set.website': 'વેબસાઇટ',
+  'set.address': 'ટપાલ સરનામું',
+  'set.addressMissing': 'ટપાલ સરનામું ભર્યું નથી. બલ્ક ઈમેલમાં મોકલનારનું સાચું સરનામું હોવું કાયદેસર જરૂરી છે, અને તેના વગર Gmail અને Outlook મેલને સ્પામમાં નાખી શકે છે. તે brand.config.js માં ભરો.',
+
 };

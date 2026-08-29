@@ -175,8 +175,17 @@ export default function ResetPasswordPage({ mode = 'reset' }) {
           )}
         </div>
 
+        {/* Company, support email aur website — teeno brand.config.js se. */}
         <p className="mw-auth__foot">
           {appConfig.company} · <a href={`mailto:${appConfig.supportEmail}`}>{appConfig.supportEmail}</a>
+          {appConfig.website ? (
+            <>
+              {' · '}
+              <a href={appConfig.website} target="_blank" rel="noreferrer">
+                {appConfig.website.replace(/^https?:\/\//, '')}
+              </a>
+            </>
+          ) : null}
         </p>
       </div>
     </div>

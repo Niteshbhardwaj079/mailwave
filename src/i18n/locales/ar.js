@@ -1069,4 +1069,9 @@ export default {
   'page.showRows': 'إظهار {count}',
   'bulk.allSelected': 'تم تحديد كل الـ {count}',
 
+  'set.supportEmail': 'بريد الدعم',
+  'set.website': 'الموقع',
+  'set.address': 'العنوان البريدي',
+  'set.addressMissing': 'لم يتم إدخال عنوان بريدي. وجود عنوان حقيقي للمُرسِل في البريد الجماعي مطلوب قانونًا، وبدونه قد يضع Gmail وOutlook رسائلك في البريد غير المرغوب. أضفه في brand.config.js.',
+
 };

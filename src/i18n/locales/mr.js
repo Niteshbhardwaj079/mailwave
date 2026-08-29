@@ -1069,4 +1069,9 @@ export default {
   'page.showRows': '{count} दाखवा',
   'bulk.allSelected': 'सर्व {count} निवडले',
 
+  'set.supportEmail': 'सपोर्ट ईमेल',
+  'set.website': 'वेबसाइट',
+  'set.address': 'टपाल पत्ता',
+  'set.addressMissing': 'टपाल पत्ता भरलेला नाही. बल्क ईमेलमध्ये पाठवणाऱ्याचा खरा पत्ता असणे कायद्याने आवश्यक आहे, आणि त्याशिवाय Gmail व Outlook मेल स्पॅममध्ये टाकू शकतात. तो brand.config.js मध्ये भरा.',
+
 };

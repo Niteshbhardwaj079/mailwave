@@ -90,11 +90,33 @@ export function footer({ recipientId, company, unsubscribeText, subscribeButton 
        </p>`
     : '';
 
+  // Company, pata, support email, website — sab brand.config.js se.
+  // Yeh sirf dikhane ke liye nahi hai: bulk email me bhejne wale ki pehchaan
+  // aur pata hona kanoonan zaroori hai, aur Gmail/Outlook iske bina spam me
+  // daal dete hain.
+  const brand = env.brand;
+  const line = (text) => (text ? `<p style="margin:0 0 4px">${escapeHtml(text)}</p>` : '');
+
+  const contact = [
+    brand.supportEmail
+      ? `<a href="mailto:${escapeHtml(brand.supportEmail)}" style="color:#6b7280">${escapeHtml(brand.supportEmail)}</a>`
+      : '',
+    brand.website
+      ? `<a href="${escapeHtml(brand.website)}" style="color:#6b7280">${escapeHtml(
+          brand.website.replace(/^https?:\/\//, '')
+        )}</a>`
+      : '',
+  ]
+    .filter(Boolean)
+    .join(' &middot; ');
+
   return `
     <div style="margin-top:32px;padding-top:16px;border-top:1px solid #e5e7eb;
                 font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#6b7280;text-align:center">
       ${subscribeBlock}
-      <p style="margin:0 0 6px">${escapeHtml(company || '')}</p>
+      ${line(company || brand.company)}
+      ${line(brand.address)}
+      ${contact ? `<p style="margin:0 0 6px">${contact}</p>` : ''}
       <p style="margin:0">
         <a href="${unsubUrl}" style="color:#6b7280;text-decoration:underline">
           ${escapeHtml(unsubscribeText || 'Unsubscribe from these emails')}

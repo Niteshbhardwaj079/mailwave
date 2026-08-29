@@ -1087,4 +1087,9 @@ export default {
   'page.showRows': 'Afficher {count}',
   'bulk.allSelected': 'Les {count} sélectionnés',
 
+  'set.supportEmail': 'E-mail d’assistance',
+  'set.website': 'Site web',
+  'set.address': 'Adresse postale',
+  'set.addressMissing': 'Aucune adresse postale définie. La loi impose une adresse réelle de l’expéditeur pour l’e-mail de masse, et sans elle Gmail et Outlook risquent davantage de classer vos messages en spam. Ajoutez-la dans brand.config.js.',
+
 };

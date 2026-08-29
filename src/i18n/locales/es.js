@@ -1069,4 +1069,9 @@ export default {
   'page.showRows': 'Mostrar {count}',
   'bulk.allSelected': 'Los {count} seleccionados',
 
+  'set.supportEmail': 'Correo de soporte',
+  'set.website': 'Sitio web',
+  'set.address': 'Dirección postal',
+  'set.addressMissing': 'No hay dirección postal. El correo masivo exige por ley una dirección real del remitente, y sin ella Gmail y Outlook tienen más probabilidad de marcar tu correo como spam. Añádela en brand.config.js.',
+
 };

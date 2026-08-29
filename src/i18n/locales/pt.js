@@ -1069,4 +1069,9 @@ export default {
   'page.showRows': 'Mostrar {count}',
   'bulk.allSelected': 'Todos os {count} selecionados',
 
+  'set.supportEmail': 'E-mail de suporte',
+  'set.website': 'Site',
+  'set.address': 'Endereço postal',
+  'set.addressMissing': 'Nenhum endereço postal definido. O e-mail em massa exige por lei um endereço real do remetente, e sem ele o Gmail e o Outlook têm mais chance de marcar sua mensagem como spam. Adicione em brand.config.js.',
+
 };

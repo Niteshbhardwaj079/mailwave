@@ -1069,4 +1069,9 @@ export default {
   'page.showRows': '{count} দেখাও',
   'bulk.allSelected': 'সব {count} নির্বাচিত',
 
+  'set.supportEmail': 'সাপোর্ট ইমেল',
+  'set.website': 'ওয়েবসাইট',
+  'set.address': 'ডাক ঠিকানা',
+  'set.addressMissing': 'ডাক ঠিকানা দেওয়া নেই। বাল্ক ইমেলে প্রেরকের আসল ঠিকানা থাকা আইনত বাধ্যতামূলক, আর এটি ছাড়া Gmail ও Outlook মেল স্প্যামে ফেলতে পারে। brand.config.js-এ এটি দিন।',
+
 };

@@ -57,10 +57,10 @@ export const brand = {
   company: 'GoWebKart',
 
   /** Madad ke liye log yahan likhenge. */
-  supportEmail: 'support@gowebkart.com',
+  supportEmail: 'support@gowebkart.in',
 
   /** Company ki website (khali chhod sakte ho). */
-  website: 'https://gowebkart.com',
+  website: 'https://gowebkart.in',
 
   /**
    * Company ka pura pata.

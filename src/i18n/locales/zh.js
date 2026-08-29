@@ -1069,4 +1069,9 @@ export default {
   'page.showRows': '显示 {count} 条',
   'bulk.allSelected': '已选择全部 {count} 条',
 
+  'set.supportEmail': '支持邮箱',
+  'set.website': '网站',
+  'set.address': '通信地址',
+  'set.addressMissing': '尚未填写通信地址。群发邮件依法必须包含真实的发件人地址，缺少它会让 Gmail 和 Outlook 更容易把邮件判为垃圾邮件。请在 brand.config.js 中填写。',
+
 };

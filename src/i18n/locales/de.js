@@ -1087,4 +1087,9 @@ export default {
   'page.showRows': '{count} anzeigen',
   'bulk.allSelected': 'Alle {count} ausgewählt',
 
+  'set.supportEmail': 'Support-E-Mail',
+  'set.website': 'Website',
+  'set.address': 'Postanschrift',
+  'set.addressMissing': 'Keine Postanschrift hinterlegt. Bei Massen-E-Mails ist eine echte Absenderadresse gesetzlich vorgeschrieben, und ohne sie landen Ihre Mails eher im Spam von Gmail und Outlook. Tragen Sie sie in brand.config.js ein.',
+
 };

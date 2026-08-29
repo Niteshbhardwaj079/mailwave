@@ -190,6 +190,28 @@ export default function SettingsPage() {
                   <span className="mw-kv__key">{t('common.company')}</span>
                   <span className="mw-kv__value">{appConfig.company}</span>
                 </div>
+                {/* Support email, website aur pata bhi yahin dikhate hain, taki
+                    ek nazar me pata chale ki client ko kya dikh raha hai.
+                    Teeno brand.config.js se aate hain. */}
+                <div className="mw-kv">
+                  <span className="mw-kv__key">{t('set.supportEmail')}</span>
+                  <span className="mw-kv__value">{appConfig.supportEmail || '—'}</span>
+                </div>
+                <div className="mw-kv">
+                  <span className="mw-kv__key">{t('set.website')}</span>
+                  <span className="mw-kv__value">{appConfig.website || '—'}</span>
+                </div>
+                <div className="mw-kv">
+                  <span className="mw-kv__key">{t('set.address')}</span>
+                  <span className="mw-kv__value">{appConfig.address || '—'}</span>
+                </div>
+
+                {!appConfig.address ? (
+                  <Note tone="warning" icon="bi-exclamation-triangle">
+                    {t('set.addressMissing')}
+                  </Note>
+                ) : null}
+
                 <Note tone="info" icon="bi-file-earmark-code">
                   {t('theme.brandNote')}
                 </Note>

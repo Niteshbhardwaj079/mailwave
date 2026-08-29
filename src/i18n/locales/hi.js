@@ -1067,4 +1067,9 @@ export default {
   'page.showRows': '{count} दिखाओ',
   'bulk.allSelected': 'सभी {count} चुने गए',
 
+  'set.supportEmail': 'सपोर्ट ईमेल',
+  'set.website': 'वेबसाइट',
+  'set.address': 'डाक पता',
+  'set.addressMissing': 'डाक पता नहीं भरा है। बल्क ईमेल में भेजने वाले का असली पता होना कानूनन ज़रूरी है, और बिना इसके Gmail और Outlook मेल को स्पैम में डाल सकते हैं। इसे brand.config.js में भरें।',
+
 };

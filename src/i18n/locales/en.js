@@ -1087,4 +1087,9 @@ export default {
   'page.showRows': 'Show {count}',
   'bulk.allSelected': 'All {count} selected',
 
+  'set.supportEmail': 'Support email',
+  'set.website': 'Website',
+  'set.address': 'Postal address',
+  'set.addressMissing': 'No postal address set. Bulk email needs a real sender address by law, and without one Gmail and Outlook are more likely to mark your mail as spam. Add it in brand.config.js.',
+
 };
