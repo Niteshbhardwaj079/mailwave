@@ -5,6 +5,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 
 import { many, one, query } from '../db/client.js';
+import { env } from '../env.js';
 import { asyncHandler, badRequest, notFound, paginated, pagination } from '../lib/http.js';
 import { logActivity } from '../lib/activity.js';
 import { newId } from '../lib/ids.js';
@@ -352,7 +353,7 @@ router.post(
     );
     if ((count?.n ?? 0) === 0) throw badRequest('Bhejne ke liye koi bacha hi nahi — pehle log jodo');
 
-    const result = await startCampaign(campaign.id, { company: 'MailWave' });
+    const result = await startCampaign(campaign.id, { company: env.brand.company });
     if (!result.started) {
       const reasons = {
         already_running: 'Yeh campaign pehle se chal raha hai',

@@ -1,7 +1,6 @@
 // Français (French)
 export default {
   // --- App shell ---------------------------------------------------------
-  'app.name': 'MailWave',
   'app.tagline': 'Campagnes et suivi',
   'nav.main': 'Principal',
   'nav.insights': 'Résultats',
@@ -145,7 +144,7 @@ export default {
   'camp.settingsUsed': 'Réglages utilisés pour la campagne',
   'camp.afterSendingSub': 'Résultat de livraison de cette campagne',
   'camp.settingsUsedSub': 'Exactement comment celle-ci a été envoyée',
-  'camp.replyNote': 'Les réponses ne reviennent pas dans MailWave. Elles arrivent dans la boîte de réception normale de l’adresse de réponse ci-dessus — ouvrez Gmail ou Outlook pour les lire et y répondre.',
+  'camp.replyNote': '. Elles arrivent dans la boîte de réception normale de l’adresse de réponse ci-dessus — ouvrez Gmail ou Outlook pour les lire et y répondre.',
   'camp.afterSending': 'Ce qui s’est passé après l’envoi',
 
   // --- Filters -----------------------------------------------------------
@@ -529,7 +528,7 @@ export default {
   'help.activity.2': 'Personne ne peut modifier ni supprimer ces enregistrements, on peut donc s’y fier en cas de désaccord.',
 
   // --- Guide chapters -----------------------------------------------------
-  'guide.c1.lede': 'MailWave envoie un même e-mail à beaucoup de personnes en une fois, puis vous dit qui l’a ouvert et qui a cliqué.',
+  'guide.c1.lede': ' envoie un même e-mail à beaucoup de personnes en une fois, puis vous dit qui l’a ouvert et qui a cliqué.',
   'guide.c1.s1': 'Connectez l’adresse e-mail que vous utilisez déjà, par exemple Gmail ou Outlook.',
   'guide.c1.s2': 'Ajoutez les personnes à qui vous voulez écrire — depuis un fichier Excel, ou en les tapant.',
   'guide.c1.s3': 'Créez un modèle : la mise en page et les mots de votre e-mail, enregistrés pour pouvoir les réutiliser.',
@@ -541,15 +540,15 @@ export default {
   'guide.c2.s1': 'Dans le menu de gauche, appuyez sur Comptes e-mail, puis sur le bouton Connecter un compte.',
   'guide.c2.s2': 'Appuyez sur la carte de votre fournisseur — Gmail si votre adresse se termine par gmail.com ou est une adresse Google Workspace, Outlook pour Microsoft.',
   'guide.c2.s3': 'Une page Google ou Microsoft s’ouvre. Connectez-vous là avec votre mot de passe habituel.',
-  'guide.c2.s4': 'Appuyez sur Autoriser quand on vous demande si MailWave peut envoyer des e-mails en votre nom.',
+  'guide.c2.s4': ' peut envoyer des e-mails en votre nom.',
   'guide.c2.s5': 'Vous revenez et voyez une pastille verte Connecté. Appuyez sur Envoyer un e-mail de test et regardez votre propre boîte de réception.',
-  'guide.c2.tip': 'Votre mot de passe est tapé sur la page de Google ou de Microsoft, jamais dans MailWave. Nous gardons seulement un jeton, et il reste chiffré sur le serveur.',
+  'guide.c2.tip': '. Nous gardons seulement un jeton, et il reste chiffré sur le serveur.',
   'guide.c2.warn': 'Ne choisissez SMTP personnalisé que si votre fournisseur n’est pas dans la liste. Il vous faudra le nom du serveur, le port et un mot de passe d’application donné par les pages d’aide de votre fournisseur — nous demandons une chose à la fois.',
 
   'guide.c3.lede': 'Les contacts sont les personnes à qui vous écrivez. Le plus rapide pour en ajouter beaucoup d’un coup est un fichier Excel ou CSV.',
   'guide.c3.s1': 'Ouvrez Contacts, puis appuyez sur Importer un fichier Excel.',
   'guide.c3.s2': 'Glissez votre fichier. La première ligne du fichier doit contenir les noms des colonnes, comme Nom, E-mail, Entreprise.',
-  'guide.c3.s3': 'Faites correspondre chaque colonne de votre fichier à un champ MailWave. Nous le devinons pour vous — il suffit de vérifier.',
+  'guide.c3.s3': '. Nous le devinons pour vous — il suffit de vérifier.',
   'guide.c3.s4': 'Regardez l’écran de contrôle : les lignes valables, les e-mails incorrects et les doublons sont comptés séparément.',
   'guide.c3.s5': 'Appuyez sur Importer les contacts valables. Les lignes incorrectes et les doublons sont ignorés, pas enregistrés.',
   'guide.c3.tip': 'Chaque colonne que vous importez devient une variable utilisable dans un e-mail, comme {{company}} ou {{course}}.',
@@ -561,7 +560,7 @@ export default {
   'guide.c4.s4': 'Pour ajouter une image, ouvrez l’onglet Images, envoyez le fichier, puis appuyez sur Insérer — une balise d’image toute prête est ajoutée pour vous.',
   'guide.c4.s5': 'Regardez le côté droit pendant que vous tapez. C’est exactement ce que verra le destinataire.',
   'guide.c4.s6': 'Appuyez sur Enregistrer. Votre modèle apparaît maintenant dans l’assistant de campagne.',
-  'guide.c4.tip': 'Écrivez {{name}} là où vous voulez le prénom de chaque personne. À l’envoi, MailWave met leur vrai nom à cet endroit.',
+  'guide.c4.tip': ' met leur vrai nom à cet endroit.',
 
   'guide.c5.lede': 'Une campagne, c’est un envoi : ces personnes, cet e-mail, à ce moment.',
   'guide.c5.s1': 'Appuyez sur Créer une campagne. Étape 1 : donnez-lui un nom et choisissez le compte qui l’envoie.',

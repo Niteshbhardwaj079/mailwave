@@ -1,7 +1,6 @@
 // Deutsch (German)
 export default {
   // --- App shell ---------------------------------------------------------
-  'app.name': 'MailWave',
   'app.tagline': 'Kampagnen und Auswertung',
   'nav.main': 'Start',
   'nav.insights': 'Auswertung',
@@ -145,7 +144,7 @@ export default {
   'camp.settingsUsed': 'Verwendete Kampagnen-Einstellungen',
   'camp.afterSendingSub': 'Zustellergebnis dieser Kampagne',
   'camp.settingsUsedSub': 'Genau so wurde diese Kampagne versendet',
-  'camp.replyNote': 'Antworten kommen nicht in MailWave an. Sie landen im normalen Postfach der oben genannten Antwortadresse — öffnen Sie Gmail oder Outlook, um sie zu lesen und zu beantworten.',
+  'camp.replyNote': ' an. Sie landen im normalen Postfach der oben genannten Antwortadresse — öffnen Sie Gmail oder Outlook, um sie zu lesen und zu beantworten.',
   'camp.afterSending': 'Was nach dem Senden passiert ist',
 
   // --- Filters -----------------------------------------------------------
@@ -529,7 +528,7 @@ export default {
   'help.activity.2': 'Niemand kann diese Einträge ändern oder löschen, deshalb kann man sich im Streitfall darauf verlassen.',
 
   // --- Guide chapters -----------------------------------------------------
-  'guide.c1.lede': 'MailWave sendet eine E-Mail auf einmal an viele Personen und zeigt Ihnen danach, wer sie geöffnet und wer geklickt hat.',
+  'guide.c1.lede': ' sendet eine E-Mail auf einmal an viele Personen und zeigt Ihnen danach, wer sie geöffnet und wer geklickt hat.',
   'guide.c1.s1': 'Verbinden Sie die E-Mail-Adresse, die Sie schon nutzen, zum Beispiel Gmail oder Outlook.',
   'guide.c1.s2': 'Fügen Sie die Personen hinzu, denen Sie schreiben wollen — aus einer Excel-Datei oder von Hand eingetippt.',
   'guide.c1.s3': 'Erstellen Sie eine Vorlage: das Aussehen und die Worte Ihrer E-Mail, gespeichert zum Wiederverwenden.',
@@ -541,15 +540,15 @@ export default {
   'guide.c2.s1': 'Tippen Sie im linken Menü auf E-Mail-Konten und dann auf den Knopf Konto verbinden.',
   'guide.c2.s2': 'Tippen Sie auf die Karte Ihres Anbieters — Gmail, wenn Ihre Adresse auf gmail.com endet oder eine Google-Workspace-Adresse ist, Outlook für Microsoft.',
   'guide.c2.s3': 'Eine Seite von Google oder Microsoft öffnet sich. Melden Sie sich dort mit Ihrem gewohnten Passwort an.',
-  'guide.c2.s4': 'Tippen Sie auf Zulassen, wenn gefragt wird, ob MailWave in Ihrem Namen E-Mails senden darf.',
+  'guide.c2.s4': ' in Ihrem Namen E-Mails senden darf.',
   'guide.c2.s5': 'Sie kommen zurück und sehen ein grünes Abzeichen Verbunden. Tippen Sie auf Test-E-Mail senden und schauen Sie in Ihren eigenen Posteingang.',
-  'guide.c2.tip': 'Ihr Passwort tippen Sie auf der Seite von Google oder Microsoft ein, nie in MailWave. Wir behalten nur einen Token, und der bleibt auf dem Server verschlüsselt.',
+  'guide.c2.tip': '. Wir behalten nur einen Token, und der bleibt auf dem Server verschlüsselt.',
   'guide.c2.warn': 'Wählen Sie eigenes SMTP nur, wenn Ihr Anbieter nicht in der Liste steht. Sie brauchen dann Servername, Port und ein App-Passwort aus den Hilfeseiten Ihres Anbieters — wir fragen eines nach dem anderen ab.',
 
   'guide.c3.lede': 'Kontakte sind die Personen, denen Sie schreiben. Am schnellsten fügen Sie viele auf einmal über eine Excel- oder CSV-Datei hinzu.',
   'guide.c3.s1': 'Öffnen Sie Kontakte und tippen Sie auf Excel importieren.',
   'guide.c3.s2': 'Ziehen Sie Ihre Datei hinein. Die erste Zeile der Datei muss die Spaltennamen enthalten, etwa Name, E-Mail, Firma.',
-  'guide.c3.s3': 'Ordnen Sie jede Spalte Ihrer Datei einem MailWave-Feld zu. Wir raten es für Sie — Sie müssen es nur prüfen.',
+  'guide.c3.s3': '-Feld zu. Wir raten es für Sie — Sie müssen es nur prüfen.',
   'guide.c3.s4': 'Schauen Sie auf die Prüfseite: gültige Zeilen, fehlerhafte E-Mails und Doppelte werden getrennt gezählt.',
   'guide.c3.s5': 'Tippen Sie auf Gültige Kontakte importieren. Fehlerhafte und doppelte Zeilen werden übersprungen, nicht gespeichert.',
   'guide.c3.tip': 'Jede Spalte, die Sie importieren, wird zu einem Platzhalter für Ihre E-Mails, zum Beispiel {{company}} oder {{course}}.',
@@ -561,7 +560,7 @@ export default {
   'guide.c4.s4': 'Für ein Bild öffnen Sie den Tab Bilder, laden die Datei hoch und tippen dann auf Einfügen — ein fertiges Bild-Tag wird für Sie eingesetzt.',
   'guide.c4.s5': 'Schauen Sie beim Tippen auf die rechte Seite. Genau das sieht der Empfänger.',
   'guide.c4.s6': 'Tippen Sie auf Speichern. Ihre Vorlage erscheint jetzt im Kampagnen-Assistenten.',
-  'guide.c4.tip': 'Schreiben Sie {{name}} an die Stelle, wo der eigene Name der Person stehen soll. Beim Senden setzt MailWave dort den echten Namen ein.',
+  'guide.c4.tip': ' dort den echten Namen ein.',
 
   'guide.c5.lede': 'Eine Kampagne ist ein Versand: diese Personen, diese E-Mail, zu dieser Zeit.',
   'guide.c5.s1': 'Tippen Sie auf Kampagne erstellen. Schritt 1: Namen vergeben und das Konto wählen, von dem gesendet wird.',

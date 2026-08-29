@@ -1,3 +1,5 @@
+import brand from '../../brand.config.js';
+
 // ---------------------------------------------------------------------------
 // SYSTEM EMAILS ("transactional" emails)
 //
@@ -371,9 +373,10 @@ ${button('Download the file', 'download_url')}
 
 /** Values used only for the preview on screen. */
 export const previewValues = {
-  app_name: 'MailWave',
-  company: 'GoWebKart',
-  support_email: 'support@gowebkart.com',
+  // Naam aur company brand.config.js se — yahan dobara nahi likhte.
+  app_name: brand.name,
+  company: brand.company,
+  support_email: brand.supportEmail,
   name: 'Neha Kulkarni',
   email: 'neha@gowebkart.com',
   role: 'Admin',

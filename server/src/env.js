@@ -5,6 +5,10 @@ import { fileURLToPath } from 'node:url';
 
 import dotenv from 'dotenv';
 
+// Naam aur company project ki ek hi brand.config.js se aate hain — backend aur
+// frontend dono wahi padhte hain, isliye do jagah badalna nahi padta.
+import brand from '../../brand.config.js';
+
 const here = dirname(fileURLToPath(import.meta.url));
 export const serverRoot = resolve(here, '..');
 
@@ -40,6 +44,9 @@ function int(value, fallback) {
 }
 
 export const env = {
+  /** App ka naam, company, support email — sab brand.config.js se. */
+  brand,
+
   nodeEnv: process.env.NODE_ENV || 'development',
   port: int(process.env.PORT, 4000),
 

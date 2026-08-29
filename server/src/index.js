@@ -14,7 +14,7 @@ await migrate();
 startBackupSchedule();
 
 const server = app.listen(env.port, () => {
-  console.log(`MailWave API listening on http://localhost:${env.port}`);
+  console.log(`${env.brand.name} API listening on http://localhost:${env.port}`);
   console.log(`  database       : ${currentDriver()}`);
   console.log(`  data directory : ${env.dataDir}`);
   console.log(`  allowed origins: ${env.corsOrigins.join(', ')}`);

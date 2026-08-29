@@ -10,6 +10,7 @@ import nodemailer from 'nodemailer';
 import { z } from 'zod';
 
 import { many, one, query } from '../db/client.js';
+import { env } from '../env.js';
 import { asyncHandler, badRequest, conflict, notFound } from '../lib/http.js';
 import { logActivity } from '../lib/activity.js';
 import { newId } from '../lib/ids.js';
@@ -258,7 +259,7 @@ router.post(
       const result = await sendMail(account, {
         to: req.body.to,
         fromName: account.display_name,
-        subject: 'MailWave test email',
+        subject: `${env.brand.name} test email`,
         html: `<p>Yeh ek test email hai.</p>
                <p>Agar yeh aap tak pahunch gaya, to <b>${account.email}</b> se email bhejna kaam kar raha hai.</p>`,
         text: 'Yeh ek test email hai. Agar yeh pahunch gaya to account kaam kar raha hai.',

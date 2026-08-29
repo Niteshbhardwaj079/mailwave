@@ -9,6 +9,7 @@ import {
   loadDictionary,
 } from './languages';
 import { setActiveLocale } from '../utils/format';
+import brand from '../../brand.config.js';
 
 const STORAGE_KEY = 'mailwave.language';
 
@@ -78,9 +79,16 @@ export function I18nProvider({ children }) {
       if (text === undefined) text = englishDictionary[key];
       if (text === undefined) return key;
 
-      if (!vars) return text;
-      return Object.keys(vars).reduce(
-        (result, name) => result.split(`{${name}}`).join(String(vars[name])),
+      // Jis text me koi {placeholder} hai hi nahi, use chhed-chhad ki zarurat
+      // nahi. 900+ me se zyadatar aise hi hain, isliye yeh check pehle.
+      if (!vars && !text.includes('{')) return text;
+
+      // {app} aur {company} hamesha apne aap bhar jate hain — har call par
+      // bhejna nahi padta, aur kabhi bhoolne ka sawaal hi nahi.
+      const values = { app: brand.name, company: brand.company, ...vars };
+
+      return Object.keys(values).reduce(
+        (result, name) => result.split(`{${name}}`).join(String(values[name])),
         text
       );
     },

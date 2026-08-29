@@ -22,7 +22,7 @@ const RECIPIENT_COUNT = 500;
 const INITIAL_DRAFT = {
   name: 'Summer Offer',
   account: 'hello@gowebkart.com',
-  senderName: 'GoWebKart Team',
+  senderName: appConfig.company,
   replyTo: 'support@gowebkart.com',
   subject: 'Hello {{name}}, here is your update',
   preheader: 'Your new batch starts on Monday',

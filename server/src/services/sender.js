@@ -11,6 +11,7 @@
 //   3. Campaign abhi bhi "Sending" hai? (beech me Pause ho sakta hai)
 // ---------------------------------------------------------------------------
 import { many, one, query } from '../db/client.js';
+import { env } from '../env.js';
 import { newId } from '../lib/ids.js';
 import { buildEmail } from './render.js';
 import { sendMail } from './mailer.js';
@@ -88,7 +89,7 @@ async function workspaceSetting(key, fallback) {
  * Ek campaign bhejta hai. Background me chalta hai — HTTP request iska
  * intezaar nahi karti, warna browser timeout ho jayega.
  */
-export async function startCampaign(campaignId, { company = 'MailWave' } = {}) {
+export async function startCampaign(campaignId, { company = env.brand.company } = {}) {
   if (running.has(campaignId)) return { started: false, reason: 'already_running' };
 
   const campaign = await one('SELECT * FROM campaigns WHERE id = $1', [campaignId]);

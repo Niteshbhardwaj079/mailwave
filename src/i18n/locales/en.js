@@ -4,7 +4,6 @@
 
 export default {
   // --- App shell ---------------------------------------------------------
-  'app.name': 'MailWave',
   'app.tagline': 'Campaigns & tracking',
   'nav.main': 'Main',
   'nav.insights': 'Insights',
@@ -148,7 +147,7 @@ export default {
   'camp.settingsUsed': 'Campaign settings used',
   'camp.afterSendingSub': 'Delivery result for this campaign',
   'camp.settingsUsedSub': 'Exactly how this one was sent',
-  'camp.replyNote': 'Replies do not come back into MailWave. They land in the normal inbox of the reply-to address above — open Gmail or Outlook to read and answer them.',
+  'camp.replyNote': '. They land in the normal inbox of the reply-to address above — open Gmail or Outlook to read and answer them.',
   'camp.afterSending': 'What happened after sending',
 
   // --- Filters -----------------------------------------------------------
@@ -530,7 +529,7 @@ export default {
   'help.activity.2': 'Nobody can edit or delete these records, so they can be trusted in a dispute.',
 
   // --- Guide chapters -----------------------------------------------------
-  'guide.c1.lede': 'MailWave sends one email to many people at once, and then tells you who opened it and who clicked.',
+  'guide.c1.lede': ' sends one email to many people at once, and then tells you who opened it and who clicked.',
   'guide.c1.s1': 'Connect the email address you already use, such as Gmail or Outlook.',
   'guide.c1.s2': 'Add the people you want to write to — from an Excel file, or by typing them in.',
   'guide.c1.s3': 'Make a template: the design and words of your email, saved so you can use it again.',
@@ -542,15 +541,15 @@ export default {
   'guide.c2.s1': 'In the left menu press Email Accounts, then the Connect account button.',
   'guide.c2.s2': 'Press the card for your provider — Gmail if your address ends in gmail.com or is a Google Workspace address, Outlook for Microsoft.',
   'guide.c2.s3': 'A Google or Microsoft page opens. Sign in there with your normal password.',
-  'guide.c2.s4': 'Press Allow when it asks whether MailWave may send email on your behalf.',
+  'guide.c2.s4': ' may send email on your behalf.',
   'guide.c2.s5': 'You come back and see a green Connected badge. Press Send test email and check your own inbox.',
-  'guide.c2.tip': 'Your password is typed on Google or Microsoft’s own page, never in MailWave. We only keep a token, and it stays encrypted on the server.',
+  'guide.c2.tip': '. We only keep a token, and it stays encrypted on the server.',
   'guide.c2.warn': 'Only choose Custom SMTP if your provider is not in the list. You will need the server name, port and an app password from your provider’s help pages — we ask for one thing at a time.',
 
   'guide.c3.lede': 'Contacts are the people you send to. The fastest way to add many at once is an Excel or CSV file.',
   'guide.c3.s1': 'Open Contacts, then press Import Excel.',
   'guide.c3.s2': 'Drag your file in. The first row of the file must be the column names, like Name, Email, Company.',
-  'guide.c3.s3': 'Match each column of your file to a MailWave field. We guess this for you — just check it.',
+  'guide.c3.s3': ' field. We guess this for you — just check it.',
   'guide.c3.s4': 'Look at the check screen: valid rows, broken emails and duplicates are counted separately.',
   'guide.c3.s5': 'Press Import valid contacts. Broken and duplicate rows are skipped, not saved.',
   'guide.c3.tip': 'Every column you import becomes a variable you can use in an email, such as {{company}} or {{course}}.',
@@ -562,7 +561,7 @@ export default {
   'guide.c4.s4': 'To add a picture, open the Images tab, upload the file, then press Insert — a ready image tag is added for you.',
   'guide.c4.s5': 'Watch the right-hand side while you type. That is exactly what the recipient will see.',
   'guide.c4.s6': 'Press Save. Your template now appears in the campaign wizard.',
-  'guide.c4.tip': 'Write {{name}} where you want each person’s own name. When sending, MailWave puts their real name there.',
+  'guide.c4.tip': ' puts their real name there.',
 
   'guide.c5.lede': 'A campaign is one send: these people, this email, at this time.',
   'guide.c5.s1': 'Press Create Campaign. Step 1: name it and choose which account it is sent from.',

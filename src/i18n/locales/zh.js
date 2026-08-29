@@ -1,6 +1,5 @@
 // 简体中文 (Chinese Simplified)
 export default {
-  'app.name': 'MailWave',
   'app.tagline': '群发与效果跟踪',
   'nav.main': '主要',
   'nav.insights': '数据',
@@ -141,7 +140,7 @@ export default {
   'camp.settingsUsed': '本次任务使用的设置',
   'camp.afterSendingSub': '本次群发任务的送达结果',
   'camp.settingsUsedSub': '这一次具体是怎么发送的',
-  'camp.replyNote': '回复不会回到 MailWave。它们会进入上面那个回复地址的普通收件箱——打开 Gmail 或 Outlook 即可阅读和回复。',
+  'camp.replyNote': '。它们会进入上面那个回复地址的普通收件箱——打开 Gmail 或 Outlook 即可阅读和回复。',
   'camp.afterSending': '发出之后发生了什么',
 
   'filter.status': '状态',
@@ -511,7 +510,7 @@ export default {
   'help.activity.1': '每一项重要操作都记在这里，包括是谁做的、什么时候做的、改了什么。',
   'help.activity.2': '谁都不能修改或删除这些记录，所以出现争议时可以拿来作凭据。',
 
-  'guide.c1.lede': 'MailWave 能把同一封邮件一次发给很多人，然后告诉你谁打开了、谁点击了。',
+  'guide.c1.lede': ' 能把同一封邮件一次发给很多人，然后告诉你谁打开了、谁点击了。',
   'guide.c1.s1': '连接你已经在用的邮箱地址，比如 Gmail 或 Outlook。',
   'guide.c1.s2': '把你想联系的人加进来——可以从 Excel 文件导入，也可以一个个输入。',
   'guide.c1.s3': '做一个模板：邮件的版式和文字，存下来以后还能再用。',
@@ -523,15 +522,15 @@ export default {
   'guide.c2.s1': '在左边菜单里点“邮箱账号”，再点“连接账号”按钮。',
   'guide.c2.s2': '点你的邮箱服务商那张卡片——地址以 gmail.com 结尾或者是 Google Workspace 的地址就选 Gmail，Microsoft 的就选 Outlook。',
   'guide.c2.s3': '会打开一个 Google 或 Microsoft 的页面。在那里用你平时的密码登录。',
-  'guide.c2.s4': '当它问 MailWave 能不能代你发邮件时，点“允许”。',
+  'guide.c2.s4': ' 能不能代你发邮件时，点“允许”。',
   'guide.c2.s5': '回来后你会看到一个绿色的“已连接”标记。点“发一封测试邮件”，再看看自己的收件箱。',
-  'guide.c2.tip': '你的密码是输在 Google 或 Microsoft 自己的页面上的，永远不会输在 MailWave 里。我们只保存一个凭证，而且它在服务器上是加密存放的。',
+  'guide.c2.tip': ' 里。我们只保存一个凭证，而且它在服务器上是加密存放的。',
   'guide.c2.warn': '只有当你的邮箱服务商不在列表里时，才选自定义 SMTP。那样你需要从服务商的帮助页面找到服务器名称、端口和一个应用专用密码——我们会一次只问一样东西。',
 
   'guide.c3.lede': '联系人就是你要发信的对象。一次加很多人，最快的办法是用 Excel 或 CSV 文件。',
   'guide.c3.s1': '打开“联系人”，点“从 Excel 导入”。',
   'guide.c3.s2': '把文件拖进来。文件的第一行必须是列的名字，比如姓名、邮箱、公司。',
-  'guide.c3.s3': '把你文件里的每一列，对应到 MailWave 里的一个字段。我们会先帮你猜好——你确认一下就行。',
+  'guide.c3.s3': ' 里的一个字段。我们会先帮你猜好——你确认一下就行。',
   'guide.c3.s4': '看一下检查页面：正常的行、邮箱有问题的行和重复的行会分开统计。',
   'guide.c3.s5': '点“导入正常的联系人”。有问题的行和重复的行会被跳过，不会存进来。',
   'guide.c3.tip': '你导入的每一列都会变成一个可以用在邮件里的变量，比如 {{company}} 或 {{course}}。',
@@ -543,7 +542,7 @@ export default {
   'guide.c4.s4': '要加图片的话，打开“图片”这一栏，上传文件，再点“插入”——写好的图片标签会自动加进去。',
   'guide.c4.s5': '一边写一边看右边。那就是收件人会看到的样子。',
   'guide.c4.s6': '点“保存”。你的模板现在会出现在新建群发任务的向导里。',
-  'guide.c4.tip': '在你想显示每个人名字的地方写上 {{name}}。发送的时候，MailWave 会把他们真实的名字放进去。',
+  'guide.c4.tip': ' 会把他们真实的名字放进去。',
 
   'guide.c5.lede': '一个群发任务就是一次发送：这些人、这封邮件、这个时间。',
   'guide.c5.s1': '点“新建群发任务”。第 1 步：起个名字，选好用哪个邮箱账号来发。',

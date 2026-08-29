@@ -9,6 +9,11 @@
 // provider ke saath saaf-saaf steps likhe hain, jo API se frontend tak jate
 // hain aur screen par dikhte hain.
 // ---------------------------------------------------------------------------
+import brand from '../../../brand.config.js';
+
+// App ka naam yahin se aata hai — App Password banate waqt user ko yahi naam
+// likhna hota hai, isliye hardcode nahi kar sakte.
+const brandName = brand.name;
 
 export const PROVIDERS = {
   google: {
@@ -26,7 +31,7 @@ export const PROVIDERS = {
         'myaccount.google.com/security kholo',
         '2-Step Verification chalu karo (bina iske App Password ka option nahi aayega)',
         'Usi page par "App passwords" par jao',
-        'App me "Mail" chuno, device me "Other" — naam MailWave likh do',
+        `App me "Mail" chuno, device me "Other" — naam ${brandName} likh do`,
         'Jo 16 akshar ka password mile, wo yahan paste kar do (space hata do)',
       ],
       link: 'https://myaccount.google.com/apppasswords',
@@ -89,7 +94,7 @@ export const PROVIDERS = {
       steps: [
         'login.yahoo.com/account/security kholo',
         '"Generate app password" par jao',
-        'Naam MailWave likh kar password banao aur yahan paste karo',
+        `Naam ${brandName} likh kar password banao aur yahan paste karo`,
       ],
       link: 'https://login.yahoo.com/account/security',
     },
