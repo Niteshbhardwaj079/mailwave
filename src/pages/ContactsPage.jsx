@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import PageHeader from '../components/ui/PageHeader';
 import { Card, CardBody, CardHead } from '../components/ui/Card';
 import Pagination, { usePagination } from '../components/ui/Pagination';
+import PageSizePicker from '../components/ui/PageSizePicker';
 import { Note, SearchInput } from '../components/ui/Controls';
 import FilterSelect, { FilterBar } from '../components/ui/FilterSelect';
 import { useT } from '../i18n/I18nProvider';
@@ -53,12 +54,15 @@ export default function ContactsPage() {
 
   // Ek page jitni hi rows dikhti hain. 10,000 contacts ek saath render karna
   // browser ko hang kar deta hai.
-  const pager = usePagination(filtered, 25);
+  const pager = usePagination(filtered, 50);
 
   // Tick-box sirf DIKH RAHI rows par lagta hai — warna "sab chuno" dabane par
   // wo log bhi chun liye jate jo screen par hain hi nahi.
-  const visibleIds = useMemo(() => pager.visible.map((item) => item.id), [pager.visible]);
-  const bulk = useBulkSelection(visibleIds);
+  // Do list deni padti hain: is page ki rows, aur filter se match hone wali
+  // SAARI rows. Header ka tick-box page chunta hai; "Select all" poori list.
+  const pageIds = useMemo(() => pager.visible.map((item) => item.id), [pager.visible]);
+  const allIds = useMemo(() => filtered.map((item) => item.id), [filtered]);
+  const bulk = useBulkSelection(pageIds, allIds);
   const selectedRows = useMemo(() => filtered.filter((item) => bulk.isSelected(item.id)), [filtered, bulk]);
 
   function handleRowCheck(event) {
@@ -169,8 +173,9 @@ export default function ContactsPage() {
 
         <BulkBar
           count={bulk.count}
-          total={filtered.length}
-          onSelectAll={bulk.selectAllVisible}
+          total={bulk.total}
+          pageCount={pageIds.length}
+          onSelectAll={bulk.selectAll}
           onClear={bulk.clear}
           actions={
             <>
@@ -222,6 +227,9 @@ export default function ContactsPage() {
             onChange={setTag}
             options={[{ value: 'All', label: t('common.all') }, ...allTags.map((item) => ({ value: item, label: item }))]}
           />
+          {/* Kitni rows dikhani hain — filter ke bagal me, taki niche jane ki
+              zarurat na pade. */}
+          <PageSizePicker value={pager.limit} onChange={pager.setLimit} />
         </FilterBar>
 
         {filtered.length === 0 ? (

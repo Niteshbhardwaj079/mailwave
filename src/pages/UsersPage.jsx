@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import PageHeader from '../components/ui/PageHeader';
 import { Card, CardHead } from '../components/ui/Card';
 import Pagination, { usePagination } from '../components/ui/Pagination';
+import PageSizePicker from '../components/ui/PageSizePicker';
 import { Note, SearchInput, Segmented } from '../components/ui/Controls';
 import FilterSelect, { FilterBar } from '../components/ui/FilterSelect';
 import StatusPill from '../components/ui/StatusPill';
@@ -70,7 +71,7 @@ export default function UsersPage() {
   }, [users, query, roleFilter, statusFilter, labels]);
 
   // Sirf ek page jitni rows render hoti hain — badi list par browser hang na ho.
-  const pager = usePagination(filtered, 25);
+  const pager = usePagination(filtered, 50);
 
   // --- users ---------------------------------------------------------------
   function openNewUser() {
@@ -314,6 +315,8 @@ export default function UsersPage() {
                 { value: 'Disabled', label: 'Disabled' },
               ]}
             />
+            {/* Kitni rows dikhani hain — filter ke bagal me. */}
+            <PageSizePicker value={pager.limit} onChange={pager.setLimit} />
           </FilterBar>
 
           {filtered.length === 0 ? (

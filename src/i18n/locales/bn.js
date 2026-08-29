@@ -1067,4 +1067,7 @@ export default {
   'page.prev': 'আগের পাতা',
   'page.next': 'পরের পাতা',
 
+  'page.showRows': '{count} দেখাও',
+  'bulk.allSelected': 'সব {count} নির্বাচিত',
+
 };

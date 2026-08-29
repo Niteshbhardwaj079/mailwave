@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import PageHeader from '../components/ui/PageHeader';
 import { Card } from '../components/ui/Card';
 import Pagination, { usePagination } from '../components/ui/Pagination';
+import PageSizePicker from '../components/ui/PageSizePicker';
 import { Note, SearchInput } from '../components/ui/Controls';
 import FilterSelect, { FilterBar } from '../components/ui/FilterSelect';
 import EmptyState from '../components/ui/EmptyState';
@@ -152,6 +153,8 @@ export default function ActivityLogPage() {
               { value: '30d', label: t('filter.last30') },
             ]}
           />
+          {/* Kitni rows dikhani hain — filter ke bagal me. */}
+          <PageSizePicker value={pager.limit} onChange={pager.setLimit} />
         </FilterBar>
 
         {filtered.length === 0 ? (

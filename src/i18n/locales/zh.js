@@ -1067,4 +1067,7 @@ export default {
   'page.prev': '上一页',
   'page.next': '下一页',
 
+  'page.showRows': '显示 {count} 条',
+  'bulk.allSelected': '已选择全部 {count} 条',
+
 };

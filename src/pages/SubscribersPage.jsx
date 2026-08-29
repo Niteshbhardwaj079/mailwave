@@ -5,6 +5,7 @@ import PageHeader from '../components/ui/PageHeader';
 import KpiCard from '../components/ui/KpiCard';
 import { Card, CardBody, CardHead } from '../components/ui/Card';
 import Pagination, { usePagination } from '../components/ui/Pagination';
+import PageSizePicker from '../components/ui/PageSizePicker';
 import { Note, SearchInput } from '../components/ui/Controls';
 import FilterSelect, { FilterBar } from '../components/ui/FilterSelect';
 import StatusPill from '../components/ui/StatusPill';
@@ -42,12 +43,14 @@ export default function SubscribersPage() {
   }, [subscribers, query, campaignFilter, statusFilter]);
 
   // Sirf ek page jitni rows render hoti hain — badi list par browser hang na ho.
-  const pager = usePagination(filtered, 25);
+  const pager = usePagination(filtered, 50);
 
   // Tick-box sirf dikh rahi rows par — warna "sab chuno" un logon ko bhi chun
   // leta jo screen par hain hi nahi.
-  const visibleIds = useMemo(() => pager.visible.map((item) => item.id), [pager.visible]);
-  const bulk = useBulkSelection(visibleIds);
+  // Header ka tick-box is page ko chunta hai; "Select all" poori matching list.
+  const pageIds = useMemo(() => pager.visible.map((item) => item.id), [pager.visible]);
+  const allIds = useMemo(() => filtered.map((item) => item.id), [filtered]);
+  const bulk = useBulkSelection(pageIds, allIds);
   const selectedRows = useMemo(() => filtered.filter((item) => bulk.isSelected(item.id)), [filtered, bulk]);
 
   const active = subscribers.filter((item) => item.status === 'Subscribed');
@@ -143,8 +146,9 @@ export default function SubscribersPage() {
 
         <BulkBar
           count={bulk.count}
-          total={filtered.length}
-          onSelectAll={bulk.selectAllVisible}
+          total={bulk.total}
+          pageCount={pageIds.length}
+          onSelectAll={bulk.selectAll}
           onClear={bulk.clear}
           actions={
             <>
@@ -188,6 +192,8 @@ export default function SubscribersPage() {
               { value: 'Left later', label: t('sub.statusLeft') },
             ]}
           />
+          {/* Kitni rows dikhani hain — filter ke bagal me. */}
+          <PageSizePicker value={pager.limit} onChange={pager.setLimit} />
         </FilterBar>
 
         {filtered.length === 0 ? (

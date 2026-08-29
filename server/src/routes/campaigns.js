@@ -92,7 +92,7 @@ router.get(
     }
 
     const totalRow = await one(`SELECT count(*)::int AS n FROM campaigns c ${clause}`, params);
-    const { page, limit, offset } = pagination(req, { defaultLimit: 25, maxLimit: 100 });
+    const { page, limit, offset } = pagination(req, { defaultLimit: 50, maxLimit: 500 });
 
     const rows = await many(
       `${SELECT} ${clause} ORDER BY c.created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
@@ -137,7 +137,7 @@ router.get(
       `SELECT count(*)::int AS n FROM campaign_recipients ${clause}`,
       params
     );
-    const { page, limit, offset } = pagination(req, { defaultLimit: 50, maxLimit: 200 });
+    const { page, limit, offset } = pagination(req, { defaultLimit: 50, maxLimit: 500 });
 
     const rows = await many(
       `SELECT id, email, name, status, error, sent_at, open_count, first_open_at,

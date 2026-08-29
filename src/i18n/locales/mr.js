@@ -1067,4 +1067,7 @@ export default {
   'page.prev': 'मागील पान',
   'page.next': 'पुढील पान',
 
+  'page.showRows': '{count} दाखवा',
+  'bulk.allSelected': 'सर्व {count} निवडले',
+
 };

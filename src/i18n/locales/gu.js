@@ -1067,4 +1067,7 @@ export default {
   'page.prev': 'પાછલું પેજ',
   'page.next': 'આગલું પેજ',
 
+  'page.showRows': '{count} બતાવો',
+  'bulk.allSelected': 'બધા {count} પસંદ થયા',
+
 };

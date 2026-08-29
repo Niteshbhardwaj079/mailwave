@@ -1067,4 +1067,7 @@ export default {
   'page.prev': 'الصفحة السابقة',
   'page.next': 'الصفحة التالية',
 
+  'page.showRows': 'إظهار {count}',
+  'bulk.allSelected': 'تم تحديد كل الـ {count}',
+
 };

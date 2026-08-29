@@ -1085,4 +1085,7 @@ export default {
   'page.prev': 'Previous page',
   'page.next': 'Next page',
 
+  'page.showRows': 'Show {count}',
+  'bulk.allSelected': 'All {count} selected',
+
 };

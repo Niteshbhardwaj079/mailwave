@@ -1067,4 +1067,7 @@ export default {
   'page.prev': 'முந்தைய பக்கம்',
   'page.next': 'அடுத்த பக்கம்',
 
+  'page.showRows': '{count} காட்டு',
+  'bulk.allSelected': 'அனைத்து {count} தேர்ந்தெடுக்கப்பட்டன',
+
 };

@@ -1652,3 +1652,24 @@
     gap: 1rem 0.8rem;
   }
 }
+
+// ---------------------------------------------------------------------------
+// "Kitni rows dikhani hain" wala dropdown — filter bar ke andar
+// ---------------------------------------------------------------------------
+.mw-pagesize {
+  margin: 0;
+
+  .form-select {
+    width: auto;
+    min-width: 12rem;
+  }
+
+  // Chhoti screen par baaki filters ki tarah poori chaudai le lo.
+  @media (max-width: 575.98px) {
+    width: 100%;
+
+    .form-select {
+      width: 100%;
+    }
+  }
+}

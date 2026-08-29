@@ -91,7 +91,7 @@ router.get(
     // tha wo usse bhi bura tha — 501 se aage ka data chup-chap gayab ho jata,
     // kisi ko pata bhi nahi chalta.
     const totalRow = await one(`SELECT count(*)::int AS n FROM contacts c ${clause}`, params);
-    const { page, limit, offset } = pagination(req, { defaultLimit: 50, maxLimit: 200 });
+    const { page, limit, offset } = pagination(req, { defaultLimit: 50, maxLimit: 500 });
 
     const rows = await many(
       `${SELECT} ${clause} ORDER BY c.added_on DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,

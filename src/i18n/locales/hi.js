@@ -1065,4 +1065,7 @@ export default {
   'page.prev': 'पिछला पेज',
   'page.next': 'अगला पेज',
 
+  'page.showRows': '{count} दिखाओ',
+  'bulk.allSelected': 'सभी {count} चुने गए',
+
 };

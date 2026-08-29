@@ -27,14 +27,13 @@ export function asyncHandler(handler) {
   return (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
 }
 
-/** Reads ?page= and ?limit= with sane bounds. */
 /**
  * ?page= aur ?limit= padhta hai, surakshit hadd ke andar.
  *
  * maxLimit isliye hai ki koi ?limit=999999 bhej kar poora database ek saath na
  * maang le — usse server ki memory bhar jayegi aur sab ke liye slow ho jayega.
  */
-export function pagination(req, { defaultLimit = 50, maxLimit = 200 } = {}) {
+export function pagination(req, { defaultLimit = 50, maxLimit = 500 } = {}) {
   const page = Math.max(1, Number.parseInt(req.query.page ?? '1', 10) || 1);
   const requested = Number.parseInt(req.query.limit ?? '', 10);
   const limit = Math.min(maxLimit, Math.max(1, Number.isFinite(requested) ? requested : defaultLimit));

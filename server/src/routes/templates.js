@@ -58,7 +58,7 @@ router.get(
   requireModule('templates', 'view'),
   asyncHandler(async (req, res) => {
     const totalRow = await one('SELECT count(*)::int AS n FROM templates');
-    const { page, limit, offset } = pagination(req, { defaultLimit: 24, maxLimit: 100 });
+    const { page, limit, offset } = pagination(req, { defaultLimit: 50, maxLimit: 500 });
 
     const rows = await many(
       `${SELECT} ORDER BY t.updated_at DESC LIMIT $1 OFFSET $2`,
