@@ -1,7 +1,4 @@
-// English — the master list of every text the interface shows.
-// To add a new language: copy this file, translate the right-hand side only,
-// then register it in src/i18n/languages.js. Missing keys fall back to English.
-
+// English (source language)
 export default {
   // --- App shell ---------------------------------------------------------
   'app.tagline': 'Campaigns & tracking',
@@ -122,8 +119,7 @@ export default {
   'kpi.openedEstimate': 'Opened (estimate)',
 
   'note.openTrackingTitle': 'About open tracking.',
-  'note.openTracking':
-    'Open numbers are an estimate, not proof of reading. Many mail apps block images or load them through a privacy proxy, so some opens are missed and some are counted twice. Clicks are the more reliable signal.',
+  'note.openTracking': 'Open numbers are an estimate, not proof of reading. Many mail apps block images or load them through a privacy proxy, so some opens are missed and some are counted twice. Clicks are the more reliable signal.',
 
   // --- Campaigns ---------------------------------------------------------
   'camp.title': 'Campaigns',
@@ -147,7 +143,7 @@ export default {
   'camp.settingsUsed': 'Campaign settings used',
   'camp.afterSendingSub': 'Delivery result for this campaign',
   'camp.settingsUsedSub': 'Exactly how this one was sent',
-  'camp.replyNote': '. They land in the normal inbox of the reply-to address above — open Gmail or Outlook to read and answer them.',
+  'camp.replyNote': 'Replies do not come back into MailWave. They land in the normal inbox of the reply-to address above — open Gmail or Outlook to read and answer them.',
   'camp.afterSending': 'What happened after sending',
 
   // --- Filters -----------------------------------------------------------
@@ -228,8 +224,7 @@ export default {
   'img.step2': 'The picture and its link appear in the list below.',
   'img.step3': 'Press Copy link, or press Insert to drop a ready <img> tag into your HTML.',
   'img.tooBig': 'That file is larger than 2 MB. Please choose a smaller one.',
-  'img.localNote':
-    'These images are stored in this browser only, so you can design right now. When the backend is connected they will be uploaded to your server and get a permanent link.',
+  'img.localNote': 'These images are stored in this browser only, so you can design right now. When the backend is connected they will be uploaded to your server and get a permanent link.',
   'img.size': 'Size',
   'img.added': 'Added',
 
@@ -265,8 +260,7 @@ export default {
   'users.activate': 'Activate',
   'users.searchPlaceholder': 'Search people by name, email or role…',
   'users.permissionsFor': 'Permissions for',
-  'users.permissionHelp':
-    'Tick a box to allow it. Untick to block it. Changes apply the next time that person loads the app.',
+  'users.permissionHelp': 'Tick a box to allow it. Untick to block it. Changes apply the next time that person loads the app.',
   'users.section': 'Section',
   'users.view': 'View',
   'users.create': 'Create',
@@ -277,8 +271,7 @@ export default {
   'users.selectAll': 'Select all',
   'users.roleNote': 'A role is a saved set of ticks. Changing a role changes it for everyone who has that role.',
   'users.onlySuperAdmin': 'Only a Super Admin can open this page.',
-  'users.superAdminNote':
-    'Super Admin can do everything and cannot be blocked. Keep at least one Super Admin in the workspace.',
+  'users.superAdminNote': 'Super Admin can do everything and cannot be blocked. Keep at least one Super Admin in the workspace.',
 
   // Role building (Super Admin creates roles here)
   'users.addRole': 'New role',
@@ -350,8 +343,7 @@ export default {
   'acc.chooseProvider': 'Connect an email account',
   'acc.chooseProviderSub': 'Choose your provider. For Gmail and Outlook there is nothing to fill in.',
   'acc.easiest': 'Easiest',
-  'acc.multipleNote':
-    'You can connect as many addresses as you need — three Outlook mailboxes, a Gmail and an SMTP one, in any mix. Each connection is separate and keeps its own sending limit, and every campaign picks one of them as its sender.',
+  'acc.multipleNote': 'You can connect as many addresses as you need — three Outlook mailboxes, a Gmail and an SMTP one, in any mix. Each connection is separate and keeps its own sending limit, and every campaign picks one of them as its sender.',
 
   // --- Contacts ----------------------------------------------------------
   'con.title': 'Contacts',
@@ -378,24 +370,21 @@ export default {
   'auth.keepSignedIn': 'Keep me signed in',
   'auth.forgot': 'Forgot password?',
   'auth.signIn': 'Sign in',
-  'auth.noSignupNote':
-    'There is no “create account” here on purpose. Only a Super Admin can add people. If you need an account, ask your administrator — you will get an email with a link to choose your own password.',
-  'auth.demoHint': 'Demo sign-in:',
+  'auth.noSignupNote': 'There is no “create account” here on purpose. Only a Super Admin can add people. If you need an account, ask your administrator — you will get an email with a link to choose your own password.',
   'auth.backToSignIn': 'Back to sign in',
   'auth.forgotTitle': 'Forgot your password?',
   'auth.forgotSub': 'Type the email you sign in with. If we know it, we send a link to set a new password.',
   'auth.sendResetLink': 'Send me a link',
   'auth.sentTitle': 'Check your inbox',
   'auth.sentSub': 'If that email belongs to an account, a reset link is on its way to',
-  'auth.sentNote':
-    'The link works for 1 hour and can be used once. We do not say whether the address exists — that would tell a stranger who has an account here.',
+  'auth.sentNote': 'The link works for 1 hour and can be used once. We do not say whether the address exists — that would tell a stranger who has an account here.',
   'auth.errEmpty': 'Please fill in both boxes.',
   'auth.errWrong': 'That email and password do not match. Check them and try again.',
+  'auth.errNetwork': 'Cannot reach the server. Check your internet and try again.',
   'auth.errShort': 'Use at least 8 characters.',
   'auth.errMatch': 'The two passwords are not the same.',
   'auth.asideTitle': 'Bulk email that a non-technical team can actually run.',
-  'auth.asideText':
-    'Import your list, write the email once, send in safe batches, and watch the opens and clicks arrive.',
+  'auth.asideText': 'Import your list, write the email once, send in safe batches, and watch the opens and clicks arrive.',
   'auth.point1': 'Connect Gmail or Outlook in one click — no SMTP settings to find.',
   'auth.point2': 'Upload an Excel file and we clean, check and de-duplicate it for you.',
   'auth.point3': 'Send in safe batches that respect your provider’s limits.',
@@ -424,8 +413,7 @@ export default {
   // --- Super Admin password tools -----------------------------------------
   'users.password': 'Password',
   'users.setPassword': 'Set new password',
-  'users.pwdNote':
-    'Nobody can see an existing password — only a scrambled copy is stored. A Super Admin can set a NEW one, or send the person a reset link so they choose it themselves.',
+  'users.pwdNote': 'Nobody can see an existing password — only a scrambled copy is stored. A Super Admin can set a NEW one, or send the person a reset link so they choose it themselves.',
   'users.pwdNotify': 'Email this person that their password was changed',
   'users.pwdDone': 'New password set. No email was sent.',
   'users.pwdDoneEmail': 'New password set. The “Password set by Super Admin” email has been sent.',
@@ -438,8 +426,7 @@ export default {
   'nav.systemEmails': 'System Emails',
   'sysmail.title': 'System Emails',
   'sysmail.subtitle': 'The emails the app sends by itself — invitations, password resets, alerts and reports.',
-  'sysmail.intro':
-    'These are not campaigns. Each one is fired by an event, and the design is already written. When the backend is built, every event only needs one line — the subject and HTML come from here.',
+  'sysmail.intro': 'These are not campaigns. Each one is fired by an event, and the design is already written. When the backend is built, every event only needs one line — the subject and HTML come from here.',
   'sysmail.list': 'Every system email',
   'sysmail.listSub': 'Pick one to preview or edit it',
   'sysmail.group': 'Group',
@@ -467,7 +454,6 @@ export default {
   'help.sysmail.1': 'Every email the app sends by itself is listed here, with the event that fires it.',
   'help.sysmail.2': 'Edit the subject and HTML like any template. Password emails cannot be switched off.',
 
-  // --- Theme --------------------------------------------------------------
   'theme.title': 'Look & feel',
   'theme.subtitle': 'Day or night, and the colour the app is built around.',
   'theme.mode': 'Day / night',
@@ -484,11 +470,10 @@ export default {
   'theme.rose': 'Rose',
   'theme.purple': 'Purple',
   'theme.slate': 'Slate',
-  'theme.brandNote':
-    'The app name, tagline and logo all come from one file — src/config/appConfig.js. Change it there once and the sidebar, login page, browser tab and preview pages all follow.',
-
+  'theme.brandNote': 'The app name, tagline and logo all come from one file — src/config/appConfig.js. Change it there once and the sidebar, login page, browser tab and preview pages all follow.',
   'set.appearance': 'Look & feel',
   'set.brand': 'Name & branding',
+
   'set.sending': 'Sending',
   'set.tracking': 'Tracking',
   'set.unsubscribe': 'Unsubscribe',
@@ -529,7 +514,7 @@ export default {
   'help.activity.2': 'Nobody can edit or delete these records, so they can be trusted in a dispute.',
 
   // --- Guide chapters -----------------------------------------------------
-  'guide.c1.lede': ' sends one email to many people at once, and then tells you who opened it and who clicked.',
+  'guide.c1.lede': 'MailWave sends one email to many people at once, and then tells you who opened it and who clicked.',
   'guide.c1.s1': 'Connect the email address you already use, such as Gmail or Outlook.',
   'guide.c1.s2': 'Add the people you want to write to — from an Excel file, or by typing them in.',
   'guide.c1.s3': 'Make a template: the design and words of your email, saved so you can use it again.',
@@ -541,15 +526,15 @@ export default {
   'guide.c2.s1': 'In the left menu press Email Accounts, then the Connect account button.',
   'guide.c2.s2': 'Press the card for your provider — Gmail if your address ends in gmail.com or is a Google Workspace address, Outlook for Microsoft.',
   'guide.c2.s3': 'A Google or Microsoft page opens. Sign in there with your normal password.',
-  'guide.c2.s4': ' may send email on your behalf.',
+  'guide.c2.s4': 'Press Allow when it asks whether MailWave may send email on your behalf.',
   'guide.c2.s5': 'You come back and see a green Connected badge. Press Send test email and check your own inbox.',
-  'guide.c2.tip': '. We only keep a token, and it stays encrypted on the server.',
+  'guide.c2.tip': 'Your password is typed on Google or Microsoft’s own page, never in MailWave. We only keep a token, and it stays encrypted on the server.',
   'guide.c2.warn': 'Only choose Custom SMTP if your provider is not in the list. You will need the server name, port and an app password from your provider’s help pages — we ask for one thing at a time.',
 
   'guide.c3.lede': 'Contacts are the people you send to. The fastest way to add many at once is an Excel or CSV file.',
   'guide.c3.s1': 'Open Contacts, then press Import Excel.',
   'guide.c3.s2': 'Drag your file in. The first row of the file must be the column names, like Name, Email, Company.',
-  'guide.c3.s3': ' field. We guess this for you — just check it.',
+  'guide.c3.s3': 'Match each column of your file to a MailWave field. We guess this for you — just check it.',
   'guide.c3.s4': 'Look at the check screen: valid rows, broken emails and duplicates are counted separately.',
   'guide.c3.s5': 'Press Import valid contacts. Broken and duplicate rows are skipped, not saved.',
   'guide.c3.tip': 'Every column you import becomes a variable you can use in an email, such as {{company}} or {{course}}.',
@@ -561,7 +546,7 @@ export default {
   'guide.c4.s4': 'To add a picture, open the Images tab, upload the file, then press Insert — a ready image tag is added for you.',
   'guide.c4.s5': 'Watch the right-hand side while you type. That is exactly what the recipient will see.',
   'guide.c4.s6': 'Press Save. Your template now appears in the campaign wizard.',
-  'guide.c4.tip': ' puts their real name there.',
+  'guide.c4.tip': 'Write {{name}} where you want each person’s own name. When sending, MailWave puts their real name there.',
 
   'guide.c5.lede': 'A campaign is one send: these people, this email, at this time.',
   'guide.c5.s1': 'Press Create Campaign. Step 1: name it and choose which account it is sent from.',
@@ -649,15 +634,15 @@ export default {
   'help.sub.1': 'Everyone here asked to join after reading one of your emails.',
   'help.sub.2': 'Pick them in step 2 of the campaign wizard to send only to this warm list.',
 
-  // --- Accessibility labels ----------------------------------------------
+  // --- Accessibility labels ---
   'nav.mainNav': 'Main navigation',
   'nav.quickNav': 'Quick navigation',
 
-  // --- Permissions -------------------------------------------------------
+  // --- Permissions ---
   'perm.deniedTitle': 'You do not have access to this page',
   'perm.deniedText': 'Your role ({role}) cannot open this section. Ask a Super Admin if you need it.',
 
-  // --- Campaign wizard ---------------------------------------------------
+  // --- Campaign wizard ---
   'wiz.subtitle': 'Six short steps. Nothing is sent until you confirm on the last one.',
   'wiz.steps': 'Campaign steps',
   'wiz.stepCounter': 'Step {current} of {total} — {label}',
@@ -688,7 +673,7 @@ export default {
   'wiz.pause': 'Pause',
   'wiz.resume': 'Resume',
 
-  // --- Recipients step ---------------------------------------------------
+  // --- Recipients step ---
   'rec.title': 'Who should get this email?',
   'rec.subtitle': 'Choose one way to add recipients. You can change it later.',
   'rec.src.excel': 'Excel / CSV upload',
@@ -714,7 +699,7 @@ export default {
   'rec.contactsCount': '{count} contacts',
   'rec.cleanNote': 'Unsubscribed and bounced contacts are removed from the list automatically. You never have to check that yourself.',
 
-  // --- Importing contacts ------------------------------------------------
+  // --- Importing contacts ---
   'imp.subtitle': 'Five short steps. We check every row before anything is saved.',
   'imp.steps': 'Import steps',
   'imp.step.upload': 'Upload file',
@@ -764,7 +749,7 @@ export default {
   'imp.field.city': 'City (custom field)',
   'imp.field.skip': 'Do not import',
 
-  // --- Getting started ---------------------------------------------------
+  // --- Getting started ---
   'ob.title': 'Getting started',
   'ob.subtitle': 'Six steps from an empty account to your first campaign. No technical knowledge needed.',
   'ob.progress': '{done} of {total} steps done',
@@ -788,16 +773,16 @@ export default {
   'ob.s.campaign': 'First Campaign',
   'ob.s.campaignDesc': 'Send to your list in safe, small batches.',
 
-  // --- Page not found ----------------------------------------------------
+  // --- Page not found ---
   'nf.title': 'This page does not exist',
   'nf.text': 'The link may be old, or the page may have been moved. Let us take you back to the dashboard.',
   'nf.back': 'Back to dashboard',
 
-  // --- Image library -----------------------------------------------------
+  // --- Image library ---
   'img.badUrl': 'That does not look like an image address. It should start with https:// or be a data:image link.',
   'img.storageFull': 'This browser’s storage is full, so new images will be lost when you refresh. Remove a few large images, or use the “add by link” box instead.',
 
-  // --- Wizard: campaign details -----------------------------------------
+  // --- Wizard: campaign details ---
   'info.title': 'Campaign details',
   'info.subtitle': 'Give the campaign a name you will recognise later, and pick the email account it should be sent from.',
   'info.name': 'Campaign name',
@@ -812,10 +797,10 @@ export default {
   'info.subjectHelp': 'You can add variables like {{name}} here too.',
   'info.subjectTip': 'Keep the subject under about 50 characters. Long subjects get cut off on phones.',
 
-  // --- Wizard: content ---------------------------------------------------
+  // --- Wizard: content ---
   'content.preheader': 'Preview text',
 
-  // --- Wizard: sending and tracking --------------------------------------
+  // --- Wizard: sending and tracking ---
   'send.title': 'Sending and tracking',
   'send.subtitle': 'Small batches keep your account safe with your provider and give better delivery.',
   'send.batchSize': 'Batch size',
@@ -842,7 +827,7 @@ export default {
   'send.dateTime': 'Date and time',
   'send.queueNote': 'Sending runs on our server queue. You can close this tab or your laptop — the campaign keeps going, and you can pause it any time.',
 
-  // --- Wizard: review ----------------------------------------------------
+  // --- Wizard: review ---
   'rev.title': 'Check everything before you send',
   'rev.subtitle': 'Read this summary once. After you press send, it cannot be undone.',
   'rev.untitled': 'Untitled campaign',
@@ -858,7 +843,7 @@ export default {
   'rev.off': 'Off',
   'rev.testNote': 'Send a test to yourself first if you have not already. It is the fastest way to catch a broken link or a wrong variable.',
 
-  // --- Connecting an email account ---------------------------------------
+  // --- Connecting an email account ---
   'acc.connected': 'Account connected',
   'acc.connectedWho': '{email} is connected',
   'acc.connectedNote': 'We never showed you a single server setting — and we never will. Sign-in happened with the provider directly.',
@@ -885,7 +870,7 @@ export default {
   'acc.testTo': 'Send it to',
   'acc.testSpam': 'Check your spam folder too, if it does not arrive in a minute.',
 
-  // --- Custom SMTP -------------------------------------------------------
+  // --- Custom SMTP ---
   'smtp.title': 'Custom SMTP setup',
   'smtp.subtitle': 'One question per screen. Take your time.',
   'smtp.steps': 'SMTP setup steps',
@@ -919,7 +904,7 @@ export default {
   'smtp.test.yourServer': 'your server',
   'smtp.saveAndTest': 'Send test and save',
 
-  // --- Settings ----------------------------------------------------------
+  // --- Settings ---
   'set.sections': 'Settings sections',
   'set.profileTitle': 'Profile',
   'set.profileSub': 'How your name appears inside {app}',
@@ -981,7 +966,7 @@ export default {
   'set.webhookHelp': 'We post delivered, bounced, failed, complaint and unsubscribe events here as they arrive.',
   'set.apiDocsNote': 'Full REST documentation with OpenAPI/Swagger is published at /api/docs once the backend is running.',
 
-  // --- Contacts ----------------------------------------------------------
+  // --- Contacts ---
   'con.suppressionTitle': 'Suppression list',
   'con.suppressionSub': 'People we will never email, whatever list they appear on',
   'con.suppressionNote': '{unsubscribed} contacts unsubscribed and {bounced} bounced address are on the suppression list. They are removed from every campaign automatically — you do not have to remember them.',
@@ -994,7 +979,7 @@ export default {
   'con.consent.person': 'Asked in person',
   'con.consentHelp': 'We store this with the contact for GDPR and CAN-SPAM records.',
 
-  // --- Segments ----------------------------------------------------------
+  // --- Segments ---
   'seg.subtitle': 'Reusable lists built from what people did in past campaigns.',
   'seg.new': 'New segment',
   'seg.autoNote': 'A segment updates itself. If someone opens tomorrow, they join “Interested Leads” automatically — you never rebuild the list by hand.',
@@ -1018,7 +1003,7 @@ export default {
   'seg.cond.failed': 'Failed or bounced',
   'seg.cond.unsubscribed': 'Unsubscribed',
 
-  // --- Reports -----------------------------------------------------------
+  // --- Reports ---
   'rep.allTitle': 'All campaigns performance',
   'rep.allSub': 'Sent vs Opened vs Clicked across every campaign',
   'rep.campaignTitle': 'Campaign report',
@@ -1041,11 +1026,11 @@ export default {
   'rep.type.failed': 'Failed List',
   'rep.type.failedDesc': 'Failed, bounced and rejected addresses with reasons.',
 
-  // --- Campaign analytics ------------------------------------------------
+  // --- Campaign analytics ---
   'camp.openEstimate': '“Open detected” is an estimate.',
   'camp.openEstimateText': 'It means the tracking image loaded — not that a person definitely read the email. Apple Mail Privacy Protection and similar features load images automatically, and image blocking hides real opens.',
 
-  // --- Shared ------------------------------------------------------------
+  // --- Shared ---
   'common.breadcrumb': 'Breadcrumb',
 
   'seg.matchCount': 'About {count} contacts match this rule right now.',
@@ -1054,7 +1039,7 @@ export default {
 
   'common.loading': 'Loading…',
 
-  // --- Toasts (screen ke kone me aane wale message) ---
+  // --- Toasts ---
   'toast.region': 'Notifications',
   'common.undo': 'Undo',
   'toast.templateSaved': 'Template saved',
@@ -1076,6 +1061,18 @@ export default {
   'toast.subscribersRemoved': '{count} people removed',
   'toast.settingsSaved': 'Settings saved',
   'toast.storageFull': 'Browser storage is full — remove a few large images',
+  'con.emailNeeded': 'Email address is needed',
+  'con.selectAllCapped': 'Selected the first {max}. Narrow the filter to work on the rest.',
+  'toast.contactAdded': 'Contact added',
+  'toast.contactDeleted': 'Contact removed',
+  'bulk.doneExport': '{count} downloaded',
+  'toast.networkError': 'Cannot reach the server. Check your internet and try again.',
+  'toast.passwordNeeded': 'Type a new password first',
+  'toast.passwordSet': 'New password set',
+  'toast.resetLinkSent': 'Password link emailed',
+  'toast.systemEmailSaved': 'System email saved',
+  'toast.systemEmailReset': 'System email put back to the original',
+
 
   // --- Pagination ---
   'page.label': 'Pages',
@@ -1092,4 +1089,126 @@ export default {
   'set.address': 'Postal address',
   'set.addressMissing': 'No postal address set. Bulk email needs a real sender address by law, and without one Gmail and Outlook are more likely to mark your mail as spam. Add it in brand.config.js.',
 
+  'seg.nameNeeded': 'Give the segment a name',
+  'seg.emptyTitle': 'No segments yet',
+  'seg.emptyText': 'A segment is a saved rule, like "opened but did not click". The list updates itself.',
+  'toast.segmentSaved': 'Segment saved',
+  'toast.segmentDeleted': 'Segment removed',
+  'acc.emptyTitle': 'No email account connected yet',
+  'acc.emptyText': 'Nothing can be sent until one account is connected — not even a password reset link.',
+  'acc.testSent': 'Test email sent to {email}',
+  'acc.testPreview': 'Open the email',
+  'acc.removeTitle': 'Disconnect this account?',
+  'acc.removeText': 'campaigns already sent stay as they are. New campaigns will need another account.',
+  'toast.accountRemoved': 'Account disconnected',
+  'rep.breakdownTitle': 'What happened to the mail',
+  'rep.breakdownSub': 'Delivered, failed, bounced and unsubscribed across every campaign.',
+  'rep.formatTitle': 'File format',
+  'rep.formatSub': 'Both open in Excel. CSV also opens in Google Sheets and Numbers.',
+  'rep.typesTitle': 'Reports you can download',
+  'rep.typesSub': 'Pick one, choose a campaign and dates, then download.',
+  'rep.backgroundNote': 'Only the rows you asked for are prepared, so even a large export stays quick.',
+  'rep.dateHint': 'Leave the dates empty to include everything.',
+  'rep.nothingToExport': 'Nothing matched — try a wider date range',
+  'rep.exported': '{count} rows downloaded',
+  'common.download': 'Download',
+  'common.from': 'From',
+  'common.to': 'To',
+  'filter.allCampaigns': 'All campaigns',
+  'camp.evSent': 'Email sent',
+  'camp.evOpened': 'Opened',
+  'camp.evClicked': 'Clicked a link',
+  'camp.evUnsubscribed': 'Unsubscribed',
+  'camp.evSubscribed': 'Subscribed',
+  'camp.evBounced': 'Bounced',
+  'camp.evFailed': 'Sending failed',
+  'camp.noEvents': 'Nothing recorded for this person yet.',
+  'imp.emptyFile': 'That file has no rows in it',
+  'imp.readFailed': 'Could not read that file. If it is password-protected, save a copy without the password.',
+  'imp.importedToast': '{count} contacts added',
+  'imp.needEmailColumn': 'One column must be set to Email — nothing can be imported without it',
+  'imp.rowsFound': '{count} rows found',
+  'imp.reading': 'Reading the file…',
+  'imp.noGroup': 'No group',
+  'imp.dupInDatabase': 'already in your contacts',
+  'imp.dupInFile': 'repeated inside this file',
+  'imp.dupSuppressed': 'unsubscribed or bounced before',
+  'imp.willSkip': 'Skipped',
+  'imp.previewLimit': 'Showing the first {shown} of {total} rows. Every row is still checked.',
+  'imp.doneTitle': '{count} contacts added',
+  'imp.doneSub': '{skipped} rows were skipped — duplicates and bad addresses.',
+  'acc.needEmail': 'Enter the email address you send from',
+  'acc.needPassword': 'Enter the password (or app password)',
+  'acc.needHost': 'Enter the SMTP server name',
+  'acc.testOk': 'Connection works. You can save it now.',
+  'acc.savedToast': 'Email account connected',
+  'acc.needsAppPassword': 'App password needed',
+  'acc.fillDetails': 'Fill these in, test the connection, then save.',
+  'acc.openProvider': 'Open the provider page',
+  'acc.senderHelp': 'The name people see in their inbox.',
+  'acc.appPassword': 'App password',
+  'acc.appPasswordHelp': 'Not your normal password — the 16-character one from the steps above.',
+  'acc.passwordHelp': 'The password for this mailbox, or the API key your provider gave you.',
+  'acc.testConnection': 'Test connection',
+  'acc.saveAccount': 'Save account',
+  'wiz.needName': 'Give this campaign a name',
+  'wiz.needAccount': 'Pick the email account to send from',
+  'wiz.needSubject': 'Write a subject line',
+  'wiz.needContent': 'Pick a template or write the email first',
+  'wiz.needRecipients': 'Add at least one email address',
+  'wiz.noRecipients': 'Nobody to send to. Everyone in that list has unsubscribed or bounced.',
+  'wiz.startedToast': 'Sending started — {count} people',
+  'wiz.pauseNote': 'Pausing is safe. Whoever is left stays in the queue and carries on from there.',
+  'wiz.noAccountNote': 'No email account is connected yet, so nothing can be sent. Connect one first.',
+  'nav.backups': 'Backups',
+  'bak.title': 'Backups',
+  'bak.subtitle': 'A copy of everything, so nothing is ever lost for good.',
+  'bak.createNow': 'Back up now',
+  'bak.upload': 'Upload a backup',
+  'bak.created': 'Backup created',
+  'bak.downloaded': 'Backup downloaded',
+  'bak.downloadFailed': 'Could not download that backup',
+  'bak.uploaded': 'Backup file received',
+  'bak.uploadFailed': 'Could not upload that file',
+  'bak.badFile': 'Pick a .tar.gz backup file',
+  'bak.deleted': 'Backup deleted',
+  'bak.restore': 'Restore',
+  'bak.restoreMarked': 'Restore is ready — restart the server now',
+  'bak.restartTitle': 'One more step.',
+  'bak.restartNote': 'Stop the server and start it again. The database comes back from this backup.',
+  'bak.listTitle': 'Saved backups',
+  'bak.listSub': 'Newest first. Download one and keep it somewhere else too.',
+  'bak.emptyTitle': 'No backups yet',
+  'bak.emptyText': 'One is made every time the server starts, and then every few days.',
+  'bak.file': 'File',
+  'bak.when': 'Made on',
+  'bak.size': 'Size',
+  'bak.safeTitle': 'How your data stays safe',
+  'bak.safeSub': 'Three things happen without anyone doing anything.',
+  'bak.safe1': 'A backup is made every time the server starts.',
+  'bak.safe2': 'Old backups are removed on their own, so the disk never fills up.',
+  'bak.safe3': 'If the database ever breaks, the newest backup is loaded automatically.',
+  'bak.restoreTitle': 'Restore this backup?',
+  'bak.restoreBody': 'Everything will go back to how it was when {name} was made.',
+  'bak.restoreWarn': 'Anything done after that backup will be gone. Your current data is copied aside first, so nothing is destroyed.',
+  'bak.typeRestore': 'Type RESTORE to confirm',
+  'bak.deleteTitle': 'Delete this backup?',
+  'bak.deleteBody': 'this file will be removed. Your data is not touched.',
+  'wiz.needTime': 'Pick the date and time to send',
+  'wiz.timeInPast': 'That time has already passed. Pick a time in the future.',
+  'wiz.scheduleIt': 'Schedule campaign',
+  'wiz.scheduledToast': 'Scheduled — {count} people',
+  'wiz.scheduleCancelled': 'Schedule removed. The campaign is a draft again.',
+  'wiz.scheduledTitle': 'Scheduled',
+  'wiz.scheduledSub': 'Nothing has been sent yet. It goes out on its own at the time you chose.',
+  'wiz.willGoAt': 'Goes out on {when}',
+  'wiz.willGoTo': 'To {count} people.',
+  'wiz.cancelSchedule': 'Cancel schedule',
+  'wiz.scheduleNote': 'You can close this page — the server sends it even if nobody is logged in. If the server is off at that moment, it goes out as soon as it starts again.',
+  'wiz.confirmSchedule': 'Schedule "{name}" for {count} people on {when}?',
+  'img.deleteTitle': 'Delete this image?',
+  'img.usedInSent': 'This image is in {count} campaign(s) that already went out. Those emails are sitting in people’s inboxes — delete it and the image breaks there too, for good.',
+  'img.usedInTemplates': 'Used in {count} template(s).',
+  'img.notUsed': 'Not used anywhere. Safe to delete.',
+  'img.deleteNote': 'The image is removed for good. Upload it again if you need it later.',
 };

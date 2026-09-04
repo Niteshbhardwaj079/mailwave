@@ -1,9 +1,10 @@
 import { Note } from '../ui/Controls';
 import { appConfig } from '../../config/appConfig';
-import { emailAccounts } from '../../data/mockData';
 import { useT } from '../../i18n/I18nProvider';
 
-export default function StepInfo({ draft, onChange }) {
+// accounts wo hain jo SACH ME jude hue hain — server se aate hain. Pehle
+// yahan ek nakli list dikhti thi, aur us email se kabhi kuch jata hi nahi.
+export default function StepInfo({ draft, onChange, accounts = [] }) {
   const t = useT();
   function handleField(event) {
     onChange({ [event.target.name]: event.target.value });
@@ -44,9 +45,10 @@ export default function StepInfo({ draft, onChange }) {
             value={draft.account}
             onChange={handleField}
           >
-            {emailAccounts.map((account) => (
+            {accounts.length === 0 ? <option value="">—</option> : null}
+            {accounts.map((account) => (
               <option key={account.id} value={account.email}>
-                {account.email} — {account.provider}
+                {account.email} — {account.providerName}
               </option>
             ))}
           </select>

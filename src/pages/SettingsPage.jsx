@@ -8,7 +8,7 @@ import { appConfig } from '../config/appConfig';
 import { THEME_MODES } from '../config/themeColors';
 import { Card, CardBody, CardFoot, CardHead } from '../components/ui/Card';
 import { Note } from '../components/ui/Controls';
-import { currentUser } from '../data/mockData';
+import { useAuth } from '../store/AuthProvider';
 import { formatNumber } from '../utils/format';
 
 const SECTIONS = [
@@ -45,6 +45,16 @@ export default function SettingsPage() {
   const { t, language, languages, setLanguage } = useI18n();
   const { mode, setMode, accent, setAccent, accents } = useTheme();
   const [section, setSection] = useState('profile');
+
+  // Jo abhi sign in hai uski apni detail. Pehle yahan ek nakli user ki detail
+  // dikhti thi — chahe koi bhi sign in ho.
+  const { user } = useAuth();
+  const currentUser = {
+    name: user?.name ?? '',
+    email: user?.email ?? '',
+    initials: user?.initials ?? '',
+    company: user?.department ?? '',
+  };
 
   function handleSection(event) {
     setSection(event.currentTarget.dataset.key);

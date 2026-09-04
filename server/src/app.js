@@ -12,7 +12,16 @@ import contactRoutes from './routes/contacts.js';
 import templateRoutes from './routes/templates.js';
 import campaignRoutes from './routes/campaigns.js';
 import trackRoutes from './routes/track.js';
+import fileRoutes from './routes/files.js';
 import accountRoutes from './routes/accounts.js';
+import userRoutes from './routes/users.js';
+import roleRoutes from './routes/roles.js';
+import statsRoutes from './routes/stats.js';
+import activityRoutes from './routes/activity.js';
+import subscriberRoutes from './routes/subscribers.js';
+import systemEmailRoutes from './routes/systemEmails.js';
+import segmentRoutes from './routes/segments.js';
+import imageRoutes from './routes/images.js';
 import backupRoutes from './routes/backup.js';
 
 export function createApp() {
@@ -70,6 +79,14 @@ export function createApp() {
   app.use('/api/templates', requireAuth, templateRoutes);
   app.use('/api/campaigns', requireAuth, campaignRoutes);
   app.use('/api/accounts', requireAuth, accountRoutes);
+  app.use('/api/users', requireAuth, userRoutes);
+  app.use('/api/roles', requireAuth, roleRoutes);
+  app.use('/api/stats', requireAuth, statsRoutes);
+  app.use('/api/activity', requireAuth, activityRoutes);
+  app.use('/api/subscribers', requireAuth, subscriberRoutes);
+  app.use('/api/system-emails', requireAuth, systemEmailRoutes);
+  app.use('/api/segments', requireAuth, segmentRoutes);
+  app.use('/api/images', requireAuth, imageRoutes);
 
   // Backup upload me poori file body me aati hai, JSON nahi — isliye express
   // ke JSON parser se pehle raw stream chahiye. Route khud stream padhta hai.
@@ -78,6 +95,11 @@ export function createApp() {
   // Tracking PUBLIC hai — ise recipient ka mail app kholta hai, isliye yahan
   // requireAuth nahi lagta. Aur /api ke bahar hai taki link chhota rahe.
   app.use('/t', trackRoutes);
+
+  // Email me lagi images. Yeh bhi PUBLIC hai — Gmail/Outlook ka server inhe
+  // kholta hai aur wo kabhi login nahi kar sakta. Yahan se sirf image jati
+  // hai, aur kuch nahi.
+  app.use('/files', fileRoutes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

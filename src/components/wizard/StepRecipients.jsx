@@ -2,7 +2,7 @@ import { Note } from '../ui/Controls';
 import SampleFileCard from '../ui/SampleFileCard';
 import StatusPill from '../ui/StatusPill';
 import { contactGroups, excelPreviewRows, importSummary, segments } from '../../data/mockData';
-import { formatNumber } from '../../utils/format';
+import { formatDate, formatNumber } from '../../utils/format';
 import { useT } from '../../i18n/I18nProvider';
 import { useWorkspace } from '../../store/WorkspaceProvider';
 
@@ -222,7 +222,7 @@ export default function StepRecipients({ draft, onChange }) {
                   <span className="d-block mw-option__title">{person.name}</span>
                   <span className="d-block mw-option__desc">{person.email}</span>
                   <span className="d-block mw-fs-11 mw-text-muted-2 mt-1">
-                    {t('rec.subscribedFrom', { campaign: person.campaign })} · {person.subscribedAt}
+                    {t('rec.subscribedFrom', { campaign: person.campaign })} · {formatDate(person.subscribedAt)}
                   </span>
                 </span>
                 {draft.subscriberIds.includes(person.id) ? (

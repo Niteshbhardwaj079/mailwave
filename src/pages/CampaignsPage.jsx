@@ -1,16 +1,18 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import PageHeader from '../components/ui/PageHeader';
 import { useDebouncedValue } from '../utils/useDebouncedValue';
-import { Card, CardFoot } from '../components/ui/Card';
+import { Card } from '../components/ui/Card';
+import Pagination from '../components/ui/Pagination';
+import PageSizePicker from '../components/ui/PageSizePicker';
 import { SearchInput } from '../components/ui/Controls';
 import FilterSelect, { FilterBar } from '../components/ui/FilterSelect';
 import { useT } from '../i18n/I18nProvider';
 import StatusPill from '../components/ui/StatusPill';
 import EmptyState from '../components/ui/EmptyState';
 import Sheet from '../components/ui/Sheet';
-import { campaigns } from '../data/mockData';
+import { useServerList } from '../api/useServerList';
 import { formatDate, formatNumber, percent } from '../utils/format';
 
 const STATUSES = ['Sent', 'Sending', 'Scheduled', 'Paused', 'Draft'];
@@ -32,37 +34,40 @@ const SORTS = [
 
 export default function CampaignsPage() {
   const t = useT();
+  const navigate = useNavigate();
+
   const [status, setStatus] = useState('All');
   const [sort, setSort] = useState('date');
   const [query, setQuery] = useState('');
-  // Box me turant, chhantai 200ms ruk kar — type karte waqt atakta nahi.
+  // Box me turant, server se 200ms ruk kar — type karte waqt atakta nahi.
   const search = useDebouncedValue(query, 200);
   const [actionsFor, setActionsFor] = useState(null);
-  const navigate = useNavigate();
 
-  const filtered = useMemo(() => {
-    const text = search.trim().toLowerCase();
-    const list = campaigns.filter((campaign) => {
-      const statusOk = status === 'All' || campaign.status === status;
-      const textOk =
-        !text || campaign.name.toLowerCase().includes(text) || campaign.sender.toLowerCase().includes(text);
-      return statusOk && textOk;
-    });
+  /**
+   * Search, filter aur sort — teenon server par lagte hain.
+   *
+   * Pehle poori list browser me aati thi aur yahin chhanti thi. Ek client ke
+   * paas hazaron campaign ho sakte hain; tab wo tarika screen ko rok deta.
+   */
+  const pager = useServerList('/api/campaigns', {
+    key: 'campaigns',
+    limit: 50,
+    params: {
+      search: search.trim(),
+      status: status === 'All' ? '' : status,
+      sort,
+    },
+  });
 
-    return [...list].sort((a, b) => {
-      if (sort === 'name') return a.name.localeCompare(b.name);
-      if (sort === 'recipients') return b.recipients - a.recipients;
-      return String(b.date).localeCompare(String(a.date));
-    });
-  }, [status, sort, search]);
+  const campaigns = pager.visible;
+
+  // Har status ke aage POORI list ki ginti — server se aati hai, kyunki screen
+  // ke paas ab sirf ek page hota hai.
+  const counts = pager.raw?.counts ?? {};
 
   const statusOptions = [
-    { value: 'All', label: t('filter.allStatuses'), count: campaigns.length },
-    ...STATUSES.map((name) => ({
-      value: name,
-      label: name,
-      count: campaigns.filter((item) => item.status === name).length,
-    })),
+    { value: 'All', label: t('filter.allStatuses'), count: counts.All ?? pager.total },
+    ...STATUSES.map((name) => ({ value: name, label: name, count: counts[name] ?? 0 })),
   ];
 
   function clearFilters() {
@@ -123,9 +128,15 @@ export default function CampaignsPage() {
             onChange={setSort}
             options={SORTS.map((item) => ({ value: item.value, label: t(item.labelKey) }))}
           />
+          <PageSizePicker value={pager.limit} onChange={pager.setLimit} />
         </FilterBar>
 
-        {filtered.length === 0 ? (
+        {pager.loading && campaigns.length === 0 ? (
+          <div className="p-5 text-center mw-text-muted">
+            <div className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" />
+            {t('common.loading')}
+          </div>
+        ) : campaigns.length === 0 ? (
           <EmptyState icon="bi-megaphone" title={t('common.noResults')} text={t('common.noResultsText')} />
         ) : (
           <>
@@ -146,11 +157,13 @@ export default function CampaignsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((campaign) => (
+                  {campaigns.map((campaign) => (
                     <tr key={campaign.id} data-id={campaign.id} onClick={openCampaign}>
                       <td>
                         <div className="mw-table__primary">{campaign.name}</div>
-                        <div className="mw-table__muted">{campaign.template} template</div>
+                        {campaign.template ? (
+                          <div className="mw-table__muted">{campaign.template}</div>
+                        ) : null}
                       </td>
                       <td className="mw-table__muted">{campaign.sender}</td>
                       <td className="mw-table__num">{formatNumber(campaign.recipients)}</td>
@@ -186,10 +199,15 @@ export default function CampaignsPage() {
             </div>
 
             <div className="mw-reclist p-3">
-              {filtered.map((campaign) => (
+              {campaigns.map((campaign) => (
                 <div key={campaign.id} className="mw-rec">
                   <div className="mw-rec__top">
-                    <button type="button" className="mw-rec__title mw-rec__titlebtn" data-id={campaign.id} onClick={openCampaign}>
+                    <button
+                      type="button"
+                      className="mw-rec__title mw-rec__titlebtn"
+                      data-id={campaign.id}
+                      onClick={openCampaign}
+                    >
                       {campaign.name}
                       <span className="d-block mw-rec__sub">{campaign.sender}</span>
                     </button>
@@ -217,7 +235,12 @@ export default function CampaignsPage() {
 
                   <div className="mw-row mw-row--between mt-3">
                     <span className="mw-fs-12 mw-text-muted">{formatDate(campaign.date)}</span>
-                    <button type="button" className="btn btn-sm btn-outline-secondary" data-id={campaign.id} onClick={openActions}>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-secondary"
+                      data-id={campaign.id}
+                      onClick={openActions}
+                    >
                       <i className="bi bi-three-dots" /> {t('common.actions')}
                     </button>
                   </div>
@@ -227,16 +250,14 @@ export default function CampaignsPage() {
           </>
         )}
 
-        <CardFoot>
-          <div className="mw-row mw-row--between mw-row--wrap">
-            <span className="mw-fs-12 mw-text-muted">
-              {t('common.showing')} {filtered.length} {t('common.of')} {campaigns.length}
-            </span>
-            <Link to="/reports" className="mw-fs-12 mw-fw-600">
-              {t('camp.exportReport')}
-            </Link>
-          </div>
-        </CardFoot>
+        <Pagination
+          page={pager.page}
+          pages={pager.pages}
+          total={pager.total}
+          limit={pager.limit}
+          onPageChange={pager.setPage}
+          onLimitChange={pager.setLimit}
+        />
       </Card>
 
       <Sheet open={Boolean(actionsFor)} title={actionsFor ? actionsFor.name : ''} onClose={closeActions}>
@@ -250,7 +271,11 @@ export default function CampaignsPage() {
               {ROW_ACTIONS.map((action) => (
                 <Link
                   key={action.key}
-                  to={action.key === 'analytics' || action.key === 'recipients' ? `/campaigns/${actionsFor.id}` : '/reports'}
+                  to={
+                    action.key === 'analytics' || action.key === 'recipients'
+                      ? `/campaigns/${actionsFor.id}`
+                      : '/reports'
+                  }
                   className="list-group-item list-group-item-action d-flex align-items-center gap-3"
                   onClick={closeActions}
                 >

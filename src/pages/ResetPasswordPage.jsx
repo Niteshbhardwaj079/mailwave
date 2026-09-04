@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { appConfig } from '../config/appConfig';
 import { useT } from '../i18n/I18nProvider';
 import { Note } from '../components/ui/Controls';
+import { ApiError, api } from '../api/client';
 import ProgressBar from '../components/ui/ProgressBar';
 
 /**
@@ -22,6 +23,7 @@ export default function ResetPasswordPage({ mode = 'reset' }) {
   const [show, setShow] = useState(false);
   const [error, setError] = useState('');
   const [done, setDone] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   const strength = useMemo(() => {
     let score = 0;
@@ -50,7 +52,7 @@ export default function ResetPasswordPage({ mode = 'reset' }) {
     setShow((current) => !current);
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
 
     if (password.length < 8) {
@@ -61,7 +63,20 @@ export default function ResetPasswordPage({ mode = 'reset' }) {
       setError(t('auth.errMatch'));
       return;
     }
-    setDone(true);
+
+    setBusy(true);
+    try {
+      // Yahi asli kaam hai. Pehle yeh page sirf "ho gaya" dikha deta tha aur
+      // password badalta hi nahi tha — email ka link bekaar ho jata tha.
+      await api.post('/api/auth/reset-password', { token, password }, { retry: false });
+      setDone(true);
+    } catch (err) {
+      // Link purana ho gaya, ya ek baar istemal ho chuka hai. Server saaf-saaf
+      // batata hai, wahi dikhate hain.
+      setError(err instanceof ApiError ? err.message : t('toast.networkError'));
+    } finally {
+      setBusy(false);
+    }
   }
 
   function goToSignIn() {
@@ -163,8 +178,12 @@ export default function ResetPasswordPage({ mode = 'reset' }) {
                   />
                 </div>
 
-                <button type="submit" className="btn btn-primary btn-lg w-100 mb-4">
-                  {mode === 'invite' ? t('auth.setPassword') : t('auth.savePassword')}
+                <button type="submit" className="btn btn-primary btn-lg w-100 mb-4" disabled={busy}>
+                  {busy
+                    ? t('common.loading')
+                    : mode === 'invite'
+                      ? t('auth.setPassword')
+                      : t('auth.savePassword')}
                 </button>
               </form>
 

@@ -13,20 +13,37 @@ import BulkBar from '../components/ui/BulkBar';
 import { useBulkSelection } from '../utils/useBulkSelection';
 import { downloadCsv, objectsToRows } from '../utils/download';
 import StatusPill from '../components/ui/StatusPill';
-import EmptyState from '../components/ui/EmptyState';
 import Sheet from '../components/ui/Sheet';
 import PerformanceChart from '../components/charts/PerformanceChart';
-import { widthClass, formatNumber, percent, percentValue } from '../utils/format';
-import {
-  campaigns,
-  getCampaignTrend,
-  getEmailLog,
-  getRecipientActivity,
-  getTopLinks,
-} from '../data/mockData';
+import { widthClass, formatDateTime, formatNumber, percent, percentValue } from '../utils/format';
+import { useApi } from '../api/useApi';
+import { api } from '../api/client';
+import EmptyState from '../components/ui/EmptyState';
 
 /** The click handler does the work; React just needs an onChange to be happy. */
 function noop() {}
+
+// Har event ka naam aur rang. Ek hi jagah rakhne se timeline aur baaki screen
+// kabhi alag nahi dikhte.
+const EVENT_LABEL = {
+  sent: 'camp.evSent',
+  open: 'camp.evOpened',
+  click: 'camp.evClicked',
+  unsubscribe: 'camp.evUnsubscribed',
+  subscribe: 'camp.evSubscribed',
+  bounce: 'camp.evBounced',
+  failed: 'camp.evFailed',
+};
+
+const EVENT_TONE = {
+  sent: 'primary',
+  open: 'info',
+  click: 'success',
+  unsubscribe: 'muted',
+  subscribe: 'success',
+  bounce: 'warning',
+  failed: 'danger',
+};
 
 export default function CampaignAnalyticsPage() {
   const t = useT();
@@ -40,16 +57,30 @@ export default function CampaignAnalyticsPage() {
   // Box me turant, chhantai 200ms ruk kar — type karte waqt atakta nahi.
   const search = useDebouncedValue(query, 200);
   const [logFor, setLogFor] = useState(null);
+  const [logEvents, setLogEvents] = useState([]);
   const [bulkDone, setBulkDone] = useState('');
 
-  const campaign = useMemo(
-    () => campaigns.find((item) => item.id === campaignId) || campaigns[0],
-    [campaignId]
-  );
+  // Is page ka saara data ISI campaign ka hai — koi saanjhi list nahi.
+  const campaignCall = useApi(`/api/campaigns/${campaignId}`, { deps: [campaignId] });
+  const recipientsCall = useApi(`/api/campaigns/${campaignId}/recipients?limit=500`, {
+    deps: [campaignId],
+  });
+  const trendCall = useApi(`/api/campaigns/${campaignId}/trend`, { deps: [campaignId] });
+  const linksCall = useApi(`/api/campaigns/${campaignId}/links`, { deps: [campaignId] });
 
-  // Every panel below belongs to THIS campaign — nothing is a shared global list.
-  const rows = useMemo(() => getRecipientActivity(campaign), [campaign]);
-  const trend = useMemo(() => getCampaignTrend(campaign), [campaign]);
+  const campaign = campaignCall.data?.campaign ?? null;
+  const rows = useMemo(() => recipientsCall.data?.recipients ?? [], [recipientsCall.data]);
+
+  // Graph ke X-axis par chhoti date chahiye ("26 Aug"). Server asli date
+  // bhejta hai; padhne layak banana screen ka kaam hai.
+  const trend = useMemo(
+    () =>
+      (trendCall.data?.trend ?? []).map((point) => ({
+        ...point,
+        label: new Date(point.date).toLocaleDateString(undefined, { day: '2-digit', month: 'short' }),
+      })),
+    [trendCall.data]
+  );
 
   const filtered = useMemo(() => {
     const text = search.trim().toLowerCase();
@@ -126,12 +157,27 @@ export default function CampaignAnalyticsPage() {
     bulkRecipientAction('export', bulk.selectedIds, campaign.name);
   }
 
-  function openLog(event) {
-    setLogFor(rows.find((row) => row.id === event.currentTarget.dataset.id) || null);
+  async function openLog(event) {
+    const row = rows.find((item) => item.id === event.currentTarget.dataset.id) || null;
+    setLogFor(row);
+    setLogEvents([]);
+    if (!row) return;
+
+    // Poora hisaab: kab bheja, kab khola, kab click kiya. Yeh sabse kaam ka
+    // tab hota hai jab koi kahe "mujhe mail mila hi nahi".
+    try {
+      const data = await api.get(`/api/campaigns/${campaignId}/recipients/${row.id}/events`);
+      setLogEvents(data.events ?? []);
+    } catch (error) {
+      // Log na aaye to sheet phir bhi khulti hai — upar wali detail dikh jati
+      // hai. Iske liye poora page rokna galat hoga.
+      setLogEvents([]);
+    }
   }
 
   function closeLog() {
     setLogFor(null);
+    setLogEvents([]);
   }
 
   const statusOptions = [
@@ -167,6 +213,23 @@ export default function CampaignAnalyticsPage() {
     setQuery('');
   }
 
+  // Data abhi aaya nahi (ya campaign hai hi nahi) — neeche ka poora page
+  // isi par tika hai, isliye yahin ruk jate hain.
+  if (!campaign) {
+    return (
+      <div className="mw-stack">
+        {campaignCall.loading ? (
+          <div className="p-5 text-center mw-text-muted">
+            <div className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" />
+            {t('common.loading')}
+          </div>
+        ) : (
+          <EmptyState icon="bi-megaphone" title={t('common.noResults')} text={t('common.noResultsText')} />
+        )}
+      </div>
+    );
+  }
+
   const kpis = [
     { id: 'sent', label: t('kpi.sent'), value: campaign.sent, icon: 'bi-send', tone: 'primary' },
     { id: 'delivered', label: t('kpi.delivered'), value: campaign.delivered, icon: 'bi-check2-circle', tone: 'success' },
@@ -189,8 +252,8 @@ export default function CampaignAnalyticsPage() {
   // results half of this page must stay quiet instead of showing borrowed data.
   const hasResults = campaign.sent > 0;
 
-  // Built from this campaign, not a fixed list — see getTopLinks() in mockData.js.
-  const topLinks = getTopLinks(campaign);
+  // Asli click ginti — campaign_links table se, kisi andaze se nahi.
+  const topLinks = linksCall.data?.links ?? [];
   const maxClicks = Math.max(1, ...topLinks.map((link) => link.clicks));
 
   return (
@@ -576,13 +639,22 @@ export default function CampaignAnalyticsPage() {
             </div>
 
             <ul className="mw-timeline">
-              {getEmailLog(campaign, logFor).map((event) => (
-                <li key={event.id} className="mw-timeline__item">
-                  <span className={`mw-timeline__dot mw-timeline__dot--${event.tone}`} aria-hidden="true" />
-                  <span className="d-block mw-timeline__time">{event.time}</span>
-                  <span className="d-block mw-timeline__text">{event.text}</span>
+              {logEvents.map((event, index) => (
+                <li key={`${event.kind}-${event.at}-${index}`} className="mw-timeline__item">
+                  <span
+                    className={`mw-timeline__dot mw-timeline__dot--${EVENT_TONE[event.kind] ?? 'primary'}`}
+                    aria-hidden="true"
+                  />
+                  <span className="d-block mw-timeline__time">{formatDateTime(event.at)}</span>
+                  <span className="d-block mw-timeline__text">
+                    {t(EVENT_LABEL[event.kind] ?? 'common.actions')}
+                    {event.detail ? <span className="d-block mw-text-muted mw-fs-12">{event.detail}</span> : null}
+                  </span>
                 </li>
               ))}
+              {logEvents.length === 0 ? (
+                <li className="mw-timeline__item mw-text-muted mw-fs-13">{t('camp.noEvents')}</li>
+              ) : null}
             </ul>
 
             <hr className="my-4" />

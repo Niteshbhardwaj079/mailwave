@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import PageHeader from '../components/ui/PageHeader';
 import { Card, CardBody, CardHead } from '../components/ui/Card';
-import Pagination, { usePagination } from '../components/ui/Pagination';
+import Pagination from '../components/ui/Pagination';
 import PageSizePicker from '../components/ui/PageSizePicker';
 import { Note, SearchInput } from '../components/ui/Controls';
 import FilterSelect, { FilterBar } from '../components/ui/FilterSelect';
@@ -16,83 +16,191 @@ import SampleFileCard from '../components/ui/SampleFileCard';
 import StatusPill from '../components/ui/StatusPill';
 import EmptyState from '../components/ui/EmptyState';
 import Sheet from '../components/ui/Sheet';
-import { contactGroups, contacts } from '../data/mockData';
+import { ApiError, api, qs } from '../api/client';
+import { useServerList } from '../api/useServerList';
+import { useApi } from '../api/useApi';
+import { useToast } from '../components/ui/ToastProvider';
 import { formatDate, formatNumber, initialsOf } from '../utils/format';
 
 function noop() {}
 
+const EMPTY_CONTACT = {
+  name: '',
+  email: '',
+  phone: '',
+  company: '',
+  groupId: '',
+  consentSource: 'website',
+};
+
 export default function ContactsPage() {
   const t = useT();
-  const [removedIds, setRemovedIds] = useState([]);
-  const [bulkDone, setBulkDone] = useState('');
+  const toast = useToast();
+
   const [status, setStatus] = useState('All');
   const [group, setGroup] = useState('All');
   const [tag, setTag] = useState('All');
   const [query, setQuery] = useState('');
-  // Box me turant dikhta hai, par chhantai 200ms ruk kar — bade data par type
-  // karte waqt screen atakti nahi.
+  // Box me turant dikhta hai, par server ko 200ms ruk kar poochte hain — har
+  // akshar par ek request bhejna server aur internet dono par bhaari padta hai.
   const search = useDebouncedValue(query, 200);
+
   const [addOpen, setAddOpen] = useState(false);
+  const [draft, setDraft] = useState(EMPTY_CONTACT);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState('');
 
-  const allTags = useMemo(() => {
-    const set = new Set();
-    contacts.forEach((contact) => contact.tags.forEach((item) => set.add(item)));
-    return Array.from(set);
-  }, []);
+  // Groups aur tags — filter ke dropdown aur upar wale KPI card ke liye.
+  const groupsCall = useApi('/api/contacts/groups/all');
+  const tagsCall = useApi('/api/contacts/tags/all');
+  const suppressionCall = useApi('/api/contacts/suppression/all');
 
-  const filtered = useMemo(() => {
-    const text = search.trim().toLowerCase();
-    return contacts.filter((contact) => {
-      if (removedIds.includes(contact.id)) return false;
-      const statusOk = status === 'All' || contact.status === status;
-      const groupOk = group === 'All' || contact.group === group;
-      const tagOk = tag === 'All' || contact.tags.includes(tag);
-      const textOk =
-        !text ||
-        contact.name.toLowerCase().includes(text) ||
-        contact.email.toLowerCase().includes(text) ||
-        contact.company.toLowerCase().includes(text);
-      return statusOk && groupOk && tagOk && textOk;
-    });
-  }, [status, group, tag, search, removedIds]);
+  const groups = useMemo(() => groupsCall.data?.groups ?? [], [groupsCall.data]);
+  const allTags = tagsCall.data?.tags ?? [];
 
-  // Ek page jitni hi rows dikhti hain. 10,000 contacts ek saath render karna
-  // browser ko hang kar deta hai.
-  const pager = usePagination(filtered, 50);
+  // Screen par group ka NAAM dikhta hai, par server ko uski id chahiye.
+  const groupId = useMemo(
+    () => (group === 'All' ? '' : (groups.find((item) => item.name === group)?.id ?? '')),
+    [group, groups]
+  );
 
-  // Tick-box sirf DIKH RAHI rows par lagta hai — warna "sab chuno" dabane par
-  // wo log bhi chun liye jate jo screen par hain hi nahi.
-  // Do list deni padti hain: is page ki rows, aur filter se match hone wali
-  // SAARI rows. Header ka tick-box page chunta hai; "Select all" poori list.
-  const pageIds = useMemo(() => pager.visible.map((item) => item.id), [pager.visible]);
-  const allIds = useMemo(() => filtered.map((item) => item.id), [filtered]);
-  const bulk = useBulkSelection(pageIds, allIds);
-  const selectedRows = useMemo(() => filtered.filter((item) => bulk.isSelected(item.id)), [filtered, bulk]);
+  /**
+   * Rows ab server se aati hain — sirf ek page jitni.
+   *
+   * Pehle poori list browser me aati thi aur chhantai yahin hoti thi. 200
+   * contacts par theek tha, 50,000 par browser hang ho jata. Ab search aur
+   * filter dono server par lagte hain, isliye list kitni bhi badi ho — screen
+   * utni hi tez rehti hai.
+   */
+  const pager = useServerList('/api/contacts', {
+    key: 'contacts',
+    limit: 50,
+    params: {
+      search: search.trim(),
+      status: status === 'All' ? '' : status,
+      groupId,
+      tag: tag === 'All' ? '' : tag,
+    },
+  });
+
+  const contacts = pager.visible;
+
+  // --- chunna (tick-box) ----------------------------------------------------
+  /**
+   * "Select all" ke liye server se saare id mangwate hain.
+   *
+   * Screen par sirf 50 rows hoti hain, isliye baaki 12,430 ke id browser ke
+   * paas hote hi nahi. Bina iske "Select all 12,480" dabane par sirf dikhne
+   * wali 50 chunti — aur user ko lagta ki 12,480 chun li hain. Delete ya send
+   * jaise kaam me yeh galti bahut mehngi padti.
+   */
+  const [allIds, setAllIds] = useState([]);
+
+  const pageIds = useMemo(() => contacts.map((item) => item.id), [contacts]);
+
+  // Filter badalte hi purane id bekaar ho jate hain — turant bhool jao.
+  const filterKey = `${search}|${status}|${groupId}|${tag}`;
+  useEffect(() => {
+    setAllIds([]);
+  }, [filterKey]);
+
+  const bulk = useBulkSelection(pageIds, allIds.length ? allIds : pageIds);
+
+  const fetchAllIds = useCallback(async () => {
+    try {
+      const data = await api.get(
+        `/api/contacts/ids${qs({
+          search: search.trim(),
+          status: status === 'All' ? '' : status,
+          groupId,
+          tag: tag === 'All' ? '' : tag,
+        })}`
+      );
+
+      if (data.capped) {
+        toast.warning(t('con.selectAllCapped', { max: formatNumber(data.max) }));
+      }
+
+      setAllIds(data.ids ?? []);
+      return data.ids ?? [];
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : t('toast.networkError'));
+      return [];
+    }
+  }, [search, status, groupId, tag, toast, t]);
+
+  async function handleSelectAll() {
+    const ids = allIds.length ? allIds : await fetchAllIds();
+    bulk.selectExactly(ids);
+  }
 
   function handleRowCheck(event) {
     bulk.toggleOne(event.currentTarget.dataset.id);
   }
 
-  function handleBulkExport() {
-    downloadCsv(
-      'contacts-selected.csv',
-      objectsToRows(selectedRows, [
-        { key: 'name', label: 'Name' },
-        { key: 'email', label: 'Email' },
-        { key: 'phone', label: 'Phone' },
-        { key: 'company', label: 'Company' },
-        { key: 'group', label: 'Group' },
-        { key: 'status', label: 'Status' },
-      ])
-    );
+  // --- bulk kaam ------------------------------------------------------------
+  /**
+   * Export me poori rows chahiye, sirf id se kaam nahi chalta.
+   *
+   * Chune hue log alag-alag page par ho sakte hain, isliye server se dobara
+   * mangwate hain — screen par jo 50 dikh rahi hain unse export banana adhoora
+   * hota.
+   */
+  async function handleBulkExport() {
+    const ids = bulk.selectedIds;
+    if (ids.length === 0) return;
+
+    try {
+      const data = await api.post('/api/contacts/export', { ids });
+
+      downloadCsv(
+        'contacts-selected.csv',
+        objectsToRows(data.contacts ?? [], [
+          { key: 'name', label: 'Name' },
+          { key: 'email', label: 'Email' },
+          { key: 'phone', label: 'Phone' },
+          { key: 'company', label: 'Company' },
+          { key: 'group', label: 'Group' },
+          { key: 'status', label: 'Status' },
+        ])
+      );
+
+      toast.success(t('bulk.doneExport', { count: ids.length }));
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : t('toast.networkError'));
+    }
   }
 
-  function handleBulkDelete() {
-    setRemovedIds((current) => [...current, ...bulk.selectedIds]);
-    setBulkDone(t('bulk.doneDelete', { count: bulk.selectedIds.length }));
-    bulk.clear();
+  async function handleBulkDelete() {
+    const ids = bulk.selectedIds;
+    if (ids.length === 0) return;
+
+    try {
+      await api.post('/api/contacts/bulk-delete', { ids });
+      bulk.clear();
+      setAllIds([]);
+      pager.reload();
+      groupsCall.reload();
+      toast.success(t('bulk.doneDelete', { count: ids.length }));
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : t('toast.networkError'));
+    }
   }
 
+  async function handleDeleteOne(event) {
+    const { id, name } = event.currentTarget.dataset;
+
+    try {
+      await api.delete(`/api/contacts/${id}`);
+      pager.reload();
+      groupsCall.reload();
+      toast.success(t('toast.contactDeleted'), name);
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : t('toast.networkError'));
+    }
+  }
+
+  // --- quick filters --------------------------------------------------------
   function quickBounced() {
     setStatus('Bounced');
     bulk.clear();
@@ -110,13 +218,57 @@ export default function ContactsPage() {
     setQuery('');
   }
 
+  // --- naya contact ---------------------------------------------------------
   function openAdd() {
+    setDraft({ ...EMPTY_CONTACT, groupId: groups[0]?.id ?? '' });
+    setFormError('');
     setAddOpen(true);
   }
 
   function closeAdd() {
     setAddOpen(false);
   }
+
+  function handleDraftField(event) {
+    const { name, value } = event.target;
+    setDraft((current) => ({ ...current, [name]: value }));
+    setFormError('');
+  }
+
+  async function submitContact() {
+    if (!draft.email.trim()) {
+      setFormError(t('con.emailNeeded'));
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await api.post('/api/contacts', {
+        name: draft.name.trim() || null,
+        email: draft.email.trim(),
+        phone: draft.phone.trim() || null,
+        company: draft.company.trim() || null,
+        groupId: draft.groupId || null,
+        consentSource: draft.consentSource,
+        tags: [],
+      });
+
+      setAddOpen(false);
+      pager.reload();
+      groupsCall.reload();
+      toast.success(t('toast.contactAdded'), draft.email);
+    } catch (error) {
+      // Wahi email pehle se hai — yeh sabse aam galti hai, isliye saaf message
+      // form me hi dikhate hain, toast me nahi jo ud jata hai.
+      setFormError(error instanceof ApiError ? error.message : t('toast.networkError'));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const suppression = suppressionCall.data?.suppression ?? [];
+  const unsubscribed = suppression.filter((item) => item.reason === 'unsubscribed').length;
+  const bounced = suppression.filter((item) => item.reason === 'bounced').length;
 
   return (
     <div className="mw-stack">
@@ -139,14 +291,14 @@ export default function ContactsPage() {
       />
 
       <div className="mw-kpi-grid">
-        {contactGroups.map((group) => (
-          <article key={group.id} className="mw-kpi">
-            <span className={`mw-kpi__icon mw-kpi__icon--${group.tone}`} aria-hidden="true">
+        {groups.map((item) => (
+          <article key={item.id} className="mw-kpi">
+            <span className={`mw-kpi__icon mw-kpi__icon--${item.tone}`} aria-hidden="true">
               <i className="bi bi-collection" />
             </span>
             <div className="mw-kpi__body">
-              <p className="mw-kpi__label">{group.name}</p>
-              <div className="mw-kpi__value">{formatNumber(group.count)}</div>
+              <p className="mw-kpi__label">{item.name}</p>
+              <div className="mw-kpi__value">{formatNumber(item.count)}</div>
             </div>
           </article>
         ))}
@@ -166,20 +318,11 @@ export default function ContactsPage() {
           <span className="mw-fs-12 mw-text-muted">{t('bulk.quickCleanHint')}</span>
         </div>
 
-        {bulkDone ? (
-          <div className="mw-toolbar">
-            <span className="mw-note mw-note--success w-100">
-              <i className="bi bi-check-circle mw-note__icon" aria-hidden="true" />
-              <span>{bulkDone}</span>
-            </span>
-          </div>
-        ) : null}
-
         <BulkBar
           count={bulk.count}
-          total={bulk.total}
+          total={pager.total}
           pageCount={pageIds.length}
-          onSelectAll={bulk.selectAll}
+          onSelectAll={handleSelectAll}
           onClear={bulk.clear}
           actions={
             <>
@@ -220,7 +363,7 @@ export default function ContactsPage() {
             onChange={setGroup}
             options={[
               { value: 'All', label: t('filter.allGroups') },
-              ...contactGroups.map((item) => ({ value: item.name, label: item.name })),
+              ...groups.map((item) => ({ value: item.name, label: item.name })),
             ]}
           />
           <FilterSelect
@@ -236,7 +379,12 @@ export default function ContactsPage() {
           <PageSizePicker value={pager.limit} onChange={pager.setLimit} />
         </FilterBar>
 
-        {filtered.length === 0 ? (
+        {pager.loading && contacts.length === 0 ? (
+          <div className="p-5 text-center mw-text-muted">
+            <div className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" />
+            {t('common.loading')}
+          </div>
+        ) : contacts.length === 0 ? (
           <EmptyState
             icon="bi-people"
             title={t('common.noResults')}
@@ -273,7 +421,7 @@ export default function ContactsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {pager.visible.map((contact) => (
+                  {contacts.map((contact) => (
                     <tr key={contact.id}>
                       <td className="mw-table__check">
                         <input
@@ -298,9 +446,9 @@ export default function ContactsPage() {
                       <td className="mw-table__muted">{contact.group}</td>
                       <td>
                         <span className="mw-row mw-row--wrap">
-                          {contact.tags.map((tag) => (
-                            <span key={tag} className="mw-status mw-status--primary">
-                              {tag}
+                          {contact.tags.map((item) => (
+                            <span key={item} className="mw-status mw-status--primary">
+                              {item}
                             </span>
                           ))}
                         </span>
@@ -310,10 +458,14 @@ export default function ContactsPage() {
                       </td>
                       <td className="mw-table__muted mw-nowrap">{formatDate(contact.addedOn)}</td>
                       <td className="text-end mw-nowrap">
-                        <button type="button" className="mw-iconbtn" aria-label={`Edit ${contact.name}`}>
-                          <i className="bi bi-pencil" />
-                        </button>
-                        <button type="button" className="mw-iconbtn" aria-label={`Delete ${contact.name}`}>
+                        <button
+                          type="button"
+                          className="mw-iconbtn"
+                          data-id={contact.id}
+                          data-name={contact.name}
+                          onClick={handleDeleteOne}
+                          aria-label={`${t('common.delete')} ${contact.name}`}
+                        >
                           <i className="bi bi-trash3" />
                         </button>
                       </td>
@@ -324,7 +476,7 @@ export default function ContactsPage() {
             </div>
 
             <div className="mw-reclist p-3">
-              {pager.visible.map((contact) => (
+              {contacts.map((contact) => (
                 <div key={contact.id} className={`mw-rec ${bulk.isSelected(contact.id) ? 'is-selected' : ''}`.trim()}>
                   <div className="mw-rec__top">
                     <input
@@ -348,9 +500,9 @@ export default function ContactsPage() {
                     <span>{contact.phone}</span>
                   </div>
                   <div className="mw-row mw-row--wrap mt-2">
-                    {contact.tags.map((tag) => (
-                      <span key={tag} className="mw-status mw-status--primary">
-                        {tag}
+                    {contact.tags.map((item) => (
+                      <span key={item} className="mw-status mw-status--primary">
+                        {item}
                       </span>
                     ))}
                   </div>
@@ -381,7 +533,10 @@ export default function ContactsPage() {
         <CardHead title={t('con.suppressionTitle')} subtitle={t('con.suppressionSub')} />
         <CardBody>
           <Note tone="success" icon="bi-shield-check">
-            {t('con.suppressionNote', { unsubscribed: formatNumber(2), bounced: formatNumber(1) })}
+            {t('con.suppressionNote', {
+              unsubscribed: formatNumber(unsubscribed),
+              bounced: formatNumber(bounced),
+            })}
           </Note>
         </CardBody>
       </Card>
@@ -395,35 +550,85 @@ export default function ContactsPage() {
             <button type="button" className="btn btn-outline-secondary flex-fill" onClick={closeAdd}>
               {t('common.cancel')}
             </button>
-            <button type="button" className="btn btn-primary flex-fill" onClick={closeAdd}>
-              {t('con.saveContact')}
+            <button
+              type="button"
+              className="btn btn-primary flex-fill"
+              onClick={submitContact}
+              disabled={saving}
+            >
+              {saving ? t('common.loading') : t('con.saveContact')}
             </button>
           </>
         }
       >
+        {formError ? (
+          <div className="mw-note mw-note--warning mb-3" role="alert">
+            <i className="bi bi-exclamation-triangle mw-note__icon" aria-hidden="true" />
+            <div>{formError}</div>
+          </div>
+        ) : null}
+
         <div className="row g-3">
           <div className="col-12 col-md-6">
             <label className="form-label" htmlFor="new-name">{t('common.name')}</label>
-            <input id="new-name" type="text" className="form-control" placeholder="Rahul Verma" />
+            <input
+              id="new-name"
+              name="name"
+              type="text"
+              className="form-control"
+              placeholder="Rahul Verma"
+              value={draft.name}
+              onChange={handleDraftField}
+            />
           </div>
           <div className="col-12 col-md-6">
             <label className="form-label" htmlFor="new-email">{t('common.email')}</label>
-            <input id="new-email" type="email" className="form-control" placeholder="rahul@example.com" />
+            <input
+              id="new-email"
+              name="email"
+              type="email"
+              className="form-control"
+              placeholder="rahul@example.com"
+              value={draft.email}
+              onChange={handleDraftField}
+            />
           </div>
           <div className="col-12 col-md-6">
             <label className="form-label" htmlFor="new-phone">{t('common.phone')}</label>
-            <input id="new-phone" type="tel" className="form-control" placeholder="+91 98200 11223" />
+            <input
+              id="new-phone"
+              name="phone"
+              type="tel"
+              className="form-control"
+              placeholder="+91 98200 11223"
+              value={draft.phone}
+              onChange={handleDraftField}
+            />
           </div>
           <div className="col-12 col-md-6">
             <label className="form-label" htmlFor="new-company">{t('common.company')}</label>
-            <input id="new-company" type="text" className="form-control" placeholder="Verma Traders" />
+            <input
+              id="new-company"
+              name="company"
+              type="text"
+              className="form-control"
+              placeholder="Verma Traders"
+              value={draft.company}
+              onChange={handleDraftField}
+            />
           </div>
           <div className="col-12">
             <label className="form-label" htmlFor="new-group">{t('con.group')}</label>
-            <select id="new-group" className="form-select" defaultValue="Website Leads">
-              {contactGroups.map((group) => (
-                <option key={group.id} value={group.name}>
-                  {group.name}
+            <select
+              id="new-group"
+              name="groupId"
+              className="form-select"
+              value={draft.groupId}
+              onChange={handleDraftField}
+            >
+              {groups.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
                 </option>
               ))}
             </select>
@@ -431,7 +636,13 @@ export default function ContactsPage() {
           <div className="col-12">
             <label className="form-label" htmlFor="new-consent">{t('con.consentLabel')}</label>
             {/* Stable values, translated labels — so the default stays selected in every language. */}
-            <select id="new-consent" className="form-select" defaultValue="website">
+            <select
+              id="new-consent"
+              name="consentSource"
+              className="form-select"
+              value={draft.consentSource}
+              onChange={handleDraftField}
+            >
               <option value="website">{t('con.consent.website')}</option>
               <option value="purchase">{t('con.consent.purchase')}</option>
               <option value="event">{t('con.consent.event')}</option>

@@ -47,6 +47,41 @@ export function getAccessToken() {
 // intezaar karti hain, warna 10 request = 10 refresh call.
 let refreshing = null;
 
+/**
+ * Naya access token maangta hai — refresh token wali cookie se.
+ *
+ * YEH FUNCTION HAR JAGAH SE ISTEMAL HONA CHAHIYE. Seedha
+ * `/api/auth/refresh` mat call karo.
+ *
+ * Wajah: har refresh par server purana refresh token radd karke naya deta hai
+ * (isse chori hua token kaam nahi aata). Agar do refresh call ek saath chali
+ * jayein, to pehli jeet jayegi aur doosri ke paas ab-bekar purana token hoga —
+ * server use "chori" samajh kar session hi kaat dega. User bina wajah bahar.
+ *
+ * Isliye ek hi promise sab me baanta jata hai: chahe 10 request ek saath 401
+ * hon ya app khulte hi session check chale, refresh call sirf EK jaati hai.
+ */
+export function refreshSession() {
+  return refreshAccessToken();
+}
+
+/**
+ * Pichhli refresh koshish me kya hua.
+ *
+ * Do haalat me farq karna bahut zaroori hai:
+ *   401 — session sach me khatam hai. Ab login dikhana sahi hai.
+ *   baaki — server vyast hai (429), internet gaya, ya server band hai. Yeh
+ *           thodi der ki baat hai; iske liye user ko bahar karna galat hai.
+ *
+ * Pehle dono ek jaise the, isliye ek chhoti si dikkat par bhi user login
+ * screen par pahunch jata tha aur uska kaam beech me chhoot jata.
+ */
+let lastRefreshStatus = 0;
+
+export function lastRefreshWasExpired() {
+  return lastRefreshStatus === 401;
+}
+
 async function refreshAccessToken() {
   if (!refreshing) {
     refreshing = fetch(`${BASE}/api/auth/refresh`, {
@@ -54,12 +89,17 @@ async function refreshAccessToken() {
       credentials: 'include', // refresh token cookie me hai
     })
       .then(async (response) => {
+        lastRefreshStatus = response.status;
         if (!response.ok) return null;
         const data = await response.json();
         accessToken = data.accessToken ?? null;
         return data;
       })
-      .catch(() => null)
+      .catch(() => {
+        // Internet hi nahi pahuncha — yeh "session khatam" nahi hai.
+        lastRefreshStatus = 0;
+        return null;
+      })
       .finally(() => {
         refreshing = null;
       });

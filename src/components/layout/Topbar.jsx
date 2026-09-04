@@ -12,12 +12,14 @@ import { roleLabel } from '../../utils/roles';
 
 export default function Topbar({ title, onOpenMenu }) {
   const t = useT();
-  const { roles, viewAs, setViewAs, users } = useWorkspace();
-  const { signOut } = useAuth();
+  const { roles, viewAs, setViewAs } = useWorkspace();
+  const { user, signOut } = useAuth();
   const [query, setQuery] = useState('');
   const [openPanel, setOpenPanel] = useState(null);
 
-  const me = users[0];
+  // Jo abhi sign in hai wahi. Pehle yahan list ka pehla user dikhta tha —
+  // yaani doosre logon ko upar kisi aur ka naam dikhta tha.
+  const me = user;
   const currentRoleLabel = roleLabel(roles.find((role) => role.key === viewAs), t);
 
   function toggleNotifications() {
@@ -113,9 +115,9 @@ export default function Topbar({ title, onOpenMenu }) {
             aria-label={t('topbar.profile')}
             aria-expanded={openPanel === 'profile'}
           >
-            <span className="mw-avatar">{me.initials}</span>
+            <span className="mw-avatar">{me?.initials}</span>
             <span className="text-start mw-hide-mobile">
-              <span className="d-block mw-profile__name">{me.name}</span>
+              <span className="d-block mw-profile__name">{me?.name}</span>
               <span className="d-block mw-profile__role">{currentRoleLabel}</span>
             </span>
             <i className="bi bi-chevron-down mw-fs-11 mw-text-muted mw-hide-mobile" />
@@ -124,8 +126,8 @@ export default function Topbar({ title, onOpenMenu }) {
           {openPanel === 'profile' ? (
             <div className="dropdown-menu dropdown-menu-end show shadow border-0 mt-2">
               <div className="px-3 py-2 border-bottom mb-2">
-                <span className="d-block mw-fs-13 mw-fw-700">{me.name}</span>
-                <span className="d-block mw-fs-12 mw-text-muted">{me.email}</span>
+                <span className="d-block mw-fs-13 mw-fw-700">{me?.name}</span>
+                <span className="d-block mw-fs-12 mw-text-muted">{me?.email}</span>
               </div>
 
               <div className="px-3 pb-2">

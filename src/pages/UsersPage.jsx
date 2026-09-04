@@ -14,7 +14,7 @@ import { useT } from '../i18n/I18nProvider';
 import { useWorkspace } from '../store/WorkspaceProvider';
 import { PERMISSION_ACTIONS, PERMISSION_MODULES, ROLE_ICONS, ROLE_TONES } from '../data/adminData';
 import { roleDesc, roleLabel } from '../utils/roles';
-import { initialsOf } from '../utils/format';
+import { formatDateTime, initialsOf } from '../utils/format';
 
 const EMPTY_USER = { name: '', email: '', role: '', department: '', status: 'Invited' };
 const EMPTY_ROLE = { name: '', description: '', tone: 'primary', icon: 'bi-person', copyFrom: '' };
@@ -43,7 +43,13 @@ export default function UsersPage() {
   const search = useDebouncedValue(query, 200);
   const [roleFilter, setRoleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [selectedRole, setSelectedRole] = useState(roles[1]?.key || roles[0].key);
+  // Roles server se aate hain, isliye pehle render par list khali hoti hai.
+  // useState ka pehla value sirf ek baar chalta hai — isliye chuna hua role
+  // yahan har render par nikalte hain. Jaise hi roles aate hain, apne aap ek
+  // sahi role chun liya jata hai.
+  const [pickedRole, setPickedRole] = useState('');
+  const selectedRole = pickedRole || roles[1]?.key || roles[0]?.key || '';
+  const setSelectedRole = setPickedRole;
   const [editingUser, setEditingUser] = useState(null);
   const [editingRole, setEditingRole] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -142,15 +148,21 @@ export default function UsersPage() {
       setPasswordError(t('auth.errMatch'));
       return;
     }
-    setUserPassword(passwordFor.id, { notify: notifyUser });
-    setPasswordDone(notifyUser ? t('users.pwdDoneEmail') : t('users.pwdDone'));
-    setNewPassword('');
-    setConfirmPassword('');
+    // Password asli me server par set hota hai. "Ho gaya" tabhi likhte hain
+    // jab server haan bole — warna message dikhta rehta aur password badalta
+    // hi nahi.
+    setUserPassword(passwordFor.id, { password: newPassword, notify: notifyUser }).then((ok) => {
+      if (!ok) return;
+      setPasswordDone(notifyUser ? t('users.pwdDoneEmail') : t('users.pwdDone'));
+      setNewPassword('');
+      setConfirmPassword('');
+    });
   }
 
   function sendResetLink() {
-    sendPasswordResetLink(passwordFor.id);
-    setPasswordDone(t('users.pwdLinkSent'));
+    sendPasswordResetLink(passwordFor.id).then((ok) => {
+      if (ok) setPasswordDone(t('users.pwdLinkSent'));
+    });
   }
 
   // --- roles ---------------------------------------------------------------
@@ -195,8 +207,11 @@ export default function UsersPage() {
     if (editingRole.key) {
       updateRole(editingRole.key, editingRole);
     } else {
-      const created = createRole(editingRole);
-      setSelectedRole(created.key);
+      // createRole ab server par jata hai, isliye key aane ka intezaar karte
+      // hain. Bina intezaar ke setSelectedRole(undefined) chala jata tha.
+      createRole(editingRole).then((created) => {
+        if (created) setSelectedRole(created.key);
+      });
     }
     setEditingRole(null);
   }
@@ -226,7 +241,7 @@ export default function UsersPage() {
       return;
     }
 
-    if (selectedRole === deleteTarget.key) setSelectedRole(roles[0].key);
+    if (selectedRole === deleteTarget.key) setSelectedRole(roles[0]?.key ?? '');
     setDeleteTarget(null);
     setDeleteBlocked(null);
   }
@@ -243,8 +258,9 @@ export default function UsersPage() {
   function handleSelectAllRow(event) {
     const { module } = event.currentTarget.dataset;
     const definition = PERMISSION_MODULES.find((item) => item.key === module);
-    const role = roles.find((item) => item.key === selectedRole);
-    const current = role.permissions[module] || [];
+    const found = roles.find((item) => item.key === selectedRole);
+    if (!found) return;
+    const current = found.permissions?.[module] || [];
     const allOn = definition.actions.every((action) => current.includes(action));
     setModulePermissions(selectedRole, module, allOn ? [] : [...definition.actions]);
   }
@@ -255,8 +271,8 @@ export default function UsersPage() {
     setStatusFilter('all');
   }
 
-  const role = roles.find((item) => item.key === selectedRole) || roles[0];
-  const roleIsEmpty = PERMISSION_MODULES.every((module) => (role.permissions[module.key] || []).length === 0);
+  const role = roles.find((item) => item.key === selectedRole) || roles[0] || null;
+  const roleIsEmpty = PERMISSION_MODULES.every((module) => (role?.permissions?.[module.key] || []).length === 0);
 
   return (
     <div className="mw-stack">
@@ -363,7 +379,7 @@ export default function UsersPage() {
                             tone={user.status === 'Active' ? 'success' : user.status === 'Invited' ? 'warning' : 'muted'}
                           />
                         </td>
-                        <td className="mw-table__muted mw-nowrap">{user.lastActive}</td>
+                        <td className="mw-table__muted mw-nowrap">{formatDateTime(user.lastActive)}</td>
                         <td className="text-end mw-nowrap">
                           <button
                             type="button"
@@ -583,7 +599,7 @@ export default function UsersPage() {
                 </thead>
                 <tbody>
                   {PERMISSION_MODULES.map((module) => {
-                    const allowed = role.permissions[module.key] || [];
+                    const allowed = role?.permissions?.[module.key] || [];
                     const allOn = module.actions.every((action) => allowed.includes(action));
 
                     return (

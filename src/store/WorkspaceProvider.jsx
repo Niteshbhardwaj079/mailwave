@@ -1,118 +1,35 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
-import { PERMISSION_MODULES, ROLES, activityLog, teamUsers } from '../data/adminData';
-import { starterTemplates } from '../data/starterHtml';
-import { systemEmailTemplates } from '../data/systemEmails';
-import { subscribers as seedSubscribers } from '../data/mockData';
-import { newId } from '../utils/ids';
+import { ApiError, api } from '../api/client';
+import { useAuth } from './AuthProvider';
 import { useToast } from '../components/ui/ToastProvider';
 import { useT } from '../i18n/I18nProvider';
 
-const KEYS = {
-  version: 'mailwave.schemaVersion',
-  templates: 'mailwave.templates',
-  images: 'mailwave.images',
-  roles: 'mailwave.roles',
-  users: 'mailwave.users',
-  activity: 'mailwave.activity',
-  viewAs: 'mailwave.viewAs',
-  systemEmails: 'mailwave.systemEmails',
-  subscribers: 'mailwave.subscribers',
-};
-
 /**
- * Bump this whenever the SHAPE of anything saved below changes — a new field
- * on a role, a renamed key, a different permission model. Browsers that still
- * hold the old shape drop it and start again from the seed data, instead of
- * crashing on a field that no longer exists.
+ * App ka saara saanjha data — ek hi jagah.
+ *
+ * Pehle yeh sab browser ke localStorage me rehta tha. Ab server par hai.
+ * Farq kya pada:
+ *
+ *   - Data ab har computer par ek jaisa hai. Pehle aapke browser ka data sirf
+ *     aapka tha; team ko kuch dikhta hi nahi tha.
+ *   - Browser ka data saaf karne se ab kuch nahi jata.
+ *   - localStorage ki 5 MB wali hadd khatam. Photo aur bade list ab server par.
+ *
+ * Screen ka code bilkul nahi badla — inhi naamon se sab kuch pehle bhi milta
+ * tha. Sirf andar ka kaam badla hai.
  */
-const SCHEMA_VERSION = 2;
-
-function resetIfStale() {
-  try {
-    const stored = window.localStorage.getItem(KEYS.version);
-    if (stored === String(SCHEMA_VERSION)) return;
-
-    Object.values(KEYS).forEach((key) => {
-      if (key !== KEYS.version) window.localStorage.removeItem(key);
-    });
-    window.localStorage.setItem(KEYS.version, String(SCHEMA_VERSION));
-  } catch (error) {
-    // Storage blocked — every load() below just falls back to the seed data.
-  }
-}
-
-resetIfStale();
-
 const WorkspaceContext = createContext(null);
 
-function load(key, fallback) {
+/** "Preview as role" sirf is browser ki cheez hai, isliye yeh yahin rehta hai. */
+const VIEW_AS_KEY = 'mailwave.viewAs';
+
+function loadViewAs() {
   try {
-    const raw = window.localStorage.getItem(key);
-    if (!raw) return fallback;
-    const parsed = JSON.parse(raw);
-    return parsed ?? fallback;
+    return window.localStorage.getItem(VIEW_AS_KEY) || 'super_admin';
   } catch (error) {
-    return fallback;
+    return 'super_admin';
   }
-}
-
-/** A saved list that came back empty or malformed is not usable — seed instead. */
-function loadList(key, fallback) {
-  const value = load(key, fallback);
-  return Array.isArray(value) && value.length > 0 ? value : fallback;
-}
-
-function save(key, value) {
-  try {
-    window.localStorage.setItem(key, JSON.stringify(value));
-    return true;
-  } catch (error) {
-    // Storage full (large images) or blocked. The app keeps working in memory.
-    return false;
-  }
-}
-
-const SEED_TEMPLATES = [
-  {
-    id: 't1',
-    name: 'Welcome Warm',
-    category: 'Welcome',
-    subject: 'Welcome to {{company}}, {{name}}',
-    html: starterTemplates[1].html,
-    updated: '2026-08-18',
-    createdBy: 'Neha Kulkarni',
-  },
-  {
-    id: 't2',
-    name: 'Festival Offer',
-    category: 'Festival',
-    subject: 'Hello {{name}}, 30% off this week',
-    html: starterTemplates[0].html,
-    updated: '2026-08-14',
-    createdBy: 'Arjun Bhosale',
-  },
-  {
-    id: 't3',
-    name: 'Announcement Clean',
-    category: 'Announcement',
-    subject: 'An important update for you',
-    html: starterTemplates[2].html,
-    updated: '2026-08-08',
-    createdBy: 'Rohit Sharma',
-  },
-];
-
-function todayIso() {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function nowStamp() {
-  const now = new Date();
-  const pad = (value) => String(value).padStart(2, '0');
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(
-    now.getMinutes()
-  )}`;
 }
 
 export function WorkspaceProvider({ children }) {
@@ -120,265 +37,301 @@ export function WorkspaceProvider({ children }) {
   // ki save hua ya nahi.
   const toast = useToast();
   const t = useT();
+  const { isSignedIn } = useAuth();
 
-  const [templates, setTemplates] = useState(() => load(KEYS.templates, SEED_TEMPLATES));
-  const [images, setImages] = useState(() => load(KEYS.images, []));
-  // Roles and users can never be empty — an empty roles list would leave the
-  // app with nobody to check permissions against.
-  const [roles, setRoles] = useState(() => loadList(KEYS.roles, ROLES));
-  const [users, setUsers] = useState(() => loadList(KEYS.users, teamUsers));
-  const [activity, setActivity] = useState(() => load(KEYS.activity, activityLog));
-  const [viewAs, setViewAs] = useState(() => load(KEYS.viewAs, 'super_admin'));
-  const [systemEmails, setSystemEmails] = useState(() => {
-    const stored = load(KEYS.systemEmails, null);
-    if (!stored) return systemEmailTemplates.map((item) => ({ ...item, enabled: true }));
-    // Keep new templates that were added to the code after this browser saved.
-    return systemEmailTemplates.map((item) => {
-      const saved = stored.find((entry) => entry.key === item.key);
-      return saved ? { ...item, ...saved } : { ...item, enabled: true };
-    });
-  });
-  const [subscribers, setSubscribers] = useState(() => load(KEYS.subscribers, seedSubscribers));
-  const [storageWarning, setStorageWarning] = useState(false);
+  const [templates, setTemplates] = useState([]);
+  const [images, setImages] = useState([]);
+  const [roles, setRoles] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [activity, setActivity] = useState([]);
+  const [systemEmails, setSystemEmails] = useState([]);
+  const [subscribers, setSubscribers] = useState([]);
+  const [viewAs, setViewAsState] = useState(loadViewAs);
+
+  /** Pehli baar data aane tak true. Screen loader dikha sakti hai. */
+  const [loading, setLoading] = useState(true);
+
+  // Image ab server par jati hai, isliye browser ki storage ab bhar hi nahi
+  // sakti. Yeh sirf isliye rakha hai ki purana screen ka code na toote.
+  const storageWarning = false;
 
   /**
-   * Browser me save karna — ek hi jagah se, aur FAIL HONE PAR CHUP NAHI.
+   * Server ki galti ko screen par saaf-saaf dikhata hai.
    *
-   * Do dikkatein theek karta hai:
-   *
-   * 1. Browser ki storage bhar sakti hai (lagbhag 5 MB). 50,000 log daalo to
-   *    save fail ho jata hai. Pehle yeh CHUP-CHAP fail hota tha — user ko
-   *    lagta data save ho gaya, hota nahi. Ab saaf message aata hai.
-   *
-   * 2. Har akshar par JSON.stringify chalana bade data par screen ko rok deta
-   *    hai. Isliye 400ms ruk kar likhte hain — beech me aur badlaav aaye to
-   *    sirf aakhri wala likha jata hai.
+   * Sabse zaroori baat: yeh galti ko chupata nahi. Pehle localStorage chup-chap
+   * fail ho jata tha aur user ko lagta tha ki save ho gaya. Ab agar server ne
+   * mana kiya, to user ko turant pata chalta hai aur screen par purana (sahi)
+   * data hi rehta hai.
    */
-  const saveTimers = useRef(new Map());
-  const warnedRef = useRef(false);
-
-  const persist = useCallback(
-    (key, value) => {
-      const timers = saveTimers.current;
-      clearTimeout(timers.get(key));
-
-      timers.set(
-        key,
-        setTimeout(() => {
-          const ok = save(key, value);
-          timers.delete(key);
-
-          if (!ok) {
-            setStorageWarning(true);
-            // Ek hi baar bolte hain — har keystroke par toast bhar dena aur
-            // bura hota.
-            if (!warnedRef.current) {
-              warnedRef.current = true;
-              toast.error(t('toast.storageFull'));
-            }
-          }
-        }, 400)
-      );
+  const fail = useCallback(
+    (error) => {
+      const message =
+        error instanceof ApiError ? error.message : t('toast.networkError');
+      toast.error(message);
+      return null;
     },
     [toast, t]
   );
 
-  // Component hatne par bache hue timers saaf — warna React warning deta hai.
-  useEffect(() => {
-    const timers = saveTimers.current;
-    return () => {
-      timers.forEach((timer) => clearTimeout(timer));
-      timers.clear();
-    };
-  }, []);
+  // --- sab kuch ek saath le aao --------------------------------------------
+  const reloadAll = useCallback(async () => {
+    if (!isSignedIn) return;
 
-  useEffect(() => persist(KEYS.templates, templates), [templates, persist]);
-  useEffect(() => persist(KEYS.images, images), [images, persist]);
-  useEffect(() => persist(KEYS.roles, roles), [roles, persist]);
-  useEffect(() => persist(KEYS.users, users), [users, persist]);
-  useEffect(() => persist(KEYS.activity, activity), [activity, persist]);
-  useEffect(() => persist(KEYS.viewAs, viewAs), [viewAs, persist]);
-  useEffect(() => persist(KEYS.systemEmails, systemEmails), [systemEmails, persist]);
-  useEffect(() => persist(KEYS.subscribers, subscribers), [subscribers, persist]);
-
-  // --- activity ------------------------------------------------------------
-  // Never call this from inside a setState updater: React runs updaters twice
-  // in development to check they are pure, which would log the same action
-  // twice. Read the state you need first, then update and log side by side.
-  const logActivity = useCallback((entry) => {
-    setActivity((current) => [
-      {
-        id: newId('a'),
-        userId: 'u1',
-        userName: 'Rohit Sharma',
-        initials: 'RS',
-        ip: '103.21.58.9',
-        device: 'This browser',
-        before: '—',
-        after: '—',
-        at: nowStamp(),
-        ...entry,
-      },
-      ...current,
+    // Sab request ek saath jati hain, ek ke baad ek nahi — warna 7 request ka
+    // intezaar jod kar screen der se khulti.
+    const [tpl, img, rol, usr, act, sys, sub] = await Promise.all([
+      api.get('/api/templates?limit=500').catch(() => null),
+      api.get('/api/images').catch(() => null),
+      api.get('/api/roles').catch(() => null),
+      api.get('/api/users?limit=500').catch(() => null),
+      api.get('/api/activity?limit=200').catch(() => null),
+      api.get('/api/system-emails').catch(() => null),
+      api.get('/api/subscribers?limit=500').catch(() => null),
     ]);
+
+    // Jis cheez ki permission nahi hai uski request 403 se wapas aati hai. Wo
+    // galti nahi hai — us user ko wo hissa dikhna hi nahi chahiye. Isliye
+    // khali list rakh dete hain aur baaki app chalta rehta hai.
+    if (tpl) setTemplates(tpl.templates ?? []);
+    if (img) setImages(img.images ?? []);
+    if (rol) setRoles(rol.roles ?? []);
+    if (usr) setUsers(usr.users ?? []);
+    if (act) setActivity(act.activity ?? []);
+    if (sys) setSystemEmails(sys.systemEmails ?? []);
+    if (sub) setSubscribers(sub.subscribers ?? []);
+
+    setLoading(false);
+  }, [isSignedIn]);
+
+  useEffect(() => {
+    if (!isSignedIn) {
+      // Sign out par sab kuch khali. Agli baar koi aur sign in kare to use
+      // pichhle bande ka data ek pal ke liye bhi nahi dikhna chahiye.
+      setTemplates([]);
+      setImages([]);
+      setRoles([]);
+      setUsers([]);
+      setActivity([]);
+      setSystemEmails([]);
+      setSubscribers([]);
+      setLoading(true);
+      return;
+    }
+
+    reloadAll();
+  }, [isSignedIn, reloadAll]);
+
+  /** Server har kaam ko khud log karta hai, isliye baad me list taazi kar lete hain. */
+  const refreshActivity = useCallback(async () => {
+    try {
+      const data = await api.get('/api/activity?limit=200');
+      setActivity(data.activity ?? []);
+    } catch (error) {
+      // Log dobara na aaye to bhi asli kaam ho chuka hai. Chupchap chhod dete
+      // hain — iske liye user ko pareshan karna galat hai.
+    }
   }, []);
 
   // --- templates -----------------------------------------------------------
   const saveTemplate = useCallback(
-    (template) => {
+    async (template) => {
       const isNew = !template.id;
-      const id = template.id || newId('t');
-      const record = { ...template, id, updated: todayIso() };
+      const body = {
+        name: template.name,
+        category: template.category ?? 'Custom',
+        subject: template.subject ?? '',
+        html: template.html ?? '',
+      };
 
-      setTemplates((current) => {
-        const exists = current.some((item) => item.id === id);
-        return exists ? current.map((item) => (item.id === id ? record : item)) : [record, ...current];
-      });
+      try {
+        const data = isNew
+          ? await api.post('/api/templates', body)
+          : await api.put(`/api/templates/${template.id}`, body);
 
-      logActivity({
-        action: isNew ? 'created' : 'updated',
-        module: 'templates',
-        item: record.name,
-        detail: isNew ? 'New HTML template saved' : 'Template HTML edited',
-      });
+        const record = data.template;
+        setTemplates((current) =>
+          isNew
+            ? [record, ...current]
+            : current.map((item) => (item.id === record.id ? record : item))
+        );
 
-      toast.success(t('toast.templateSaved'), record.name);
-      return record;
+        toast.success(t('toast.templateSaved'), record.name);
+        refreshActivity();
+        return record;
+      } catch (error) {
+        return fail(error);
+      }
     },
-    [logActivity, toast, t]
+    [toast, t, fail, refreshActivity]
   );
 
   const deleteTemplate = useCallback(
-    (id) => {
+    async (id) => {
       const found = templates.find((item) => item.id === id);
       if (!found) return;
 
-      setTemplates((current) => current.filter((item) => item.id !== id));
-      logActivity({ action: 'deleted', module: 'templates', item: found.name, detail: 'Template removed' });
+      try {
+        await api.delete(`/api/templates/${id}`);
+        setTemplates((current) => current.filter((item) => item.id !== id));
 
-      // Delete par sirf "hat gaya" bolna kaafi nahi — wapas laane ka mauka bhi
-      // dena chahiye. Galti se delete ho jaye to yahi bachata hai.
-      toast.undo(t('toast.templateDeleted'), () => setTemplates((current) => [found, ...current]), found.name);
+        // Delete par sirf "hat gaya" bolna kaafi nahi — wapas laane ka mauka
+        // bhi dena chahiye. Galti se delete ho jaye to yahi bachata hai.
+        toast.undo(
+          t('toast.templateDeleted'),
+          async () => {
+            const data = await api.post('/api/templates', {
+              name: found.name,
+              category: found.category,
+              subject: found.subject,
+              html: found.html,
+            });
+            setTemplates((current) => [data.template, ...current]);
+            refreshActivity();
+          },
+          found.name
+        );
+        refreshActivity();
+      } catch (error) {
+        fail(error);
+      }
     },
-    [templates, logActivity, toast, t]
+    [templates, toast, t, fail, refreshActivity]
   );
 
   const duplicateTemplate = useCallback(
-    (id) => {
-      const found = templates.find((item) => item.id === id);
-      if (!found) return null;
-
-      const copy = { ...found, id: newId('t'), name: `${found.name} (copy)`, updated: todayIso() };
-      setTemplates((current) => [copy, ...current]);
-      logActivity({
-        action: 'created',
-        module: 'templates',
-        item: copy.name,
-        detail: 'Copied from an existing template',
-      });
-
-      toast.success(t('toast.templateCopied'), copy.name);
-      return copy;
+    async (id) => {
+      try {
+        const data = await api.post(`/api/templates/${id}/duplicate`);
+        setTemplates((current) => [data.template, ...current]);
+        toast.success(t('toast.templateCopied'), data.template.name);
+        refreshActivity();
+        return data.template;
+      } catch (error) {
+        return fail(error);
+      }
     },
-    [templates, logActivity, toast, t]
+    [toast, t, fail, refreshActivity]
   );
 
-  const getTemplate = useCallback((id) => templates.find((item) => item.id === id) || null, [templates]);
+  const getTemplate = useCallback(
+    (id) => templates.find((item) => item.id === id) || null,
+    [templates]
+  );
 
   // --- images --------------------------------------------------------------
   const addImage = useCallback(
-    (image) => {
-      const record = { id: newId('img'), addedAt: nowStamp(), ...image };
-      setImages((current) => [record, ...current]);
-      logActivity({ action: 'created', module: 'templates', item: record.name, detail: 'Image added to the library' });
+    async (image) => {
+      try {
+        const data = await api.post('/api/images', {
+          name: image.name,
+          url: image.url,
+          size: image.size ?? 0,
+          source: image.source ?? 'upload',
+        });
 
-      toast.success(t('toast.imageAdded'), record.name);
-      return record;
+        setImages((current) => [data.image, ...current]);
+        toast.success(t('toast.imageAdded'), data.image.name);
+        refreshActivity();
+        return data.image;
+      } catch (error) {
+        return fail(error);
+      }
     },
-    [logActivity, toast, t]
+    [toast, t, fail, refreshActivity]
   );
 
   const removeImage = useCallback(
-    (id) => {
-      // Pehle padho, phir badlo. setState ke updater ke andar kuch aur karna
-      // mana hai — React use do baar chalata hai, aur toast do baar aa jata.
+    async (id) => {
       const removed = images.find((item) => item.id === id) ?? null;
 
-      setImages((current) => current.filter((item) => item.id !== id));
-      toast.success(t('toast.imageRemoved'), removed?.name);
+      try {
+        await api.delete(`/api/images/${id}`);
+        setImages((current) => current.filter((item) => item.id !== id));
+        toast.success(t('toast.imageRemoved'), removed?.name);
+        refreshActivity();
+      } catch (error) {
+        fail(error);
+      }
     },
-    [images, toast, t]
+    [images, toast, t, fail, refreshActivity]
   );
 
-  // --- roles (created by the Super Admin) ----------------------------------
-  const emptyPermissions = useCallback(
-    () =>
-      PERMISSION_MODULES.reduce((acc, module) => {
-        acc[module.key] = [];
-        return acc;
-      }, {}),
-    []
-  );
-
+  // --- roles ---------------------------------------------------------------
   const createRole = useCallback(
-    ({ name, description, tone, icon, copyFrom }) => {
-      const key = newId('role');
-      const source = copyFrom ? roles.find((item) => item.key === copyFrom) : null;
+    async ({ name, description, tone, icon, copyFrom }) => {
+      try {
+        // "Copy from" wala raasta server ke duplicate se jata hai, taki poori
+        // permissions bilkul waisi hi utrein.
+        if (copyFrom) {
+          const data = await api.post(`/api/roles/${copyFrom}/duplicate`);
+          const made = data.role;
 
-      const record = {
-        key,
-        label: name,
-        desc: description,
-        tone: tone || 'primary',
-        icon: icon || 'bi-person',
-        locked: false,
-        custom: true,
-        permissions: source
-          ? JSON.parse(JSON.stringify(source.permissions))
-          : emptyPermissions(),
-      };
+          // Naam aur baaki detail user ne jo di, wo upar chadha dete hain.
+          const updated = await api.put(`/api/roles/${made.key}`, {
+            label: name,
+            desc: description ?? '',
+            tone: tone || 'primary',
+            icon: icon || 'bi-person',
+            permissions: made.permissions,
+          });
 
-      setRoles((current) => [...current, record]);
-      logActivity({
-        action: 'created',
-        module: 'users',
-        item: name,
-        detail: source ? `New role copied from ${source.label || source.key}` : 'New role created',
-        after: `Role: ${name}`,
-      });
+          setRoles((current) => [...current, updated.role]);
+          toast.success(t('toast.roleCreated'), name);
+          refreshActivity();
+          return updated.role;
+        }
 
-      toast.success(t('toast.roleCreated'), name);
-      return record;
+        const data = await api.post('/api/roles', {
+          key: roleKeyFrom(name),
+          label: name,
+          desc: description ?? '',
+          tone: tone || 'primary',
+          icon: icon || 'bi-person',
+          permissions: {},
+        });
+
+        setRoles((current) => [...current, data.role]);
+        toast.success(t('toast.roleCreated'), name);
+        refreshActivity();
+        return data.role;
+      } catch (error) {
+        return fail(error);
+      }
     },
-    [roles, emptyPermissions, logActivity, toast, t]
+    [toast, t, fail, refreshActivity]
   );
 
   const updateRole = useCallback(
-    (key, { name, description, tone, icon }) => {
-      setRoles((current) =>
-        current.map((role) => {
-          if (role.key !== key) return role;
-          return {
-            ...role,
-            label: name ?? role.label,
-            desc: description ?? role.desc,
-            tone: tone ?? role.tone,
-            icon: icon ?? role.icon,
-          };
-        })
-      );
-      logActivity({ action: 'updated', module: 'users', item: name || key, detail: 'Role details changed' });
-      toast.success(t('toast.roleUpdated'), name);
+    async (key, { name, description, tone, icon }) => {
+      const role = roles.find((item) => item.key === key);
+      if (!role) return;
+
+      try {
+        const data = await api.put(`/api/roles/${key}`, {
+          label: name ?? role.label,
+          desc: description ?? role.desc ?? '',
+          tone: tone ?? role.tone,
+          icon: icon ?? role.icon,
+          permissions: role.permissions,
+        });
+
+        setRoles((current) => current.map((item) => (item.key === key ? data.role : item)));
+        toast.success(t('toast.roleUpdated'), name);
+        refreshActivity();
+      } catch (error) {
+        fail(error);
+      }
     },
-    [logActivity, toast, t]
+    [roles, toast, t, fail, refreshActivity]
   );
 
   /**
-   * A role in use is never silently removed — the caller is told how many
-   * people still have it so it can show a clear message.
+   * Jis role par log hain wo chup-chap nahi hatta — batate hain kitne logon ke
+   * paas hai. Yeh check server par bhi hai; yahan sirf isliye ki turant pata
+   * chal jaye aur bekaar ki request na jaye.
    */
   const deleteRole = useCallback(
-    (key) => {
+    async (key) => {
       const role = roles.find((item) => item.key === key);
       if (!role) return { ok: false, reason: 'missing' };
 
@@ -389,267 +342,348 @@ export function WorkspaceProvider({ children }) {
 
       const inUse = users.filter((user) => user.role === key).length;
       if (inUse > 0) {
-        // Chup-chap mana nahi karte — batate hain ki kitne logon ke paas hai
-        // aur pehle kya karna hai.
         toast.warning(t('toast.roleInUse', { count: inUse }));
         return { ok: false, reason: 'inUse', count: inUse };
       }
 
-      setRoles((current) => current.filter((item) => item.key !== key));
-      logActivity({
-        action: 'deleted',
-        module: 'users',
-        item: role.label || role.key,
-        detail: 'Role removed',
-        before: `Role: ${role.label || role.key}`,
-      });
-
-      toast.success(t('toast.roleDeleted'), role.label || role.key);
-      return { ok: true };
+      try {
+        await api.delete(`/api/roles/${key}`);
+        setRoles((current) => current.filter((item) => item.key !== key));
+        toast.success(t('toast.roleDeleted'), role.label || role.key);
+        refreshActivity();
+        return { ok: true };
+      } catch (error) {
+        fail(error);
+        return { ok: false, reason: 'server' };
+      }
     },
-    [roles, users, logActivity, toast, t]
+    [roles, users, toast, t, fail, refreshActivity]
   );
 
   const duplicateRole = useCallback(
-    (key) => {
-      const role = roles.find((item) => item.key === key);
-      if (!role) return null;
-      return createRole({
-        name: `${role.label || role.key} (copy)`,
-        description: role.desc || '',
-        tone: role.tone,
-        icon: role.icon,
-        copyFrom: key,
-      });
+    async (key) => {
+      try {
+        const data = await api.post(`/api/roles/${key}/duplicate`);
+        setRoles((current) => [...current, data.role]);
+        toast.success(t('toast.roleCreated'), data.role.label);
+        refreshActivity();
+        return data.role;
+      } catch (error) {
+        return fail(error);
+      }
     },
-    [roles, createRole]
+    [toast, t, fail, refreshActivity]
   );
 
   // --- permissions ---------------------------------------------------------
+  /**
+   * Ek checkbox dabane par poori permissions server ko bhejte hain.
+   *
+   * Yahan ek chhota trick hai: screen turant badal jati hai (taki checkbox
+   * atke nahi), aur server ke jawab ka baad me intezaar hota hai. Server ne
+   * mana kar diya to purani haalat wapas aa jati hai — screen kabhi jhooth
+   * nahi bolti.
+   */
+  const savePermissions = useCallback(
+    async (roleKey, nextPermissions) => {
+      const role = roles.find((item) => item.key === roleKey);
+      if (!role || role.locked) return;
+
+      const before = role.permissions;
+
+      setRoles((current) =>
+        current.map((item) =>
+          item.key === roleKey ? { ...item, permissions: nextPermissions } : item
+        )
+      );
+
+      try {
+        const data = await api.put(`/api/roles/${roleKey}`, {
+          label: role.label,
+          desc: role.desc ?? '',
+          tone: role.tone,
+          icon: role.icon,
+          permissions: nextPermissions,
+        });
+        setRoles((current) => current.map((item) => (item.key === roleKey ? data.role : item)));
+        refreshActivity();
+      } catch (error) {
+        setRoles((current) =>
+          current.map((item) => (item.key === roleKey ? { ...item, permissions: before } : item))
+        );
+        fail(error);
+      }
+    },
+    [roles, fail, refreshActivity]
+  );
+
   const togglePermission = useCallback(
     (roleKey, moduleKey, actionKey) => {
-      setRoles((current) =>
-        current.map((role) => {
-          if (role.key !== roleKey || role.locked) return role;
-          const list = role.permissions[moduleKey] || [];
-          const next = list.includes(actionKey)
-            ? list.filter((item) => item !== actionKey)
-            : [...list, actionKey];
-          return { ...role, permissions: { ...role.permissions, [moduleKey]: next } };
-        })
-      );
-      logActivity({
-        action: 'permissionChanged',
-        module: 'users',
-        item: roleKey,
-        detail: `Toggled “${actionKey}” on ${moduleKey}`,
-      });
+      const role = roles.find((item) => item.key === roleKey);
+      if (!role || role.locked) return;
+
+      const list = role.permissions?.[moduleKey] || [];
+      const next = list.includes(actionKey)
+        ? list.filter((item) => item !== actionKey)
+        : [...list, actionKey];
+
+      savePermissions(roleKey, { ...role.permissions, [moduleKey]: next });
     },
-    [logActivity]
+    [roles, savePermissions]
   );
 
   const setModulePermissions = useCallback(
     (roleKey, moduleKey, actions) => {
-      setRoles((current) =>
-        current.map((role) =>
-          role.key === roleKey && !role.locked
-            ? { ...role, permissions: { ...role.permissions, [moduleKey]: actions } }
-            : role
-        )
-      );
-      logActivity({
-        action: 'permissionChanged',
-        module: 'users',
-        item: roleKey,
-        detail: `Set all permissions on ${moduleKey}`,
-      });
+      const role = roles.find((item) => item.key === roleKey);
+      if (!role || role.locked) return;
+
+      savePermissions(roleKey, { ...role.permissions, [moduleKey]: actions });
 
       // Ek-ek checkbox par toast nahi dete (checkbox khud dikh jata hai), par
       // "sab chuno" ek bada badlaav hai — uska batana chahiye.
       toast.success(t('toast.permissionsChanged'));
     },
-    [logActivity, toast, t]
+    [roles, savePermissions, toast, t]
   );
 
   // --- users ---------------------------------------------------------------
   const saveUser = useCallback(
-    (user) => {
+    async (user) => {
       const isNew = !user.id;
-      const id = user.id || newId('u');
-      const record = { lastActive: '—', status: 'Invited', initials: 'NU', ...user, id };
+      const body = {
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        department: user.department ?? '',
+        status: user.status ?? (isNew ? 'Invited' : 'Active'),
+      };
 
-      setUsers((current) => {
-        const exists = current.some((item) => item.id === id);
-        return exists ? current.map((item) => (item.id === id ? record : item)) : [...current, record];
-      });
+      try {
+        const data = isNew
+          ? await api.post('/api/users', body)
+          : await api.put(`/api/users/${user.id}`, body);
 
-      logActivity({
-        action: isNew ? 'created' : 'updated',
-        module: 'users',
-        item: `${record.name} (${record.role})`,
-        detail: isNew ? 'Invite email sent' : 'User details changed',
-      });
+        const record = data.user;
+        setUsers((current) =>
+          isNew
+            ? [...current, record]
+            : current.map((item) => (item.id === record.id ? record : item))
+        );
 
-      // Naya user bana = invite gaya. Purana user = sirf details badli.
-      toast.success(isNew ? t('toast.userInvited') : t('toast.userSaved'), record.name);
+        // Naya user bana = invite email gaya. Purana = sirf details badli.
+        toast.success(isNew ? t('toast.userInvited') : t('toast.userSaved'), record.name);
+        refreshActivity();
+        return record;
+      } catch (error) {
+        return fail(error);
+      }
     },
-    [logActivity, toast, t]
+    [toast, t, fail, refreshActivity]
   );
 
   const toggleUserStatus = useCallback(
-    (id) => {
+    async (id) => {
       const user = users.find((item) => item.id === id);
       if (!user) return;
 
       const next = user.status === 'Disabled' ? 'Active' : 'Disabled';
-      setUsers((current) => current.map((item) => (item.id === id ? { ...item, status: next } : item)));
-      logActivity({
-        action: 'updated',
-        module: 'users',
-        item: user.name,
-        detail: `Account ${next === 'Active' ? 'enabled' : 'disabled'}`,
-        before: `Status: ${user.status}`,
-        after: `Status: ${next}`,
-      });
 
-      toast.success(next === 'Active' ? t('toast.userEnabled') : t('toast.userDisabled'), user.name);
+      try {
+        const data = await api.put(`/api/users/${id}`, {
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          department: user.department ?? '',
+          status: next,
+        });
+
+        setUsers((current) => current.map((item) => (item.id === id ? data.user : item)));
+        toast.success(next === 'Active' ? t('toast.userEnabled') : t('toast.userDisabled'), user.name);
+        refreshActivity();
+      } catch (error) {
+        fail(error);
+      }
     },
-    [users, logActivity, toast, t]
+    [users, toast, t, fail, refreshActivity]
+  );
+
+  /**
+   * Super Admin kisi ka purana password kabhi nahi dekh sakta — dekhne ko kuch
+   * hai hi nahi, server par sirf uska scrambled roop rakha hota hai. Wo sirf
+   * naya password set kar sakta hai.
+   */
+  const setUserPassword = useCallback(
+    async (userId, { password, notify } = {}) => {
+      if (!password) return fail(new ApiError(400, 'bad_request', t('toast.passwordNeeded')));
+
+      try {
+        await api.post(`/api/users/${userId}/password`, { password, notify: notify !== false });
+        toast.success(t('toast.passwordSet'));
+        refreshActivity();
+        return true;
+      } catch (error) {
+        return fail(error);
+      }
+    },
+    [toast, t, fail, refreshActivity]
+  );
+
+  const sendPasswordResetLink = useCallback(
+    async (userId) => {
+      try {
+        await api.post(`/api/users/${userId}/reset-link`);
+        toast.success(t('toast.resetLinkSent'));
+        refreshActivity();
+        return true;
+      } catch (error) {
+        return fail(error);
+      }
+    },
+    [toast, t, fail, refreshActivity]
   );
 
   // --- system emails -------------------------------------------------------
   const updateSystemEmail = useCallback(
-    (key, patch) => {
-      setSystemEmails((current) =>
-        current.map((item) => (item.key === key ? { ...item, ...patch } : item))
-      );
-      logActivity({
-        action: 'updated',
-        module: 'settings',
-        item: key,
-        detail: 'System email template edited',
-      });
+    async (key, patch) => {
+      const existing = systemEmails.find((item) => item.key === key);
+      if (!existing) return;
+
+      try {
+        const data = await api.put(`/api/system-emails/${key}`, {
+          subject: patch.subject ?? existing.subject,
+          html: patch.html ?? existing.html,
+        });
+
+        setSystemEmails((current) =>
+          current.map((item) => (item.key === key ? { ...item, ...data.systemEmail } : item))
+        );
+        toast.success(t('toast.systemEmailSaved'));
+        refreshActivity();
+      } catch (error) {
+        fail(error);
+      }
     },
-    [logActivity]
+    [systemEmails, toast, t, fail, refreshActivity]
   );
 
   const resetSystemEmail = useCallback(
-    (key) => {
-      const original = systemEmailTemplates.find((item) => item.key === key);
-      if (!original) return;
-      setSystemEmails((current) =>
-        current.map((item) => (item.key === key ? { ...original, enabled: item.enabled } : item))
-      );
-      logActivity({ action: 'updated', module: 'settings', item: key, detail: 'System email reset to default' });
+    async (key) => {
+      try {
+        const data = await api.post(`/api/system-emails/${key}/reset`);
+        setSystemEmails((current) =>
+          current.map((item) => (item.key === key ? { ...item, ...data.systemEmail } : item))
+        );
+        toast.success(t('toast.systemEmailReset'));
+        refreshActivity();
+      } catch (error) {
+        fail(error);
+      }
     },
-    [logActivity]
+    [toast, t, fail, refreshActivity]
   );
 
-  const toggleSystemEmail = useCallback((key) => {
-    setSystemEmails((current) =>
-      current.map((item) => (item.key === key ? { ...item, enabled: !item.enabled } : item))
-    );
-  }, []);
+  const toggleSystemEmail = useCallback(
+    async (key) => {
+      const existing = systemEmails.find((item) => item.key === key);
+      if (!existing) return;
 
-  // --- passwords -----------------------------------------------------------
-  /**
-   * A Super Admin never sees an existing password — there is nothing to see,
-   * because only a hash is stored. They can only set a NEW one.
-   */
-  const setUserPassword = useCallback(
-    (userId, { notify }) => {
-      const user = users.find((item) => item.id === userId);
-      if (!user) return;
-      logActivity({
-        action: 'updated',
-        module: 'users',
-        item: user.name,
-        detail: notify
-          ? 'New password set by Super Admin — “Password set by Super Admin” email sent'
-          : 'New password set by Super Admin (no email sent)',
-        before: 'Password: unchanged',
-        after: 'Password: replaced',
-      });
+      try {
+        const data = await api.post(`/api/system-emails/${key}/toggle`, {
+          enabled: !existing.enabled,
+        });
+        setSystemEmails((current) =>
+          current.map((item) => (item.key === key ? { ...item, ...data.systemEmail } : item))
+        );
+        refreshActivity();
+      } catch (error) {
+        // Zaroori email band karne ki koshish yahin ruk jati hai, saaf wajah
+        // ke saath.
+        fail(error);
+      }
     },
-    [users, logActivity]
-  );
-
-  const sendPasswordResetLink = useCallback(
-    (userId) => {
-      const user = users.find((item) => item.id === userId);
-      if (!user) return;
-      logActivity({
-        action: 'sent',
-        module: 'users',
-        item: user.name,
-        detail: '“Forgot password” link emailed by Super Admin',
-      });
-    },
-    [users, logActivity]
+    [systemEmails, fail, refreshActivity]
   );
 
   // --- subscribers ---------------------------------------------------------
   const removeSubscribers = useCallback(
-    (ids) => {
-      // Wapas laane ke liye pehle copy rakh lete hain.
+    async (ids) => {
       const removed = subscribers.filter((item) => ids.includes(item.id));
 
-      setSubscribers((current) => current.filter((item) => !ids.includes(item.id)));
-      logActivity({
-        action: 'deleted',
-        module: 'contacts',
-        item: `${ids.length} subscriber(s)`,
-        detail: 'Removed from the subscriber list',
-      });
+      try {
+        await api.post('/api/subscribers/delete', { ids });
+        setSubscribers((current) => current.filter((item) => !ids.includes(item.id)));
 
-      toast.undo(t('toast.subscribersRemoved', { count: ids.length }), () =>
-        setSubscribers((current) => [...removed, ...current])
-      );
+        toast.undo(t('toast.subscribersRemoved', { count: ids.length }), async () => {
+          // Wapas laate hain — server par nayi entry ban jati hai, isliye baad
+          // me poori list dobara le aate hain taki id sahi rahe.
+          for (const person of removed) {
+            await api.post('/api/subscribers', {
+              name: person.name,
+              email: person.email,
+              company: person.company,
+              city: person.city,
+            });
+          }
+          const data = await api.get('/api/subscribers?limit=500');
+          setSubscribers(data.subscribers ?? []);
+        });
+
+        refreshActivity();
+      } catch (error) {
+        fail(error);
+      }
     },
-    [subscribers, logActivity, toast, t]
+    [subscribers, toast, t, fail, refreshActivity]
   );
 
-  // --- bulk actions on campaign recipients ---------------------------------
-  /** Used by the failed / bounced clean-up on a campaign report. */
+  // --- campaign recipients par bulk kaam -----------------------------------
+  /** Campaign report par "failed / bounced" saaf karne ke liye. */
   const bulkRecipientAction = useCallback(
-    (kind, ids, campaignName) => {
-      const map = {
-        resend: { action: 'sent', detail: 'Queued a resend for the selected recipients' },
-        remove: { action: 'deleted', detail: 'Removed the selected recipients from this campaign' },
-        suppress: { action: 'updated', detail: 'Added the selected addresses to the suppression list' },
-        export: { action: 'exported', detail: 'Downloaded the selected recipients' },
-      };
-      const entry = map[kind] || map.export;
-      logActivity({
-        action: entry.action,
-        module: 'campaigns',
-        item: campaignName,
-        detail: `${entry.detail} (${ids.length})`,
-      });
+    async (kind, ids, campaignName) => {
+      try {
+        await api.post('/api/campaigns/recipients/bulk', { kind, ids, campaignName });
+        refreshActivity();
+        return true;
+      } catch (error) {
+        return fail(error);
+      }
     },
-    [logActivity]
+    [fail, refreshActivity]
   );
 
   // --- permission check ----------------------------------------------------
-  // roles is guaranteed non-empty by loadList(), but a role saved by an older
-  // build may not carry every field, so nothing here assumes a shape.
+  const setViewAs = useCallback((next) => {
+    setViewAsState(next);
+    try {
+      window.localStorage.setItem(VIEW_AS_KEY, next);
+    } catch (error) {
+      // Storage band hai — sirf is session ke liye chalega, koi nuksaan nahi.
+    }
+  }, []);
+
   const currentRole = useMemo(
-    () => roles.find((role) => role.key === viewAs) || roles[0] || ROLES[0],
+    () => roles.find((role) => role.key === viewAs) || roles[0] || null,
     [roles, viewAs]
   );
 
   const can = useCallback(
     (moduleKey, actionKey = 'view') => {
-      if (!currentRole) return false;
+      // Roles abhi aaye hi nahi (pehla load chal raha hai) — tab tak "haan"
+      // bolte hain. Asli rok server par hai; wahan bina permission kuch hota
+      // hi nahi. Agar yahan "na" bolte to screen ek pal ke liye khali dikhti.
+      if (!currentRole) return loading;
       if (currentRole.key === 'super_admin') return true;
+
       const list = currentRole.permissions?.[moduleKey] || [];
       return list.includes(actionKey);
     },
-    [currentRole]
+    [currentRole, loading]
   );
 
   const value = useMemo(
     () => ({
+      loading,
+      reloadAll,
       templates,
       saveTemplate,
       deleteTemplate,
@@ -679,13 +713,14 @@ export function WorkspaceProvider({ children }) {
       removeSubscribers,
       bulkRecipientAction,
       activity,
-      logActivity,
       viewAs,
       setViewAs,
       currentRole,
       can,
     }),
     [
+      loading,
+      reloadAll,
       templates,
       saveTemplate,
       deleteTemplate,
@@ -694,7 +729,6 @@ export function WorkspaceProvider({ children }) {
       images,
       addImage,
       removeImage,
-      storageWarning,
       roles,
       createRole,
       updateRole,
@@ -715,14 +749,31 @@ export function WorkspaceProvider({ children }) {
       removeSubscribers,
       bulkRecipientAction,
       activity,
-      logActivity,
       viewAs,
+      setViewAs,
       currentRole,
       can,
     ]
   );
 
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;
+}
+
+/**
+ * Role ke naam se uski key banata hai — "Content Writer" se "content_writer".
+ * Key hi database me jati hai, isliye usme sirf chhote akshar aur _ chalte
+ * hain.
+ */
+function roleKeyFrom(name) {
+  const base = String(name || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 30);
+
+  // Naam agar poora hindi/gujarati me ho to upar wali safai ke baad kuch bach
+  // hi nahi sakta — tab ek apne aap wala naam de dete hain.
+  return /^[a-z]/.test(base) ? base : `role_${Date.now().toString(36)}`;
 }
 
 export function useWorkspace() {

@@ -4,7 +4,7 @@ import HtmlPreview from '../templates/HtmlPreview';
 import { useT } from '../../i18n/I18nProvider';
 import { formatNumber } from '../../utils/format';
 
-export default function StepReview({ draft, recipientCount, onSend }) {
+export default function StepReview({ draft, recipientCount = 0, onSend }) {
   const t = useT();
 
   /** The three tracking switches all read the same way. */

@@ -32,6 +32,7 @@ const ActivityLogPage = lazy(() => import('./pages/ActivityLogPage'));
 const OnboardingPage = lazy(() => import('./pages/OnboardingPage'));
 const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'));
 const SystemEmailsPage = lazy(() => import('./pages/SystemEmailsPage'));
+const BackupPage = lazy(() => import('./pages/BackupPage'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 
 /**
@@ -104,6 +105,7 @@ export default function App() {
             <Route element={<RequireModule module="settings" />}>
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/system-emails" element={<SystemEmailsPage />} />
+              <Route path="/backups" element={<BackupPage />} />
             </Route>
 
             <Route element={<RequireModule module="users" />}>

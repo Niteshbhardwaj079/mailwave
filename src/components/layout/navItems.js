@@ -32,6 +32,7 @@ export const navSections = [
       { to: '/users', labelKey: 'nav.users', icon: 'bi-person-badge', countKey: 'users', module: 'users' },
       { to: '/activity', labelKey: 'nav.activity', icon: 'bi-clock-history', module: 'activity' },
       { to: '/system-emails', labelKey: 'nav.systemEmails', icon: 'bi-envelope-paper', module: 'settings' },
+      { to: '/backups', labelKey: 'nav.backups', icon: 'bi-shield-check', module: 'settings' },
     ],
   },
 ];
@@ -63,6 +64,7 @@ export const pageTitleKeys = {
   '/users': 'nav.users',
   '/activity': 'nav.activity',
   '/system-emails': 'nav.systemEmails',
+  '/backups': 'nav.backups',
   '/onboarding': 'ob.title',
   '/404': 'nf.title',
 };

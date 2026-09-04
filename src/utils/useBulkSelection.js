@@ -71,6 +71,17 @@ export function useBulkSelection(pageIds, allIds) {
     setSelected(new Set(everything));
   }, [everything]);
 
+  /**
+   * Jo id di gayi hain, bilkul wahi chuno.
+   *
+   * Yeh tab kaam aata hai jab id server se aate hain — jaise "Select all
+   * 12,480" par, jahan screen ke paas sirf 50 id hote hain aur baaki server se
+   * mangwane padte hain.
+   */
+  const selectExactly = useCallback((ids) => {
+    setSelected(new Set(ids));
+  }, []);
+
   const clear = useCallback(() => setSelected(new Set()), []);
   const isSelected = useCallback((id) => selected.has(id), [selected]);
 
@@ -88,6 +99,7 @@ export function useBulkSelection(pageIds, allIds) {
     toggleOne,
     toggleAllVisible,
     selectAll,
+    selectExactly,
     clear,
     isSelected,
 

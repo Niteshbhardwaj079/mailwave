@@ -1,67 +1,122 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
-const SESSION_KEY = 'mailwave.session';
+import { ApiError, api, lastRefreshWasExpired, refreshSession, setAccessToken } from '../api/client';
 
 /**
- * Demo sign-in.
+ * Kaun sign in hai — asli server se.
  *
- * There is no backend yet, so the check happens here and the "session" is just
- * a name in localStorage. The point of this provider is not security — it is
- * that every screen already asks the same question ("is anyone signed in?")
- * through the same hook. When the real API arrives, only signIn() and the
- * stored shape change; no page has to be touched.
+ * Token kahan rehta hai:
+ *   - Access token sirf MEMORY me (localStorage me nahi). localStorage me pada
+ *     token koi bhi script padh sakti hai.
+ *   - Refresh token httpOnly cookie me hai — usse JavaScript chhu bhi nahi
+ *     sakti. Page refresh hone par isi se naya access token mil jata hai.
+ *
+ * Isi wajah se app khulte hi ek "session check" chalta hai. Jab tak wo poora
+ * na ho, `checking` true rehta hai — aur tab tak login screen NAHI dikhate,
+ * warna har refresh par ek jhalak login ki dikhegi.
  */
-export const DEMO_EMAIL = 'rohit@gowebkart.com';
-export const DEMO_PASSWORD = 'mailwave';
-
-const DEMO_USER = {
-  id: 'u1',
-  name: 'Rohit Sharma',
-  email: DEMO_EMAIL,
-  initials: 'RS',
-};
-
 const AuthContext = createContext(null);
 
-function readSession() {
-  try {
-    const raw = window.localStorage.getItem(SESSION_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    return parsed && parsed.email ? parsed : null;
-  } catch (error) {
-    return null;
-  }
-}
-
-function writeSession(user) {
-  try {
-    if (user) window.localStorage.setItem(SESSION_KEY, JSON.stringify(user));
-    else window.localStorage.removeItem(SESSION_KEY);
-  } catch (error) {
-    // Storage blocked — the session simply will not survive a refresh.
-  }
-}
-
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(readSession);
+  const [user, setUser] = useState(null);
+  const [role, setRole] = useState(null);
+  const [checking, setChecking] = useState(true);
 
-  /** Returns true on success, false on a wrong email or password. */
-  const signIn = useCallback((email, password) => {
-    if (email.trim().toLowerCase() !== DEMO_EMAIL || password !== DEMO_PASSWORD) return false;
-    writeSession(DEMO_USER);
-    setUser(DEMO_USER);
-    return true;
+  /** Server ke jawab ko ek hi jagah se state me daalte hain. */
+  const applySession = useCallback((payload) => {
+    if (payload?.accessToken) setAccessToken(payload.accessToken);
+    setUser(payload?.user ?? null);
+    setRole(payload?.role ?? null);
   }, []);
 
-  const signOut = useCallback(() => {
-    writeSession(null);
-    setUser(null);
+  // App khulte hi: cookie hai to session wapas le aao.
+  useEffect(() => {
+    let alive = true;
+
+    (async () => {
+      // refreshSession() istemal karte hain, seedhi api call nahi. Wo poore app
+      // me ek hi refresh promise baanta hai — warna do call ek saath jaakar
+      // ek doosre ka token bekar kar deti hain aur session hi kat jata hai.
+      // (React dev mode me yeh effect jaan-boojh kar do baar chalta hai.)
+      let payload = await refreshSession();
+
+      // Server vyast tha ya internet ne dhokha diya — session khatam nahi hua.
+      // Ek baar aur koshish karte hain. Bina iske ek chhoti si dikkat par user
+      // ka kaam beech me chhoot jata tha.
+      if (!payload && !lastRefreshWasExpired()) {
+        await new Promise((resolve) => setTimeout(resolve, 1200));
+        if (!alive) return;
+        payload = await refreshSession();
+      }
+
+      if (!alive) return;
+
+      // payload null hai = cookie nahi hai ya purani ho gayi, matlab sign in
+      // nahi hai. Yeh galti nahi hai, bilkul normal haal hai.
+      applySession(payload);
+      setChecking(false);
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [applySession]);
+
+  /**
+   * Sign in.
+   * Lautata hai { ok } ya { ok: false, message } — screen par dikhane ke liye.
+   */
+  const signIn = useCallback(
+    async (email, password) => {
+      try {
+        const payload = await api.post('/api/auth/login', { email, password }, { retry: false });
+        applySession(payload);
+        return { ok: true };
+      } catch (error) {
+        // Do alag halat hain: server ne mana kiya (ApiError - uska apna message
+        // dikhate hain), ya server tak baat hi nahi pahunchi (network). Doosre
+        // wale ke liye `network: true` bhejte hain taki screen apni bhasha me
+        // sandesh dikha sake.
+        if (error instanceof ApiError) return { ok: false, message: error.message };
+        return { ok: false, network: true };
+      }
+    },
+    [applySession]
+  );
+
+  const signOut = useCallback(async () => {
+    try {
+      await api.post('/api/auth/logout', undefined, { retry: false });
+    } catch (error) {
+      // Server tak na pahunche to bhi is browser se to nikalna hi hai.
+    }
+    applySession(null);
+  }, [applySession]);
+
+  /** Role ya permissions badalne par dobara le aao. */
+  const reloadSession = useCallback(async () => {
+    try {
+      const payload = await api.get('/api/auth/me');
+      setUser(payload?.user ?? null);
+      setRole(payload?.role ?? null);
+      return true;
+    } catch (error) {
+      return false;
+    }
   }, []);
 
   const value = useMemo(
-    () => ({ user, isSignedIn: Boolean(user), signIn, signOut }),
-    [user, signIn, signOut]
+    () => ({
+      user,
+      role,
+      isSignedIn: Boolean(user),
+      /** true jab tak pata na chale ki sign in hai ya nahi. */
+      checking,
+      signIn,
+      signOut,
+      reloadSession,
+    }),
+    [user, role, checking, signIn, signOut, reloadSession]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

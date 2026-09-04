@@ -5,6 +5,9 @@ import { escapeAttr } from '../../utils/html';
 import { useWorkspace } from '../../store/WorkspaceProvider';
 import { Note } from '../ui/Controls';
 import EmptyState from '../ui/EmptyState';
+import Sheet from '../ui/Sheet';
+import { api } from '../../api/client';
+import { formatDateTime } from '../../utils/format';
 
 const MAX_BYTES = 2 * 1024 * 1024;
 
@@ -21,6 +24,12 @@ export default function ImageLibrary({ onInsert }) {
   const [urlValue, setUrlValue] = useState('');
   const [error, setError] = useState('');
   const [copiedId, setCopiedId] = useState(null);
+
+  // Delete se pehle poochte hain. Image mit jane ke baad wapas nahi aati, aur
+  // agar wo kisi ja chuki campaign me lagi thi to logon ke inbox me padi us
+  // email me bhi tooti hui dikhne lagegi.
+  const [deleteFor, setDeleteFor] = useState(null);
+  const [usage, setUsage] = useState(null);
 
   function openPicker() {
     fileRef.current?.click();
@@ -85,7 +94,38 @@ export default function ImageLibrary({ onInsert }) {
     );
   }
 
-  function remove(event) {
+  async function askRemove(event) {
+    const id = event.currentTarget.dataset.id;
+    const image = images.find((item) => item.id === id) ?? null;
+
+    setDeleteFor(image);
+    setUsage(null);
+    if (!image) return;
+
+    // Kahan-kahan lagi hai — server se poochte hain, taki user ko andaza na
+    // lagana pade.
+    try {
+      setUsage(await api.get(`/api/images/${id}/usage`));
+    } catch (err) {
+      // Pata na chal paya to bhi delete rok nahi dete — bas warning nahi
+      // dikha payenge.
+      setUsage(null);
+    }
+  }
+
+  function cancelRemove() {
+    setDeleteFor(null);
+    setUsage(null);
+  }
+
+  function confirmRemove() {
+    const image = deleteFor;
+    setDeleteFor(null);
+    setUsage(null);
+    if (image) removeImage(image.id);
+  }
+
+  function unusedRemove(event) {
     removeImage(event.currentTarget.dataset.id);
   }
 
@@ -165,7 +205,7 @@ export default function ImageLibrary({ onInsert }) {
                 <div className="mw-imgcard__name mw-truncate">{image.name}</div>
                 <div className="mw-imgcard__meta">
                   {image.size ? `${t('img.size')}: ${readableSize(image.size)} · ` : ''}
-                  {t('img.added')}: {image.addedAt}
+                  {t('img.added')}: {formatDateTime(image.addedAt)}
                 </div>
 
                 <div className="mw-urlbox">
@@ -199,7 +239,7 @@ export default function ImageLibrary({ onInsert }) {
                   type="button"
                   className="btn btn-sm btn-outline-danger"
                   data-id={image.id}
-                  onClick={remove}
+                  onClick={askRemove}
                   aria-label={t('img.remove')}
                 >
                   <i className="bi bi-trash3" />
@@ -219,6 +259,67 @@ export default function ImageLibrary({ onInsert }) {
           {t('img.storageFull')}
         </Note>
       ) : null}
+
+      {/* Delete se pehle poochna. Image mit jane ke baad wapas nahi aati. */}
+      <Sheet
+        open={Boolean(deleteFor)}
+        title={t('img.deleteTitle')}
+        onClose={cancelRemove}
+        footer={
+          <>
+            <button type="button" className="btn btn-outline-secondary flex-fill" onClick={cancelRemove}>
+              {t('common.cancel')}
+            </button>
+            <button type="button" className="btn btn-danger flex-fill" onClick={confirmRemove}>
+              {t('common.delete')}
+            </button>
+          </>
+        }
+      >
+        {deleteFor ? (
+          <>
+            <div className="mw-row mb-3">
+              <img
+                src={deleteFor.url}
+                alt={deleteFor.name}
+                width="72"
+                height="72"
+                style={{ objectFit: 'cover', borderRadius: 8, background: '#f1f1f1' }}
+              />
+              <span>
+                <span className="d-block mw-fw-650">{deleteFor.name}</span>
+                <span className="d-block mw-fs-12 mw-text-muted">{readableSize(deleteFor.size)}</span>
+              </span>
+            </div>
+
+            {/* Sabse zaroori chetavni. Ja chuki campaign ke email logon ke
+                inbox me pade hain — image mitte hi unme bhi tooti hui dikhne
+                lagegi, aur wo email wapas nahi bulaye ja sakte. */}
+            {usage?.sentCount > 0 ? (
+              <Note tone="warning" icon="bi-exclamation-triangle">
+                {t('img.usedInSent', { count: usage.sentCount })}
+              </Note>
+            ) : null}
+
+            {usage?.templates?.length ? (
+              <Note tone="info" icon="bi-layout-wtf">
+                {t('img.usedInTemplates', { count: usage.templates.length })}
+                <span className="d-block mw-fs-12 mw-text-muted mt-1">
+                  {usage.templates.slice(0, 5).join(', ')}
+                </span>
+              </Note>
+            ) : null}
+
+            {usage && !usage.inUse ? (
+              <Note tone="success" icon="bi-check-circle">
+                {t('img.notUsed')}
+              </Note>
+            ) : null}
+
+            <p className="mw-fs-13 mw-text-muted mb-0 mt-3">{t('img.deleteNote')}</p>
+          </>
+        ) : null}
+      </Sheet>
     </div>
   );
 }

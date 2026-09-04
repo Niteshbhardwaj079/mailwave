@@ -6,6 +6,7 @@ import { Segmented } from '../components/ui/Controls';
 import EmptyState from '../components/ui/EmptyState';
 import { useT } from '../i18n/I18nProvider';
 import { useWorkspace } from '../store/WorkspaceProvider';
+import { formatDate } from '../utils/format';
 
 /**
  * A standalone page, on purpose. The link can be shared with a colleague to
@@ -63,7 +64,7 @@ export default function TemplatePreviewPage() {
       <main className="mw-main">
         <div className="mw-main__inner">
           <p className="mw-fs-12 mw-text-muted text-center mb-3">
-            {template.category} · {t('common.updated')} {template.updated} · {t('tpl.previewOnly')}
+            {template.category} · {t('common.updated')} {formatDate(template.updated)} · {t('tpl.previewOnly')}
           </p>
           <HtmlPreview html={template.html} device={device} title={template.name} />
         </div>

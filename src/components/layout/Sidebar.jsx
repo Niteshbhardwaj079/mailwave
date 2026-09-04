@@ -5,7 +5,7 @@ import ProgressBar from '../ui/ProgressBar';
 import { useT } from '../../i18n/I18nProvider';
 import { useWorkspace } from '../../store/WorkspaceProvider';
 import { appConfig } from '../../config/appConfig';
-import { campaigns, contacts, emailAccounts, segments } from '../../data/mockData';
+import { useApi } from '../../api/useApi';
 import { formatCompact } from '../../utils/format';
 
 function linkClass({ isActive }) {
@@ -16,16 +16,22 @@ export default function Sidebar({ open, onClose }) {
   const t = useT();
   const { can, templates, subscribers, users } = useWorkspace();
 
-  // Real counts, taken from the same data the pages show. Nothing is typed in
-  // by hand, so a badge can never disagree with the list it points at.
+  // Saari ginti EK request me. Pehle har number ke liye alag request jaati
+  // thi — har page khulne par chaar bekaar call, aur jaldi-jaldi page kholne
+  // par server ki rate-limit lag jati thi.
+  const countsCall = useApi('/api/stats/counts');
+  const fromServer = countsCall.data?.counts ?? {};
+
   const counts = {
-    campaigns: campaigns.length,
-    contacts: contacts.length,
+    campaigns: fromServer.campaigns ?? 0,
+    contacts: fromServer.contacts ?? 0,
+    // Yeh teen pehle se app ke paas hain, inke liye server ko poochna bekaar
+    // hai.
     subscribers: subscribers.length,
     templates: templates.length,
-    segments: segments.length,
-    accounts: emailAccounts.length,
     users: users.length,
+    segments: fromServer.segments ?? 0,
+    accounts: fromServer.accounts ?? 0,
   };
 
   function countFor(item) {

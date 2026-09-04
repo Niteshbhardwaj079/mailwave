@@ -4,6 +4,7 @@ import { z } from 'zod';
 
 import { many, one, query } from '../db/client.js';
 import { env } from '../env.js';
+import { sendSystemEmail } from '../services/systemMail.js';
 import { asyncHandler, badRequest, unauthorized } from '../lib/http.js';
 import { clientIp, logActivity } from '../lib/activity.js';
 import { hashPassword, verifyPassword } from '../lib/password.js';
@@ -14,15 +15,98 @@ import { permissionsFor } from '../middleware/permissions.js';
 
 const router = Router();
 
-// Credential endpoints are the ones worth guessing at, so they get their own
-// budget. Everything else is covered by the global limiter.
-const authLimiter = rateLimit({
+/**
+ * Password guess karne wale ko rokna — bina asli logon ko roke.
+ *
+ * Ginti EK ACCOUNT ki hoti hai, poore office ki nahi.
+ *
+ * Pehle ginti sirf IP se hoti thi. Ek office me sab log ek hi internet par
+ * hote hain — to das logon ke subah login karne se hi budget khatam ho jata
+ * aur sabka darwaza band ho jata, jabki galti kisi ne ki hi nahi thi.
+ *
+ * Ab har email ka apna hisaab hai: kisi ek account par baar-baar galat
+ * password daalne wala hi rukta hai, baaki sab chalte rehte hain.
+ */
+function accountKey(req) {
+  const email = String(req.body?.email ?? '').trim().toLowerCase();
+  // Email na ho (jaise reset-password me sirf token hota hai) to IP hi sahi.
+  return email ? `acct:${email}` : `ip:${req.ip}`;
+}
+
+const perAccountLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 20,
+  limit: 10,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
-  message: { error: { code: 'rate_limited', message: 'Too many attempts. Try again in a few minutes.' } },
+  keyGenerator: accountKey,
+
+  // SIRF GALAT koshish gini jati hai.
+  //
+  // Yeh sabse zaroori baat hai. Rok isliye hai ki koi password guess na kar
+  // sake — sahi password daalna guess karna nahi hai. Agar sahi login bhi
+  // gine jate, to ek aadmi apne phone aur computer se din me kai baar login
+  // karke khud hi bahar ho jata.
+  skipSuccessfulRequests: true,
+
+  message: {
+    error: {
+      code: 'rate_limited',
+      message: 'Is account par bahut baar galat password daala gaya. Kuch minute baad dobara try karo.',
+    },
+  },
 });
+
+/**
+ * Aur ek chaudi rok — ek hi jagah se bahut saare alag-alag account try karne
+ * walon ke liye. Yeh sankhya jaan-boojh kar badi rakhi hai, taki ek office ke
+ * saare log aaram se kaam kar sakein.
+ */
+const perIpLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 100,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: {
+    error: {
+      code: 'rate_limited',
+      message: 'Bahut zyada koshish ho rahi hai. Kuch minute baad dobara try karo.',
+    },
+  },
+});
+
+/**
+ * "Password bhool gaye" aur "naya password set karo" ke liye alag rok.
+ *
+ * Yahan SAHI request bhi gini jati hai. Wajah: koi kisi ka email daal kar
+ * baar-baar reset ka mail bhijwa sakta hai — har baar wo request "sahi" hi
+ * hoti hai, par saamne wale ka inbox bhar jata hai.
+ */
+const resetLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 6,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  keyGenerator: accountKey,
+  message: {
+    error: {
+      code: 'rate_limited',
+      message: 'Bahut baar koshish ho chuki. Kuch minute baad dobara try karo.',
+    },
+  },
+});
+
+// Login ke liye: ek account ko bachata hai, aur ek chaudi rok poori jagah ke
+// liye.
+const authLimiter = [perIpLimiter, perAccountLimiter];
+
+// Sirf "password bhool gaye" ke liye — kyunki wahi email bhejta hai.
+//
+// "Naya password set karo" (reset-password) ispar NAHI hai. Wo apne aap
+// surakshit hai: uske liye email wala token chahiye, jo andaza nahi lagaya ja
+// sakta, ek baar hi chalta hai aur 1 ghante me khatam ho jata hai. Us par
+// sakht rok lagane se ek nuksaan hota — ek saath 10 naye logon ko invite
+// karo to aakhri log apna password set hi nahi kar paate.
+const mailLimiter = [perIpLimiter, resetLimiter];
 
 const credentials = z.object({
   email: z.string().trim().email('Enter a valid email address'),
@@ -202,7 +286,7 @@ router.get(
 
 router.post(
   '/forgot-password',
-  authLimiter,
+  mailLimiter,
   asyncHandler(async (req, res) => {
     const email = z.string().trim().email().safeParse(req.body?.email);
 
@@ -223,7 +307,7 @@ router.post(
     const { token, hash } = newRefreshToken();
     await query(
       `INSERT INTO password_tokens (id, user_id, token_hash, purpose, expires_at)
-       VALUES ($1,$2,$3,'reset', now() + interval '2 hours')`,
+       VALUES ($1,$2,$3,'reset', now() + interval '1 hour')`,
       [newId('pt'), user.id, hash]
     );
 
@@ -234,13 +318,53 @@ router.post(
       detail: 'Password reset link requested',
     });
 
-    // Until an email account is connected there is nowhere to send this, so in
-    // development the link is returned instead of silently going nowhere.
-    if (env.nodeEnv !== 'production') answer.resetUrl = `${env.appUrl}/reset-password?token=${token}`;
+    const resetUrl = `${env.appUrl}/reset-password?token=${token}`;
+
+    const sent = await sendSystemEmail(
+      'password.reset',
+      { email: email.data, name: user.name },
+      {
+        reset_url: resetUrl,
+        request_ip: req.ip || '',
+        request_time: new Date().toUTCString(),
+      }
+    );
+
+    // Link ko kabhi bhi HTTP jawab me wapas nahi bhejte. Bhej dete to koi bhi
+    // kisi ka bhi email daal kar uska reset link le leta aur account khol leta
+    // — mailbox tak pahunch ke bina.
+    //
+    // Agar email ja hi nahi paya (abhi tak koi account juda nahi hai), to link
+    // server ke console par chhap dete hain. Sirf wahi insaan ise dekh sakta
+    // hai jo khud server chala raha hai.
+    if (!sent.ok) {
+      console.warn(
+        `[auth] ${email.data} ka password reset email nahi ja saka (${sent.reason}). Link neeche hai — 1 ghanta chalega:
+  ${resetUrl}`
+      );
+    }
 
     res.json(answer);
   })
 );
+
+/**
+ * "Aapka password badal diya gaya" wali email. Password reset se ho ya user ne
+ * khud badla ho — dono jagah yahi jaati hai.
+ */
+async function notifyPasswordChanged(req, user) {
+  if (!user?.email) return;
+
+  await sendSystemEmail(
+    'password.changed',
+    { email: user.email, name: user.name },
+    {
+      change_time: new Date().toUTCString(),
+      request_ip: clientIp(req) || '',
+      device: req.get('user-agent')?.slice(0, 120) || 'unknown device',
+    }
+  );
+}
 
 router.post(
   '/reset-password',
@@ -280,7 +404,7 @@ router.post(
       [stored.user_id]
     );
 
-    const user = await one('SELECT id, name FROM users WHERE id = $1', [stored.user_id]);
+    const user = await one('SELECT id, name, email FROM users WHERE id = $1', [stored.user_id]);
     await logActivity({ ...req, user }, {
       action: 'updated',
       module: 'users',
@@ -289,6 +413,10 @@ router.post(
       before: 'Password: unchanged',
       after: 'Password: replaced',
     });
+
+    // Password badalne ki khabar user ko zaroor jaani chahiye. Agar yeh usne
+    // nahi kiya, to isi email se use pata chalega.
+    await notifyPasswordChanged(req, user);
 
     res.json({ ok: true });
   })
@@ -332,6 +460,8 @@ router.post(
       item: req.user.name,
       detail: 'Changed their own password',
     });
+
+    await notifyPasswordChanged(req, req.user);
 
     res.json({ ok: true });
   })

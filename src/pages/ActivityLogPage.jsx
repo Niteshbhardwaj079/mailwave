@@ -12,6 +12,7 @@ import Sheet from '../components/ui/Sheet';
 import { useT } from '../i18n/I18nProvider';
 import { useWorkspace } from '../store/WorkspaceProvider';
 import { ACTION_TYPES, PERMISSION_MODULES } from '../data/adminData';
+import { formatDateTime } from '../utils/format';
 
 function withinRange(stamp, range) {
   if (range === 'all') return true;
@@ -201,7 +202,7 @@ export default function ActivityLogPage() {
                         {t(PERMISSION_MODULES.find((item) => item.key === entry.module)?.labelKey || entry.module)}
                       </td>
                       <td className="mw-table__muted">{entry.detail}</td>
-                      <td className="mw-nowrap mw-num">{entry.at}</td>
+                      <td className="mw-nowrap mw-num">{formatDateTime(entry.at)}</td>
                       <td className="mw-table__muted mw-nowrap">
                         {entry.device}
                         <span className="d-block mw-fs-11">{entry.ip}</span>
@@ -229,7 +230,7 @@ export default function ActivityLogPage() {
                       <i className="bi bi-person me-1" />
                       {entry.userName}
                     </span>
-                    <span className="mw-num">{entry.at}</span>
+                    <span className="mw-num">{formatDateTime(entry.at)}</span>
                   </div>
                 </button>
               ))}
@@ -272,7 +273,7 @@ export default function ActivityLogPage() {
               <span className="mw-avatar">{detailFor.initials}</span>
               <span>
                 <span className="d-block mw-fs-15 mw-fw-700">{detailFor.userName}</span>
-                <span className="d-block mw-fs-12 mw-text-muted">{detailFor.at}</span>
+                <span className="d-block mw-fs-12 mw-text-muted">{formatDateTime(detailFor.at)}</span>
               </span>
             </div>
 

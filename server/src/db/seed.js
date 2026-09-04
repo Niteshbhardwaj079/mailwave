@@ -136,7 +136,16 @@ async function seedContacts() {
   for (const segment of segments) {
     await query(
       `INSERT INTO segments (id, name, rule, tone) VALUES ($1,$2,$3,$4) ON CONFLICT (id) DO NOTHING`,
-      [segment.id, segment.name, JSON.stringify({ description: segment.rule, conditions: [] }), segment.tone ?? 'primary']
+      [
+        segment.id,
+        segment.name,
+        JSON.stringify({
+          description: segment.rule,
+          join: segment.join ?? 'and',
+          conditions: segment.conditions ?? [],
+        }),
+        segment.tone ?? 'primary',
+      ]
     );
   }
 }

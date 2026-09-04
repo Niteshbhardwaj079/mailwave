@@ -73,6 +73,13 @@ export const env = {
   publicUrl: process.env.PUBLIC_URL || `http://localhost:${int(process.env.PORT, 4000)}`,
   appUrl: process.env.APP_URL || 'http://localhost:5173',
 
+  /**
+   * App khud jo email bhejta hai (password reset, invite) wo kis account se
+   * jaaye. Khali chhod do to jo pehla email account juda hai wahi istemal hoga.
+   * Client alag "no-reply@..." rakhna chahe to yahan uska email likh do.
+   */
+  systemEmailFrom: process.env.SYSTEM_EMAIL_FROM || '',
+
   /** Seed account, only used the first time the database is created. */
   seedEmail: process.env.SEED_EMAIL || 'rohit@gowebkart.com',
   seedPassword: process.env.SEED_PASSWORD || 'mailwave',

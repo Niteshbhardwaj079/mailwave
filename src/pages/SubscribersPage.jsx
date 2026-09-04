@@ -16,6 +16,7 @@ import { useDebouncedValue } from '../utils/useDebouncedValue';
 import { downloadCsv, objectsToRows } from '../utils/download';
 import { useT } from '../i18n/I18nProvider';
 import { useWorkspace } from '../store/WorkspaceProvider';
+import { formatDate } from '../utils/format';
 
 function noop() {}
 
@@ -251,7 +252,7 @@ export default function SubscribersPage() {
                       <td className="mw-table__muted">{item.email}</td>
                       <td>{item.company}</td>
                       <td className="mw-table__muted">{item.campaign}</td>
-                      <td className="mw-nowrap mw-num">{item.subscribedAt}</td>
+                      <td className="mw-nowrap mw-num">{formatDate(item.subscribedAt)}</td>
                       <td>
                         <StatusPill
                           status={item.status === 'Subscribed' ? t('sub.statusActive') : t('sub.statusLeft')}
@@ -288,7 +289,7 @@ export default function SubscribersPage() {
                   </div>
                   <div className="mw-fs-12 mw-text-muted">
                     <i className="bi bi-megaphone me-1" />
-                    {item.campaign} · {item.subscribedAt}
+                    {item.campaign} · {formatDate(item.subscribedAt)}
                   </div>
                 </div>
               ))}

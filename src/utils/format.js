@@ -64,6 +64,30 @@ export function formatDate(iso, locale = activeLocale) {
   return d.toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+/**
+ * Date ke saath time bhi — activity log jaisi jagah ke liye.
+ *
+ * Server se time hamesha poore ISO roop me aata hai
+ * ("2026-08-29T06:40:13.453Z"). Wo screen par waise hi dikha dena bahut bura
+ * lagta hai, isliye har jagah yahi se guzaar kar dikhate hain.
+ *
+ * Time apne aap dekhne wale ke apne time zone me badal jata hai — Mumbai me
+ * baitha aadmi Mumbai ka waqt dekhega.
+ */
+export function formatDateTime(iso, locale = activeLocale) {
+  if (!iso || iso === '—') return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+
+  return d.toLocaleString(locale, {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 export function initialsOf(name) {
   if (!name) return '?';
   return name

@@ -481,12 +481,49 @@ export const contactGroups = [
   { id: 'g4', name: 'Course Enquiries', count: 980, tone: 'warning' },
 ];
 
+// `conditions` se hi ginti nikalti hai — server har baar taazi ginta hai.
+// `rule` sirf screen par ek line me dikhane ke liye hai.
 export const segments = [
-  { id: 's1', name: 'Interested Leads', rule: 'Opened campaign AND Clicked link', count: 612, tone: 'success' },
-  { id: 's2', name: 'Opened but did not click', rule: 'Opened AND NOT Clicked', count: 1841, tone: 'info' },
-  { id: 's3', name: 'Never opened', rule: 'Sent AND NOT Opened', count: 2260, tone: 'muted' },
-  { id: 's4', name: 'Clicked multiple times', rule: 'Click count >= 2', count: 214, tone: 'primary' },
-  { id: 's5', name: 'Failed emails', rule: 'Status = Failed OR Bounced', count: 305, tone: 'danger' },
+  {
+    id: 's1',
+    name: 'Interested Leads',
+    rule: 'Opened campaign AND Clicked link',
+    join: 'and',
+    conditions: [{ kind: 'opened' }, { kind: 'clicked' }],
+    tone: 'success',
+  },
+  {
+    id: 's2',
+    name: 'Opened but did not click',
+    rule: 'Opened AND NOT Clicked',
+    join: 'and',
+    conditions: [{ kind: 'opened' }, { kind: 'not_clicked' }],
+    tone: 'info',
+  },
+  {
+    id: 's3',
+    name: 'Never opened',
+    rule: 'Sent AND NOT Opened',
+    join: 'and',
+    conditions: [{ kind: 'not_opened' }],
+    tone: 'muted',
+  },
+  {
+    id: 's4',
+    name: 'Unsubscribed',
+    rule: 'Unsubscribed from any campaign',
+    join: 'and',
+    conditions: [{ kind: 'unsubscribed' }],
+    tone: 'primary',
+  },
+  {
+    id: 's5',
+    name: 'Failed emails',
+    rule: 'Status = Failed OR Bounced',
+    join: 'and',
+    conditions: [{ kind: 'failed' }],
+    tone: 'danger',
+  },
 ];
 
 export const templateCategories = ['All', 'Welcome', 'Promotional', 'Announcement', 'Offer', 'Festival', 'Reminder', 'Follow-up', 'Custom'];

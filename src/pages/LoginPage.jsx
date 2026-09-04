@@ -3,7 +3,8 @@ import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 
 import { appConfig } from '../config/appConfig';
 import { useT } from '../i18n/I18nProvider';
-import { DEMO_EMAIL, DEMO_PASSWORD, useAuth } from '../store/AuthProvider';
+import { useAuth } from '../store/AuthProvider';
+import { ApiError, api } from '../api/client';
 import { Note } from '../components/ui/Controls';
 import { ThemeToggle } from '../components/layout/ThemeControls';
 import LanguagePicker from '../components/layout/LanguagePicker';
@@ -12,7 +13,7 @@ export default function LoginPage() {
   const t = useT();
   const navigate = useNavigate();
   const location = useLocation();
-  const { isSignedIn, signIn } = useAuth();
+  const { isSignedIn, checking, signIn } = useAuth();
 
   const [view, setView] = useState('signin'); // signin | forgot | sent
   const [email, setEmail] = useState('');
@@ -20,9 +21,14 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [resetEmail, setResetEmail] = useState('');
+  // Button dabate hi disable ho jata hai — do baar dabane se do request nahi jati.
+  const [busy, setBusy] = useState(false);
 
-  // Already signed in? Go straight back to where they were headed.
   const redirectTo = location.state?.from?.pathname || '/';
+
+  // Session check chalte waqt kuch nahi dikhate, warna har refresh par login
+  // ki ek jhalak dikh kar turant gayab ho jati.
+  if (checking) return null;
   if (isSignedIn) return <Navigate to={redirectTo} replace />;
 
   function handleEmail(event) {
@@ -39,7 +45,7 @@ export default function LoginPage() {
     setShowPassword((current) => !current);
   }
 
-  function handleSignIn(event) {
+  async function handleSignIn(event) {
     event.preventDefault();
 
     if (!email.trim() || !password) {
@@ -47,8 +53,15 @@ export default function LoginPage() {
       return;
     }
 
-    if (!signIn(email, password)) {
-      setError(t('auth.errWrong'));
+    setBusy(true);
+    const result = await signIn(email, password);
+    setBusy(false);
+
+    if (!result.ok) {
+      // Server ka apna message dikhate hain. Wo jaan-boojh kar nahi batata ki
+      // galti email me thi ya password me — warna koi guess karke pata kar
+      // sakta hai ki kaun se email ka account hai.
+      setError(result.network ? t('auth.errNetwork') : result.message || t('auth.errWrong'));
       return;
     }
 
@@ -71,12 +84,27 @@ export default function LoginPage() {
     setError('');
   }
 
-  function handleForgot(event) {
+  async function handleForgot(event) {
     event.preventDefault();
     if (!resetEmail.trim()) {
       setError(t('auth.errEmpty'));
       return;
     }
+
+    setBusy(true);
+    try {
+      await api.post('/api/auth/forgot-password', { email: resetEmail }, { retry: false });
+    } catch (error) {
+      // Server jaan-boojh kar hamesha "ok" bolta hai — chahe email ho ya na ho.
+      // Isse koi guess karke pata nahi kar sakta ki kaun se email ka account
+      // hai. Isliye yahan bhi wahi screen dikhate hain.
+      if (!(error instanceof ApiError)) {
+        setBusy(false);
+        setError(t('auth.errNetwork'));
+        return;
+      }
+    }
+    setBusy(false);
     setView('sent');
   }
 
@@ -164,8 +192,8 @@ export default function LoginPage() {
                   </button>
                 </div>
 
-                <button type="submit" className="btn btn-primary btn-lg w-100 mb-4">
-                  {t('auth.signIn')}
+                <button type="submit" className="btn btn-primary btn-lg w-100 mb-4" disabled={busy}>
+                  {busy ? t('common.loading') : t('auth.signIn')}
                 </button>
               </form>
 
@@ -173,10 +201,6 @@ export default function LoginPage() {
                 {t('auth.noSignupNote')}
               </Note>
 
-              <p className="mw-fs-12 mw-text-muted-2 text-center mt-4 mb-0">
-                {t('auth.demoHint')} <span className="mw-mono">{DEMO_EMAIL}</span> /{' '}
-                <span className="mw-mono">{DEMO_PASSWORD}</span>
-              </p>
             </>
           ) : null}
 
@@ -212,8 +236,8 @@ export default function LoginPage() {
                   />
                 </div>
 
-                <button type="submit" className="btn btn-primary btn-lg w-100">
-                  {t('auth.sendResetLink')}
+                <button type="submit" className="btn btn-primary btn-lg w-100" disabled={busy}>
+                  {busy ? t('common.loading') : t('auth.sendResetLink')}
                 </button>
               </form>
             </>

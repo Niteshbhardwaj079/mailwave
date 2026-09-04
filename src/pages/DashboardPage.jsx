@@ -10,14 +10,7 @@ import PerformanceChart from '../components/charts/PerformanceChart';
 import DeliveryDonut from '../components/charts/DeliveryDonut';
 import OpensHeatmap from '../components/charts/OpensHeatmap';
 import CampaignTable from '../components/campaigns/CampaignTable';
-import {
-  campaigns,
-  dashboardKpis,
-  deliveryBreakdown,
-  heatmapData,
-  heatmapDays,
-  trendByRange,
-} from '../data/mockData';
+import { useApi } from '../api/useApi';
 
 const QUICK_ACTIONS = [
   { to: '/campaigns/new', labelKey: 'dash.createCampaign', hint: 'Guided 6-step wizard', icon: 'bi-megaphone' },
@@ -27,22 +20,30 @@ const QUICK_ACTIONS = [
   { to: '/accounts/connect', labelKey: 'acc.connect', hint: 'Gmail, Outlook, SMTP', icon: 'bi-plug' },
 ];
 
-const KPI_LABEL_KEYS = {
-  campaigns: 'kpi.campaigns',
-  sent: 'kpi.sent',
-  opened: 'kpi.opened',
-  openRate: 'kpi.openRate',
-  clicked: 'kpi.clicked',
-  clickRate: 'kpi.clickRate',
-  failed: 'kpi.failed',
-  pending: 'kpi.pending',
-  scheduled: 'kpi.scheduled',
+/**
+ * Har card ka naam, icon aur rang.
+ *
+ * Server sirf NUMBER bhejta hai, naam nahi — kyunki naam har bhasha me alag
+ * hota hai. Isliye dikhne wali cheezein yahan rehti hain aur ginti wahan.
+ */
+const KPI_META = {
+  campaigns: { labelKey: 'kpi.campaigns', icon: 'bi-megaphone', tone: 'primary' },
+  sent: { labelKey: 'kpi.sent', icon: 'bi-send', tone: 'info' },
+  opened: { labelKey: 'kpi.opened', icon: 'bi-envelope-open', tone: 'success' },
+  openRate: { labelKey: 'kpi.openRate', icon: 'bi-graph-up-arrow', tone: 'success' },
+  clicked: { labelKey: 'kpi.clicked', icon: 'bi-cursor', tone: 'primary' },
+  clickRate: { labelKey: 'kpi.clickRate', icon: 'bi-bar-chart', tone: 'info' },
+  failed: { labelKey: 'kpi.failed', icon: 'bi-exclamation-octagon', tone: 'danger' },
+  pending: { labelKey: 'kpi.pending', icon: 'bi-hourglass-split', tone: 'warning' },
+  scheduled: { labelKey: 'kpi.scheduled', icon: 'bi-calendar-event', tone: 'muted' },
 };
+
+const HEATMAP_HOURS = 24;
 
 export default function DashboardPage() {
   const t = useT();
-  const [range, setRange] = useState('30d');
   const navigate = useNavigate();
+  const [range, setRange] = useState('30d');
 
   const RANGE_OPTIONS = [
     { value: '7d', label: t('dash.days7') },
@@ -50,8 +51,60 @@ export default function DashboardPage() {
     { value: '90d', label: t('dash.days90') },
   ];
 
-  const trend = useMemo(() => trendByRange[range], [range]);
-  const recent = useMemo(() => campaigns.slice(0, 5), []);
+  // Sab numbers server se — har baar taaza gine jate hain, kahin save nahi
+  // hote. Isliye screen par jo dikhta hai wahi asli haal hota hai.
+  const statsCall = useApi(`/api/stats/dashboard?range=${range}`, { deps: [range] });
+  const trendCall = useApi(`/api/stats/trend?range=${range}`, { deps: [range] });
+  const deliveryCall = useApi('/api/stats/delivery');
+  const heatmapCall = useApi('/api/stats/heatmap');
+  const recentCall = useApi('/api/campaigns?limit=5&sort=date');
+
+  const kpis = statsCall.data?.kpis ?? [];
+  const recent = recentCall.data?.campaigns ?? [];
+
+  // Graph ke X-axis par chhoti date chahiye ("26 Aug"). Server sirf asli date
+  // bhejta hai; use padhne layak banana screen ka kaam hai, kyunki har bhasha
+  // me tarika alag hota hai.
+  const trend = useMemo(
+    () =>
+      (trendCall.data?.trend ?? []).map((point) => ({
+        ...point,
+        label: new Date(point.date).toLocaleDateString(undefined, { day: '2-digit', month: 'short' }),
+      })),
+    [trendCall.data]
+  );
+
+  /**
+   * Heatmap ke liye 7 x 24 ka poora grid.
+   *
+   * Server sirf un khaano ke number bhejta hai jahan kuch hua tha. Baaki khane
+   * yahan zero se bhar dete hain, warna grid me chhed reh jate.
+   *
+   * `level` 0 se 5 tak hota hai (rang ki gehrai). Sabse zyada khulne wale
+   * khane ko 5 maan kar baaki uske hisaab se naap lete hain — isse chhote
+   * data par bhi heatmap kuch dikhata hai, khali kaala nahi rehta.
+   */
+  const heatmap = useMemo(() => {
+    const days = heatmapCall.data?.days ?? ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const points = heatmapCall.data?.heatmap ?? [];
+
+    const max = points.reduce((top, point) => Math.max(top, point.value), 0);
+    const lookup = new Map(points.map((point) => [`${point.day}-${point.hour}`, point.value]));
+
+    const grid = days.map((day, dayIndex) =>
+      Array.from({ length: HEATMAP_HOURS }, (unused, hour) => {
+        const opens = lookup.get(`${dayIndex}-${hour}`) ?? 0;
+        return {
+          day,
+          hour,
+          opens,
+          level: max === 0 ? 0 : Math.min(5, Math.ceil((opens / max) * 5)),
+        };
+      })
+    );
+
+    return { grid, days };
+  }, [heatmapCall.data]);
 
   function goToNewCampaign() {
     navigate('/campaigns/new');
@@ -78,17 +131,22 @@ export default function DashboardPage() {
       />
 
       <div className="mw-kpi-grid">
-        {dashboardKpis.map((kpi) => (
-          <KpiCard
-            key={kpi.id}
-            label={t(KPI_LABEL_KEYS[kpi.id] || kpi.label)}
-            value={kpi.value}
-            icon={kpi.icon}
-            tone={kpi.tone}
-            delta={kpi.delta}
-            trend={kpi.trend}
-          />
-        ))}
+        {kpis.map((kpi) => {
+          const meta = KPI_META[kpi.id];
+          if (!meta) return null;
+
+          return (
+            <KpiCard
+              key={kpi.id}
+              label={t(meta.labelKey)}
+              value={kpi.value}
+              icon={meta.icon}
+              tone={meta.tone}
+              delta={kpi.delta}
+              trend={kpi.trend}
+            />
+          );
+        })}
       </div>
 
       <Card>
@@ -121,14 +179,14 @@ export default function DashboardPage() {
         <Card>
           <CardHead title={t('dash.heatmap')} subtitle={t('dash.heatmapSub')} />
           <CardBody>
-            <OpensHeatmap data={heatmapData} days={heatmapDays} />
+            <OpensHeatmap data={heatmap.grid} days={heatmap.days} />
           </CardBody>
         </Card>
 
         <Card>
           <CardHead title={t('dash.breakdown')} subtitle={t('dash.breakdownSub')} />
           <CardBody>
-            <DeliveryDonut data={deliveryBreakdown} />
+            <DeliveryDonut data={deliveryCall.data?.delivery ?? []} />
           </CardBody>
         </Card>
       </div>

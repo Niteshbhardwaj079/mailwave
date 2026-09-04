@@ -119,38 +119,80 @@ async function applyPendingRestore(PGlite) {
   return db;
 }
 
+/**
+ * Folder toot gaya — sabse naya backup khud chadha do.
+ *
+ * Yeh sabse zaroori suraksha hai. Backup har baar server chalu hone par banta
+ * hai, isliye zyada se zyada utna hi kaam jaata hai jitna pichhli baar server
+ * chalu hone ke baad kiya gaya tha.
+ *
+ * Toote hue folder ko mitate nahi — ".broken-<time>" naam se rakh dete hain,
+ * taki zarurat pade to koi jaankaar usme se data nikaal sake.
+ *
+ * Lautata hai: khula hua database, ya null agar koi backup hi na mile.
+ */
+async function recoverFromNewestBackup(PGlite) {
+  const { cp, readFile, rm } = await import('node:fs/promises');
+  const { listBackups, backupPath } = await import('../services/backup.js');
+
+  let newest = null;
+  try {
+    const all = await listBackups();
+    newest = all[0] ?? null;
+  } catch (error) {
+    console.error(`[db] Backup folder padha nahi ja saka: ${error.message}`);
+  }
+
+  if (!newest) return null;
+
+  const file = await readFile(await backupPath(newest.name));
+
+  // Toote hue folder ko ek taraf rakhte hain. Copy karte hain, rename nahi —
+  // Windows par rename aksar EPERM de deta hai.
+  const broken = `${env.dataDir}.broken-${Date.now()}`;
+  try {
+    await cp(env.dataDir, broken, { recursive: true });
+    console.error(`[db] Toota hua folder yahan rakh diya: ${broken}`);
+  } catch (copyError) {
+    console.error(`[db] Toote hue folder ka copy nahi ban paya (${copyError.code}) — aage badh rahe hain.`);
+  }
+
+  await rm(env.dataDir, { recursive: true, force: true });
+
+  const db = await PGlite.create({
+    dataDir: env.dataDir,
+    loadDataDir: new Blob([file], { type: 'application/gzip' }),
+  });
+
+  console.error(`[db] APNE AAP THEEK KAR DIYA — backup "${newest.name}" chadha diya.`);
+  console.error(`[db] Us backup ke BAAD ka kaam wapas nahi aayega. Backup ka time: ${newest.createdAt}`);
+  console.error('[db] Aisa dobara na ho iske liye DATABASE_URL me asli Postgres lagao.\n');
+
+  return db;
+}
+
 async function connectPglite() {
   const { PGlite } = await import('@electric-sql/pglite');
-  const { rm } = await import('node:fs/promises');
-  const { resolve } = await import('node:path');
-
   let db = await applyPendingRestore(PGlite);
 
   if (!db) {
     try {
       db = await PGlite.create({ dataDir: env.dataDir });
     } catch (error) {
-      // Achanak band hone par PGlite ka folder toot sakta hai. Yahan saaf-saaf
-      // batate hain ki kya hua aur kya karna hai — chup-chap crash nahi.
+      // Achanak band hone par PGlite ka folder toot sakta hai (bijli gayi,
+      // process kill ho gaya). Aisa hone par hum apne aap sabse naya backup
+      // chadha dete hain — kisi ko kuch karna nahi padta.
       console.error('\n[db] Database folder khul nahi raha. Sabse aam wajah: server achanak band hua tha.');
       console.error(`[db] Folder: ${env.dataDir}`);
-      console.error('[db] Kya karo:');
-      console.error('       1. server/data/backups me se koi backup restore karo, YA');
-      console.error(`       2. ${env.dataDir} folder delete karke "npm run seed" chalao (sample data wapas aa jayega)`);
-      console.error('[db] Aisa dobara na ho iske liye DATABASE_URL me asli Postgres lagao.\n');
 
-      // Toota hua folder ek taraf rakh dete hain — mitate nahi. Ho sakta hai
-      // koi expert usme se data nikaal le.
-      const broken = `${env.dataDir}.broken-${Date.now()}`;
-      try {
-        const { rename } = await import('node:fs/promises');
-        await rename(env.dataDir, broken);
-        console.error(`[db] Toota hua folder yahan rakh diya: ${broken}\n`);
-      } catch (renameError) {
-        await rm(resolve(env.dataDir, 'postmaster.pid'), { force: true });
+      db = await recoverFromNewestBackup(PGlite);
+
+      if (!db) {
+        console.error('[db] Koi backup bhi nahi mila. Kya karo:');
+        console.error(`       ${env.dataDir} folder delete karke "npm run seed" chalao (sample data wapas aa jayega)`);
+        console.error('[db] Aisa dobara na ho iske liye DATABASE_URL me asli Postgres lagao.\n');
+        throw new Error('Database folder kharab hai aur koi backup nahi mila — upar likhe steps follow karo');
       }
-
-      throw new Error('Database folder kharab hai — upar likhe steps follow karo');
     }
   }
 

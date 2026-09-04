@@ -8,7 +8,7 @@ const SCHEDULE_OPTIONS = [
   { key: 'later', titleKey: 'send.later', descKey: 'send.laterDesc', icon: 'bi-calendar-event' },
 ];
 
-export default function StepSettings({ draft, onChange, recipientCount }) {
+export default function StepSettings({ draft, onChange, recipientCount = 0 }) {
   const t = useT();
 
   /** "Send all at once" has no number in it; the other choices do. */

@@ -90,9 +90,7 @@ export async function getTransport(account) {
  * Lautata hai: { ok, messageId, previewUrl, response }
  */
 export async function sendMail(account, message) {
-  const transport = await getTransport(account);
-
-  const info = await transport.sendMail({
+  const envelope = {
     from: { name: message.fromName || account?.display_name || '', address: account?.email || message.from },
     to: message.to,
     replyTo: message.replyTo || undefined,
@@ -100,7 +98,29 @@ export async function sendMail(account, message) {
     html: message.html,
     text: message.text,
     headers: message.headers || undefined,
-  });
+  };
+
+  let transport = await getTransport(account);
+  let info;
+
+  try {
+    info = await transport.sendMail(envelope);
+  } catch (error) {
+    // Test wala inbox (ethereal) kuch der baad khud hi kaam karna band kar
+    // deta hai — wo asthayi hota hai. Aisa hone par ek naya inbox banakar
+    // dobara bhejte hain, warna local par testing beech me hi ruk jati hai
+    // aur lagta hai ki email bhejna toot gaya.
+    //
+    // Asli SMTP account par yeh nahi hota, isliye wahan dobara koshish nahi
+    // karte — galat password 10 baar bhejne se account block ho sakta hai.
+    const isEtherealAuth = mode === 'ethereal' && /535|Invalid login|authentication/i.test(error.message);
+    if (!isEtherealAuth) throw error;
+
+    console.warn('[mail] Test inbox ne kaam karna band kar diya. Naya banakar dobara bhej rahe hain.');
+    etherealPromise = null;
+    transport = await getTransport(account);
+    info = await transport.sendMail(envelope);
+  }
 
   return {
     ok: true,

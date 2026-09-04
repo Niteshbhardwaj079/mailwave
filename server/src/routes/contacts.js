@@ -53,36 +53,57 @@ const SELECT = `
     LEFT JOIN contact_groups g ON g.id = c.group_id
 `;
 
+/**
+ * Search aur filter ko SQL me badalta hai.
+ *
+ * Yeh ek hi function list aur "sabke id" dono jagah se bulaya jata hai. Bahut
+ * zaroori hai ki dono ek hi filter lagayein — warna user ko screen par 40 rows
+ * dikhengi aur "Select all 40" dabane par kuch aur 40 chun li jayengi.
+ *
+ * Har value $1, $2 ki tarah alag jati hai, kabhi seedha SQL me nahi — isi se
+ * SQL injection rukta hai.
+ */
+function buildFilter(req) {
+  const search = String(req.query.search ?? '').trim();
+  const status = String(req.query.status ?? '').trim();
+  const groupId = String(req.query.groupId ?? '').trim();
+  const tag = String(req.query.tag ?? '').trim();
+
+  const where = [];
+  const params = [];
+
+  if (search) {
+    params.push(`%${search.toLowerCase()}%`);
+    where.push(`(lower(c.name) LIKE $${params.length}
+              OR lower(c.email) LIKE $${params.length}
+              OR lower(c.company) LIKE $${params.length})`);
+  }
+
+  if (status) {
+    params.push(status);
+    where.push(`c.status = $${params.length}`);
+  }
+
+  if (groupId) {
+    params.push(groupId);
+    where.push(`c.group_id = $${params.length}`);
+  }
+
+  if (tag) {
+    // tags ek list hai, isliye "is list me yeh tag hai kya" wala sawaal.
+    params.push(tag);
+    where.push(`$${params.length} = ANY(c.tags)`);
+  }
+
+  return { clause: where.length ? `WHERE ${where.join(' AND ')}` : '', params };
+}
+
 // --- list, search aur filter ke saath ----------------------------------------
 router.get(
   '/',
   requireModule('contacts', 'view'),
   asyncHandler(async (req, res) => {
-    // Search ko hamesha parameter ki tarah bhejte hain ($1), SQL me jodte nahi —
-    // isi se SQL injection rukta hai.
-    const search = String(req.query.search ?? '').trim();
-    const status = String(req.query.status ?? '').trim();
-    const groupId = String(req.query.groupId ?? '').trim();
-
-    const where = [];
-    const params = [];
-
-    if (search) {
-      params.push(`%${search.toLowerCase()}%`);
-      where.push(`(lower(c.name) LIKE $${params.length}
-                OR lower(c.email) LIKE $${params.length}
-                OR lower(c.company) LIKE $${params.length})`);
-    }
-    if (status) {
-      params.push(status);
-      where.push(`c.status = $${params.length}`);
-    }
-    if (groupId) {
-      params.push(groupId);
-      where.push(`c.group_id = $${params.length}`);
-    }
-
-    const clause = where.length ? `WHERE ${where.join(' AND ')}` : '';
+    const { clause, params } = buildFilter(req);
 
     // Pehle ginti, phir sirf ek page jitni rows.
     //
@@ -103,6 +124,44 @@ router.get(
       // Purane naam ke saath bhi bhej rahe hain, taki jo code pehle se
       // `contacts` padh raha hai wo tootey nahi.
       contacts: rows.map(toApi),
+    });
+  })
+);
+
+/**
+ * Filter se match hone wali SAARI rows ke sirf id.
+ *
+ * Yeh "Select all 12,480" ke liye hai. Screen par sirf 50 rows hoti hain,
+ * isliye baaki ke id uske paas hote hi nahi — bina iske "select all" sirf
+ * dikhne wali 50 chunta, aur user ko lagta ki 12,480 chun li hain. Delete ya
+ * send jaise kaam me yeh galti bahut mehngi padti.
+ *
+ * Sirf id bhejte hain (poori row nahi) — 12,000 id lagbhag 300 KB hote hain,
+ * jabki 12,000 poori rows kai MB.
+ */
+const MAX_SELECT_ALL = 50_000;
+
+router.get(
+  '/ids',
+  requireModule('contacts', 'view'),
+  asyncHandler(async (req, res) => {
+    const { clause, params } = buildFilter(req);
+
+    const rows = await many(
+      `SELECT c.id FROM contacts c ${clause} ORDER BY c.added_on DESC LIMIT $${params.length + 1}`,
+      [...params, MAX_SELECT_ALL]
+    );
+
+    const totalRow = await one(`SELECT count(*)::int AS n FROM contacts c ${clause}`, params);
+    const total = totalRow?.n ?? 0;
+
+    res.json({
+      ids: rows.map((row) => row.id),
+      total,
+      // Itne zyada ho gaye ki sab ek saath nahi bhej sakte — screen ko batana
+      // zaroori hai, taki wo user se jhooth na bole.
+      capped: total > MAX_SELECT_ALL,
+      max: MAX_SELECT_ALL,
     });
   })
 );
@@ -229,6 +288,33 @@ router.post(
   })
 );
 
+/**
+ * Chune hue contacts ki poori detail — CSV banane ke liye.
+ *
+ * Screen ke paas sirf ek page jitni rows hoti hain, par chune hue log kai page
+ * par faile ho sakte hain. Isliye export ke waqt unki poori detail server se
+ * dobara mangwate hain — warna CSV adhoora banta.
+ *
+ * POST isliye hai (GET nahi) ki 12,000 id URL me nahi samate.
+ */
+router.post(
+  '/export',
+  requireModule('contacts', 'export'),
+  validate(z.object({ ids: z.array(z.string()).min(1, 'Kam se kam ek contact chuno').max(50_000) })),
+  asyncHandler(async (req, res) => {
+    const rows = await many(`${SELECT} WHERE c.id = ANY($1) ORDER BY c.added_on DESC`, [req.body.ids]);
+
+    await logActivity(req, {
+      action: 'exported',
+      module: 'contacts',
+      item: `${rows.length} contacts`,
+      detail: 'CSV download kiya gaya',
+    });
+
+    res.json({ contacts: rows.map(toApi) });
+  })
+);
+
 // --- contact groups ---------------------------------------------------------
 router.get(
   '/groups/all',
@@ -268,6 +354,25 @@ router.post(
     });
 
     res.status(201).json({ group: { id, name: req.body.name, tone: req.body.tone, count: 0 } });
+  })
+);
+
+/**
+ * Jitne bhi tag istemaal me hain — filter ke dropdown ke liye.
+ *
+ * Yeh alag endpoint isliye hai ki ab screen ke paas saare contacts hote hi
+ * nahi (sirf ek page jitne hote hain), to wo khud tag nahi gin sakti.
+ */
+router.get(
+  '/tags/all',
+  requireModule('contacts', 'view'),
+  asyncHandler(async (req, res) => {
+    const rows = await many(`
+      SELECT DISTINCT unnest(tags) AS tag
+        FROM contacts
+       ORDER BY tag
+    `);
+    res.json({ tags: rows.map((row) => row.tag).filter(Boolean) });
   })
 );
 
