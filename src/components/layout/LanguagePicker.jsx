@@ -1,11 +1,14 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useI18n } from '../../i18n/I18nProvider';
+import { useClickOutside } from '../../utils/useClickOutside';
 
 export default function LanguagePicker() {
   const { t, language, languages, setLanguage } = useI18n();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const wrapRef = useRef(null);
+  useClickOutside(wrapRef, useCallback(() => setOpen(false), []), open);
 
   function toggle() {
     setOpen((current) => !current);
@@ -33,7 +36,7 @@ export default function LanguagePicker() {
   }, [languages, query]);
 
   return (
-    <div className="position-relative">
+    <div className="position-relative" ref={wrapRef}>
       <button
         type="button"
         className="mw-langbtn"

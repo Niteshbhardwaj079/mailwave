@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { notifications } from '../../data/mockData';
@@ -16,6 +16,23 @@ export default function Topbar({ title, onOpenMenu }) {
   const { user, signOut } = useAuth();
   const [query, setQuery] = useState('');
   const [openPanel, setOpenPanel] = useState(null);
+  const notifRef = useRef(null);
+  const profileRef = useRef(null);
+
+  // Bahar kahin bhi click karte hi khula hua panel band ho jaye — dono
+  // dropdown ek hi jagah se sambhalte hain kyunki state ek hi hai.
+  useEffect(() => {
+    if (!openPanel) return undefined;
+
+    function handlePointerDown(event) {
+      const insideNotif = notifRef.current?.contains(event.target);
+      const insideProfile = profileRef.current?.contains(event.target);
+      if (!insideNotif && !insideProfile) setOpenPanel(null);
+    }
+
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => document.removeEventListener('mousedown', handlePointerDown);
+  }, [openPanel]);
 
   // Jo abhi sign in hai wahi. Pehle yahan list ka pehla user dikhta tha —
   // yaani doosre logon ko upar kisi aur ka naam dikhta tha.
@@ -61,7 +78,7 @@ export default function Topbar({ title, onOpenMenu }) {
         <AccentPicker />
         <LanguagePicker />
 
-        <div className="position-relative">
+        <div className="position-relative" ref={notifRef}>
           <button
             type="button"
             className={`mw-iconbtn ${openPanel === 'notifications' ? 'is-active' : ''}`.trim()}
@@ -107,7 +124,7 @@ export default function Topbar({ title, onOpenMenu }) {
           <i className="bi bi-question-circle" />
         </Link>
 
-        <div className="position-relative">
+        <div className="position-relative" ref={profileRef}>
           <button
             type="button"
             className="mw-profile"

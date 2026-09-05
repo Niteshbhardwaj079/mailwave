@@ -50,6 +50,12 @@ export default function ContactsPage() {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
 
+  // --- naya group (bilkul optional — koi majboor nahi, jisko chahiye banaye) --
+  const [groupFormOpen, setGroupFormOpen] = useState(false);
+  const [groupName, setGroupName] = useState('');
+  const [groupSaving, setGroupSaving] = useState(false);
+  const [groupError, setGroupError] = useState('');
+
   // Groups aur tags — filter ke dropdown aur upar wale KPI card ke liye.
   const groupsCall = useApi('/api/contacts/groups/all');
   const tagsCall = useApi('/api/contacts/tags/all');
@@ -229,6 +235,37 @@ export default function ContactsPage() {
     setAddOpen(false);
   }
 
+  // --- naya group --------------------------------------------------------
+  function openNewGroup() {
+    setGroupName('');
+    setGroupError('');
+    setGroupFormOpen(true);
+  }
+
+  function closeNewGroup() {
+    setGroupFormOpen(false);
+  }
+
+  async function submitGroup(event) {
+    event.preventDefault();
+    if (!groupName.trim()) {
+      setGroupError(t('con.groupNameNeeded'));
+      return;
+    }
+
+    setGroupSaving(true);
+    try {
+      await api.post('/api/contacts/groups', { name: groupName.trim() });
+      groupsCall.reload();
+      toast.success(t('toast.groupCreated'), groupName.trim());
+      setGroupFormOpen(false);
+    } catch (error) {
+      setGroupError(error instanceof ApiError ? error.message : t('toast.networkError'));
+    } finally {
+      setGroupSaving(false);
+    }
+  }
+
   function handleDraftField(event) {
     const { name, value } = event.target;
     setDraft((current) => ({ ...current, [name]: value }));
@@ -302,7 +339,49 @@ export default function ContactsPage() {
             </div>
           </article>
         ))}
+        <button type="button" className="mw-kpi mw-kpi--add" onClick={openNewGroup}>
+          <span className="mw-kpi__icon mw-kpi__icon--muted" aria-hidden="true">
+            <i className="bi bi-plus-lg" />
+          </span>
+          <div className="mw-kpi__body">
+            <p className="mw-kpi__label">{t('con.newGroup')}</p>
+          </div>
+        </button>
       </div>
+
+      <Sheet open={groupFormOpen} title={t('con.newGroupTitle')} onClose={closeNewGroup}>
+        <form onSubmit={submitGroup}>
+          {groupError ? (
+            <div className="mw-note mw-note--warning mb-3" role="alert">
+              <i className="bi bi-exclamation-triangle mw-note__icon" aria-hidden="true" />
+              <div>{groupError}</div>
+            </div>
+          ) : null}
+          <div className="mb-4">
+            <label className="form-label" htmlFor="new-group-name">{t('con.groupName')}</label>
+            <input
+              id="new-group-name"
+              type="text"
+              className="form-control"
+              placeholder="VIP Customers"
+              value={groupName}
+              onChange={(event) => {
+                setGroupName(event.target.value);
+                setGroupError('');
+              }}
+              autoFocus
+            />
+          </div>
+          <div className="d-flex gap-2">
+            <button type="button" className="btn btn-outline-secondary flex-fill" onClick={closeNewGroup}>
+              {t('common.cancel')}
+            </button>
+            <button type="submit" className="btn btn-primary flex-fill" disabled={groupSaving}>
+              {groupSaving ? t('common.loading') : t('con.newGroup')}
+            </button>
+          </div>
+        </form>
+      </Sheet>
 
       <Card flush>
         <div className="mw-toolbar">

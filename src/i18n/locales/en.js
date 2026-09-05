@@ -355,6 +355,10 @@ export default {
   'con.importExcel': 'Import Excel',
   'con.searchPlaceholder': 'Search name, email or company…',
   'con.group': 'Group',
+  'con.newGroup': 'New group',
+  'con.newGroupTitle': 'Create a group',
+  'con.groupName': 'Group name',
+  'con.groupNameNeeded': 'Give the group a name',
   'con.tags': 'Tags',
   'con.added': 'Added',
 
@@ -1073,6 +1077,7 @@ export default {
   'con.emailNeeded': 'Email address is needed',
   'con.selectAllCapped': 'Selected the first {max}. Narrow the filter to work on the rest.',
   'toast.contactAdded': 'Contact added',
+  'toast.groupCreated': 'Group created',
   'toast.contactDeleted': 'Contact removed',
   'bulk.doneExport': '{count} downloaded',
   'toast.networkError': 'Cannot reach the server. Check your internet and try again.',

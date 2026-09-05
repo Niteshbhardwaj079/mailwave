@@ -45,6 +45,9 @@ export default function SettingsPage() {
   const { t, language, languages, setLanguage } = useI18n();
   const { mode, setMode, accent, setAccent, accents } = useTheme();
   const [section, setSection] = useState('profile');
+  const [showCurrentPass, setShowCurrentPass] = useState(false);
+  const [showNewPass, setShowNewPass] = useState(false);
+  const [showApiKey, setShowApiKey] = useState(false);
 
   // Jo abhi sign in hai uski apni detail. Pehle yahan ek nakli user ki detail
   // dikhti thi — chahe koi bhi sign in ho.
@@ -413,11 +416,41 @@ export default function SettingsPage() {
                 <div className="row g-3 mb-3">
                   <div className="col-12 col-md-6">
                     <label className="form-label" htmlFor="sec-current">{t('set.currentPassword')}</label>
-                    <input id="sec-current" type="password" className="form-control" placeholder="••••••••" />
+                    <div className="input-group">
+                      <input
+                        id="sec-current"
+                        type={showCurrentPass ? 'text' : 'password'}
+                        className="form-control"
+                        placeholder="••••••••"
+                      />
+                      <button
+                        type="button"
+                        className="btn btn-outline-secondary"
+                        onClick={() => setShowCurrentPass((current) => !current)}
+                        aria-label={showCurrentPass ? t('auth.hidePassword') : t('auth.showPassword')}
+                      >
+                        <i className={`bi ${showCurrentPass ? 'bi-eye-slash' : 'bi-eye'}`} />
+                      </button>
+                    </div>
                   </div>
                   <div className="col-12 col-md-6">
                     <label className="form-label" htmlFor="sec-new">{t('auth.newPassword')}</label>
-                    <input id="sec-new" type="password" className="form-control" placeholder="••••••••" />
+                    <div className="input-group">
+                      <input
+                        id="sec-new"
+                        type={showNewPass ? 'text' : 'password'}
+                        className="form-control"
+                        placeholder="••••••••"
+                      />
+                      <button
+                        type="button"
+                        className="btn btn-outline-secondary"
+                        onClick={() => setShowNewPass((current) => !current)}
+                        aria-label={showNewPass ? t('auth.hidePassword') : t('auth.showPassword')}
+                      >
+                        <i className={`bi ${showNewPass ? 'bi-eye-slash' : 'bi-eye'}`} />
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -451,9 +484,20 @@ export default function SettingsPage() {
               <CardBody>
                 <label className="form-label" htmlFor="api-key">{t('set.apiKey')}</label>
                 <div className="input-group">
-                  <input id="api-key" type="password" className="form-control mw-mono" defaultValue="mw_live_8fj2••••••••" readOnly />
-                  <button type="button" className="btn btn-outline-secondary">
-                    <i className="bi bi-eye" />
+                  <input
+                    id="api-key"
+                    type={showApiKey ? 'text' : 'password'}
+                    className="form-control mw-mono"
+                    defaultValue="mw_live_8fj2••••••••"
+                    readOnly
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-outline-secondary"
+                    onClick={() => setShowApiKey((current) => !current)}
+                    aria-label={showApiKey ? t('auth.hidePassword') : t('auth.showPassword')}
+                  >
+                    <i className={`bi ${showApiKey ? 'bi-eye-slash' : 'bi-eye'}`} />
                   </button>
                   <button type="button" className="btn btn-outline-secondary">
                     <i className="bi bi-clipboard" />

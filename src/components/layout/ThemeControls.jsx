@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import { useT } from '../../i18n/I18nProvider';
 import { useTheme } from '../../theme/ThemeProvider';
 import { THEME_MODES } from '../../config/themeColors';
+import { useClickOutside } from '../../utils/useClickOutside';
 
 /** Sun / moon button in the top bar. One press flips day and night. */
 export function ThemeToggle() {
@@ -27,6 +28,8 @@ export function AccentPicker() {
   const t = useT();
   const { accent, setAccent, accents, mode, setMode } = useTheme();
   const [open, setOpen] = useState(false);
+  const wrapRef = useRef(null);
+  useClickOutside(wrapRef, useCallback(() => setOpen(false), []), open);
 
   function toggleOpen() {
     setOpen((current) => !current);
@@ -42,7 +45,7 @@ export function AccentPicker() {
   }
 
   return (
-    <div className="position-relative">
+    <div className="position-relative" ref={wrapRef}>
       <button
         type="button"
         className={`mw-iconbtn ${open ? 'is-active' : ''}`.trim()}

@@ -47,6 +47,7 @@ export default function ConnectAccountPage() {
   const [values, setValues] = useState(EMPTY);
 
   const [testing, setTesting] = useState(false);
+  const [showPass, setShowPass] = useState(false);
   const [saving, setSaving] = useState(false);
   const [result, setResult] = useState(null);
   const [saved, setSaved] = useState(null);
@@ -309,15 +310,25 @@ export default function ConnectAccountPage() {
               <label className="form-label" htmlFor="acc-pass">
                 {provider?.needsAppPassword ? t('acc.appPassword') : t('auth.password')}
               </label>
-              <input
-                id="acc-pass"
-                name="pass"
-                type="password"
-                className="form-control"
-                value={values.pass}
-                onChange={handleValue}
-                autoComplete="new-password"
-              />
+              <div className="input-group">
+                <input
+                  id="acc-pass"
+                  name="pass"
+                  type={showPass ? 'text' : 'password'}
+                  className="form-control"
+                  value={values.pass}
+                  onChange={handleValue}
+                  autoComplete="new-password"
+                />
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary"
+                  onClick={() => setShowPass((current) => !current)}
+                  aria-label={showPass ? t('auth.hidePassword') : t('auth.showPassword')}
+                >
+                  <i className={`bi ${showPass ? 'bi-eye-slash' : 'bi-eye'}`} />
+                </button>
+              </div>
               <div className="form-text">
                 {provider?.needsAppPassword ? t('acc.appPasswordHelp') : t('acc.passwordHelp')}
               </div>

@@ -57,6 +57,7 @@ export default function UsersPage() {
   const [passwordFor, setPasswordFor] = useState(null);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showAdminPassword, setShowAdminPassword] = useState(false);
   const [notifyUser, setNotifyUser] = useState(true);
   const [passwordError, setPasswordError] = useState('');
   const [passwordDone, setPasswordDone] = useState('');
@@ -116,6 +117,7 @@ export default function UsersPage() {
     setPasswordFor(users.find((user) => user.id === event.currentTarget.dataset.id) || null);
     setNewPassword('');
     setConfirmPassword('');
+    setShowAdminPassword(false);
     setNotifyUser(true);
     setPasswordError('');
     setPasswordDone('');
@@ -900,14 +902,24 @@ export default function UsersPage() {
               <label className="form-label" htmlFor="admin-new-password">
                 {t('auth.newPassword')}
               </label>
-              <input
-                id="admin-new-password"
-                type="password"
-                className="form-control"
-                value={newPassword}
-                onChange={handleNewPassword}
-                autoComplete="new-password"
-              />
+              <div className="input-group">
+                <input
+                  id="admin-new-password"
+                  type={showAdminPassword ? 'text' : 'password'}
+                  className="form-control"
+                  value={newPassword}
+                  onChange={handleNewPassword}
+                  autoComplete="new-password"
+                />
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary"
+                  onClick={() => setShowAdminPassword((current) => !current)}
+                  aria-label={showAdminPassword ? t('auth.hidePassword') : t('auth.showPassword')}
+                >
+                  <i className={`bi ${showAdminPassword ? 'bi-eye-slash' : 'bi-eye'}`} />
+                </button>
+              </div>
             </div>
 
             <div>
@@ -916,7 +928,7 @@ export default function UsersPage() {
               </label>
               <input
                 id="admin-confirm-password"
-                type="password"
+                type={showAdminPassword ? 'text' : 'password'}
                 className="form-control"
                 value={confirmPassword}
                 onChange={handleConfirmPassword}
