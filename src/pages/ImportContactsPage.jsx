@@ -3,7 +3,10 @@ import { useNavigate } from 'react-router-dom';
 
 import PageHeader from '../components/ui/PageHeader';
 import { Card } from '../components/ui/Card';
-import { Note } from '../components/ui/Controls';
+import { Note, SearchInput } from '../components/ui/Controls';
+import FilterSelect, { FilterBar } from '../components/ui/FilterSelect';
+import BulkBar, { SelectAllCheckbox } from '../components/ui/BulkBar';
+import Sheet from '../components/ui/Sheet';
 import Stepper from '../components/wizard/Stepper';
 import StatusPill from '../components/ui/StatusPill';
 import SampleFileCard from '../components/ui/SampleFileCard';
@@ -11,7 +14,10 @@ import { useT } from '../i18n/I18nProvider';
 import { ApiError, api } from '../api/client';
 import { useApi } from '../api/useApi';
 import { useToast } from '../components/ui/ToastProvider';
+import { useBulkSelection } from '../utils/useBulkSelection';
+import { useDebouncedValue } from '../utils/useDebouncedValue';
 import { readSheet } from '../utils/readSheet';
+import { downloadCsv, objectsToRows } from '../utils/download';
 import { appFields } from '../data/mockData';
 import { formatNumber } from '../utils/format';
 
@@ -38,10 +44,10 @@ const FLAG_KEY = {
  * teenon ko "duplicate" hi dikhate hain par wajah alag likhi rehti hai.
  */
 const REASON_FLAG = {
-  'no-email': 'missing',
-  'bad-email': 'invalid',
-  'duplicate-in-database': 'duplicate',
-  'duplicate-in-file': 'duplicate',
+  missing: 'missing',
+  invalid: 'invalid',
+  duplicateInDatabase: 'duplicate',
+  duplicateInFile: 'duplicate',
   suppressed: 'duplicate',
 };
 
@@ -91,6 +97,19 @@ export default function ImportContactsPage() {
   const [report, setReport] = useState(null);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(null);
+
+  // --- preview me edit/delete/filter (import se pehle saaf karne ke liye) ----
+  // `rows` ke original index — jo rows hata di gayi hain (import me nahi jayengi).
+  const [excludedIndices, setExcludedIndices] = useState(() => new Set());
+  const [previewFlag, setPreviewFlag] = useState('all');
+  const [previewQuery, setPreviewQuery] = useState('');
+  const previewSearch = useDebouncedValue(previewQuery, 200);
+  const [revalidating, setRevalidating] = useState(false);
+
+  const [editingRow, setEditingRow] = useState(null); // previewRow object
+  const [editDraft, setEditDraft] = useState({ name: '', email: '', company: '' });
+  const [editError, setEditError] = useState('');
+  const [editSaving, setEditSaving] = useState(false);
 
   const groupsCall = useApi('/api/contacts/groups/all');
   const groups = groupsCall.data?.groups ?? [];
@@ -174,28 +193,72 @@ export default function ImportContactsPage() {
     setHeaders([]);
     setRows([]);
     setReport(null);
+    setExcludedIndices(new Set());
+    setPreviewFlag('all');
+    setPreviewQuery('');
   }
 
+  const hasEmailColumn = Object.values(mapping).includes('email');
+
+  /** field (email/name/company) se us column ka naam jo file me tha — edit likhne ke liye. */
+  const fieldToHeader = useMemo(() => {
+    const out = {};
+    for (const [header, field] of Object.entries(mapping)) {
+      if (field !== 'skip') out[field] = header;
+    }
+    return out;
+  }, [mapping]);
+
   /**
-   * Mapping lagakar rows ko app ke naamon me badalta hai.
-   *
-   * File me column ka naam kuch bhi ho sakta hai ("Email Address", "मेल"),
-   * par server ko hamesha `email`, `name` jaise naam chahiye.
+   * Hataayi hui rows chhod kar mapping lagata hai — isi ko server bhejte hain,
+   * chahe jaanch ke liye ho ya asli import ke liye.
    */
-  const mapped = useMemo(
-    () =>
-      rows.map((row) => {
+  function buildWorkingMapped(sourceRows, excluded) {
+    return sourceRows
+      .map((row, index) => ({ index, row }))
+      .filter((entry) => !excluded.has(entry.index))
+      .map((entry) => {
         const out = {};
         for (const [source, field] of Object.entries(mapping)) {
           if (field === 'skip') continue;
-          out[field] = row[source] ?? '';
+          out[field] = entry.row[source] ?? '';
         }
         return out;
-      }),
-    [rows, mapping]
+      });
+  }
+
+  // Preview screen isi se banti hai — hataayi hui rows ke bina, par har row ka
+  // asli file-row-number yaad rakhte hue (taaki spreadsheet me dhoondh sakein).
+  const workingEntries = useMemo(
+    () =>
+      rows
+        .map((row, index) => ({ originalIndex: index, row }))
+        .filter((entry) => !excludedIndices.has(entry.originalIndex)),
+    [rows, excludedIndices]
   );
 
-  const hasEmailColumn = Object.values(mapping).includes('email');
+  const workingMapped = useMemo(
+    () => buildWorkingMapped(rows, excludedIndices),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rows, excludedIndices, mapping]
+  );
+
+  /** Edit ya delete ke baad dobara jaanch — bina kuch save kiye. */
+  async function revalidate(nextMapped) {
+    setRevalidating(true);
+    try {
+      const data = await api.post('/api/contacts/import', {
+        rows: nextMapped,
+        groupId: groupId || null,
+        commit: false,
+      });
+      setReport(data.report ?? data);
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : t('toast.networkError'));
+    } finally {
+      setRevalidating(false);
+    }
+  }
 
   /**
    * Jaanch — bina kuch save kiye.
@@ -208,7 +271,7 @@ export default function ImportContactsPage() {
     setBusy(true);
     try {
       const data = await api.post('/api/contacts/import', {
-        rows: mapped,
+        rows: workingMapped,
         groupId: groupId || null,
         commit: false,
       });
@@ -226,7 +289,7 @@ export default function ImportContactsPage() {
     setBusy(true);
     try {
       const data = await api.post('/api/contacts/import', {
-        rows: mapped,
+        rows: workingMapped,
         groupId: groupId || null,
         commit: true,
       });
@@ -269,7 +332,8 @@ export default function ImportContactsPage() {
     navigate('/contacts');
   }
 
-  // Jaanch ke baad har row par ek nishaan — screen par pehli 200 dikhti hain.
+  // Jaanch server ko jitni rows bheji thi (workingMapped) unhi ki ginti se
+  // nishaan lagta hai — hataayi hui rows to bheji hi nahi jatin.
   const problemsByRow = useMemo(() => {
     const map = new Map();
     for (const problem of report?.problems ?? []) map.set(problem.row, problem);
@@ -278,13 +342,16 @@ export default function ImportContactsPage() {
 
   const previewRows = useMemo(
     () =>
-      rows.slice(0, 200).map((row, index) => {
-        const rowNumber = index + 2; // header ko row 1 maan kar
-        const problem = problemsByRow.get(rowNumber);
-        const value = mapped[index] ?? {};
+      workingEntries.slice(0, 200).map((entry, index) => {
+        const sentPosition = index + 2; // jaanch ke waqt server ko isi number par mila tha
+        const problem = problemsByRow.get(sentPosition);
+        const value = workingMapped[index] ?? {};
 
         return {
-          row: rowNumber,
+          // Screen par asli file wala row-number dikhate hain, taaki spreadsheet
+          // me wahi row dhoondh sakein — server ko bheja gaya number alag hai.
+          row: entry.originalIndex + 2,
+          originalIndex: entry.originalIndex,
           name: value.name ?? '',
           email: value.email ?? '',
           company: value.company ?? '',
@@ -292,8 +359,101 @@ export default function ImportContactsPage() {
           detail: problem?.detail ?? '',
         };
       }),
-    [rows, mapped, problemsByRow]
+    [workingEntries, workingMapped, problemsByRow]
   );
+
+  const filteredPreviewRows = useMemo(() => {
+    const text = previewSearch.trim().toLowerCase();
+    return previewRows.filter((row) => {
+      if (previewFlag !== 'all' && row.flag !== previewFlag) return false;
+      if (
+        text &&
+        !row.name.toLowerCase().includes(text) &&
+        !row.email.toLowerCase().includes(text) &&
+        !row.company.toLowerCase().includes(text)
+      ) {
+        return false;
+      }
+      return true;
+    });
+  }, [previewRows, previewFlag, previewSearch]);
+
+  const filteredIds = useMemo(
+    () => filteredPreviewRows.map((row) => row.originalIndex),
+    [filteredPreviewRows]
+  );
+  const bulk = useBulkSelection(filteredIds, filteredIds);
+
+  // --- ek row hatana / kai row hatana -----------------------------------
+  function removeRows(indices) {
+    const next = new Set(excludedIndices);
+    for (const index of indices) next.add(index);
+    setExcludedIndices(next);
+    revalidate(buildWorkingMapped(rows, next));
+    bulk.clear();
+  }
+
+  function removeOneRow(originalIndex) {
+    removeRows([originalIndex]);
+    toast.success(t('imp.rowRemoved'));
+  }
+
+  function removeSelectedRows() {
+    const count = bulk.selectedIds.length;
+    removeRows(bulk.selectedIds);
+    toast.success(t('imp.rowsRemoved', { count: formatNumber(count) }));
+  }
+
+  // --- ek row edit karna --------------------------------------------------
+  function openEditRow(row) {
+    setEditingRow(row);
+    setEditDraft({ name: row.name, email: row.email, company: row.company });
+    setEditError('');
+  }
+
+  function closeEditRow() {
+    setEditingRow(null);
+  }
+
+  async function saveEditRow(event) {
+    event.preventDefault();
+    if (fieldToHeader.email && !editDraft.email.trim()) {
+      setEditError(t('con.emailNeeded'));
+      return;
+    }
+
+    setEditSaving(true);
+    try {
+      const nextRows = rows.map((row, index) => {
+        if (index !== editingRow.originalIndex) return row;
+        const updated = { ...row };
+        if (fieldToHeader.name) updated[fieldToHeader.name] = editDraft.name.trim();
+        if (fieldToHeader.email) updated[fieldToHeader.email] = editDraft.email.trim();
+        if (fieldToHeader.company) updated[fieldToHeader.company] = editDraft.company.trim();
+        return updated;
+      });
+
+      setRows(nextRows);
+      setEditingRow(null);
+      await revalidate(buildWorkingMapped(nextRows, excludedIndices));
+      toast.success(t('imp.rowUpdated'));
+    } finally {
+      setEditSaving(false);
+    }
+  }
+
+  /** Jo abhi valid hain unhi ko file me utaarta hai — sahi, saaf list. */
+  function downloadCorrected() {
+    const validRows = previewRows.filter((row) => row.flag === 'valid');
+    downloadCsv(
+      'contacts-corrected.csv',
+      objectsToRows(validRows, [
+        { key: 'name', label: t('common.name') },
+        { key: 'email', label: t('common.email') },
+        { key: 'company', label: t('common.company') },
+      ])
+    );
+  }
 
   const duplicates =
     (report?.duplicateInDatabase ?? 0) + (report?.duplicateInFile ?? 0) + (report?.suppressed ?? 0);
@@ -486,55 +646,182 @@ export default function ImportContactsPage() {
 
           {step === 3 ? (
             <>
-              <div className="mw-tablewrap">
-                <table className="mw-table">
-                  <thead>
-                    <tr>
-                      <th scope="col">{t('imp.col.row')}</th>
-                      <th scope="col">{t('common.name')}</th>
-                      <th scope="col">{t('common.email')}</th>
-                      <th scope="col">{t('common.company')}</th>
-                      <th scope="col">{t('imp.col.check')}</th>
-                      <th scope="col" className="text-end">
-                        {t('imp.col.action')}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {previewRows.map((row) => (
-                      <tr key={row.row}>
-                        <td className="mw-table__muted">{row.row}</td>
-                        <td className="mw-table__primary">{row.name}</td>
-                        <td>{row.email || <span className="mw-text-muted-2">{t('imp.empty')}</span>}</td>
-                        <td className="mw-table__muted">{row.company}</td>
-                        <td>
-                          <StatusPill status={t(FLAG_KEY[row.flag])} tone={FLAG_TONE[row.flag]} />
-                        </td>
-                        <td className="text-end mw-fs-12 mw-text-muted-2">
-                          {row.flag === 'valid' ? t('imp.willImport') : row.detail || t('imp.willSkip')}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <FilterBar
+                onClear={() => {
+                  setPreviewFlag('all');
+                  setPreviewQuery('');
+                }}
+                clearLabel={t('common.clear')}
+              >
+                <div className="mw-filterbar__search">
+                  <SearchInput
+                    value={previewQuery}
+                    onChange={setPreviewQuery}
+                    placeholder={t('imp.searchPlaceholder')}
+                  />
+                </div>
+                <FilterSelect
+                  id="imp-filter-flag"
+                  label={t('imp.col.check')}
+                  icon="bi-funnel"
+                  value={previewFlag}
+                  onChange={setPreviewFlag}
+                  options={[
+                    { value: 'all', label: t('common.all') },
+                    { value: 'valid', label: t(FLAG_KEY.valid) },
+                    { value: 'invalid', label: t(FLAG_KEY.invalid) },
+                    { value: 'duplicate', label: t(FLAG_KEY.duplicate) },
+                    { value: 'missing', label: t(FLAG_KEY.missing) },
+                  ]}
+                />
+                <button type="button" className="btn btn-outline-secondary btn-sm" onClick={downloadCorrected}>
+                  <i className="bi bi-download me-2" />
+                  {t('imp.downloadCorrected')}
+                </button>
+              </FilterBar>
 
-              <div className="mw-reclist">
-                {previewRows.map((row) => (
-                  <div key={row.row} className="mw-rec">
-                    <div className="mw-rec__top">
-                      <span className="mw-rec__title">
-                        {row.name}
-                        <span className="d-block mw-rec__sub">{row.email || t('imp.empty')}</span>
-                      </span>
-                      <StatusPill status={t(FLAG_KEY[row.flag])} tone={FLAG_TONE[row.flag]} />
-                    </div>
-                    <span className="mw-fs-12 mw-text-muted">
-                      {t('imp.rowOf', { row: row.row })} · {row.company}
-                    </span>
+              <BulkBar
+                count={bulk.count}
+                total={bulk.total}
+                pageCount={filteredIds.length}
+                onSelectAll={bulk.selectAll}
+                onClear={bulk.clear}
+                actions={
+                  <button type="button" className="btn btn-sm btn-outline-danger" onClick={removeSelectedRows}>
+                    <i className="bi bi-trash3 me-2" />
+                    {t('bulk.delete')}
+                  </button>
+                }
+              />
+
+              {excludedIndices.size > 0 ? (
+                <Note tone="info" icon="bi-trash3">
+                  {t('imp.removedNote', { count: formatNumber(excludedIndices.size) })}{' '}
+                  <button
+                    type="button"
+                    className="mw-linkbtn"
+                    onClick={() => {
+                      setExcludedIndices(new Set());
+                      revalidate(buildWorkingMapped(rows, new Set()));
+                    }}
+                  >
+                    {t('imp.undoRemovals')}
+                  </button>
+                </Note>
+              ) : null}
+
+              {filteredPreviewRows.length === 0 ? (
+                <Note tone="info" icon="bi-search">
+                  {t('common.noResults')}
+                </Note>
+              ) : (
+                <>
+                  <div className="mw-tablewrap">
+                    <table className="mw-table">
+                      <thead>
+                        <tr>
+                          <th scope="col" className="mw-table__check">
+                            <SelectAllCheckbox
+                              checked={bulk.allPageSelected}
+                              indeterminate={bulk.somePageSelected}
+                              onChange={bulk.toggleAllVisible}
+                              label={t('bulk.selectAllRows')}
+                            />
+                          </th>
+                          <th scope="col">{t('imp.col.row')}</th>
+                          <th scope="col">{t('common.name')}</th>
+                          <th scope="col">{t('common.email')}</th>
+                          <th scope="col">{t('common.company')}</th>
+                          <th scope="col">{t('imp.col.check')}</th>
+                          <th scope="col" className="text-end">
+                            {t('imp.col.action')}
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredPreviewRows.map((row) => (
+                          <tr key={row.row}>
+                            <td>
+                              <input
+                                type="checkbox"
+                                className="form-check-input"
+                                checked={bulk.isSelected(row.originalIndex)}
+                                onChange={() => bulk.toggleOne(row.originalIndex)}
+                                aria-label={t('imp.rowOf', { row: row.row })}
+                              />
+                            </td>
+                            <td className="mw-table__muted">{row.row}</td>
+                            <td className="mw-table__primary">{row.name}</td>
+                            <td>{row.email || <span className="mw-text-muted-2">{t('imp.empty')}</span>}</td>
+                            <td className="mw-table__muted">{row.company}</td>
+                            <td>
+                              <StatusPill status={t(FLAG_KEY[row.flag])} tone={FLAG_TONE[row.flag]} />
+                            </td>
+                            <td className="text-end">
+                              <button
+                                type="button"
+                                className="mw-iconbtn"
+                                onClick={() => openEditRow(row)}
+                                aria-label={t('imp.col.fix')}
+                                title={t('imp.col.fix')}
+                              >
+                                <i className="bi bi-pencil" />
+                              </button>
+                              <button
+                                type="button"
+                                className="mw-iconbtn mw-text-danger"
+                                onClick={() => removeOneRow(row.originalIndex)}
+                                aria-label={t('common.delete')}
+                                title={t('common.delete')}
+                              >
+                                <i className="bi bi-trash3" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
-                ))}
-              </div>
+
+                  <div className="mw-reclist">
+                    {filteredPreviewRows.map((row) => (
+                      <div key={row.row} className="mw-rec">
+                        <div className="mw-rec__top">
+                          <input
+                            type="checkbox"
+                            className="form-check-input me-2"
+                            checked={bulk.isSelected(row.originalIndex)}
+                            onChange={() => bulk.toggleOne(row.originalIndex)}
+                            aria-label={t('imp.rowOf', { row: row.row })}
+                          />
+                          <span className="mw-rec__title">
+                            {row.name}
+                            <span className="d-block mw-rec__sub">{row.email || t('imp.empty')}</span>
+                          </span>
+                          <StatusPill status={t(FLAG_KEY[row.flag])} tone={FLAG_TONE[row.flag]} />
+                        </div>
+                        <div className="mw-row mw-row--between mt-2">
+                          <span className="mw-fs-12 mw-text-muted">
+                            {t('imp.rowOf', { row: row.row })} · {row.company}
+                          </span>
+                          <span>
+                            <button type="button" className="mw-iconbtn" onClick={() => openEditRow(row)}>
+                              <i className="bi bi-pencil" />
+                            </button>
+                            <button
+                              type="button"
+                              className="mw-iconbtn mw-text-danger"
+                              onClick={() => removeOneRow(row.originalIndex)}
+                            >
+                              <i className="bi bi-trash3" />
+                            </button>
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
 
               {rows.length > 200 ? (
                 <Note tone="info" icon="bi-list-ol">
@@ -543,6 +830,66 @@ export default function ImportContactsPage() {
               ) : null}
             </>
           ) : null}
+
+          <Sheet open={Boolean(editingRow)} title={t('imp.editTitle')} onClose={closeEditRow}>
+            {editingRow ? (
+              <form onSubmit={saveEditRow}>
+                {editError ? (
+                  <div className="mw-note mw-note--warning mb-3" role="alert">
+                    <i className="bi bi-exclamation-triangle mw-note__icon" aria-hidden="true" />
+                    <div>{editError}</div>
+                  </div>
+                ) : null}
+
+                {fieldToHeader.name ? (
+                  <div className="mb-3">
+                    <label className="form-label" htmlFor="edit-row-name">{t('common.name')}</label>
+                    <input
+                      id="edit-row-name"
+                      type="text"
+                      className="form-control"
+                      value={editDraft.name}
+                      onChange={(event) => setEditDraft((current) => ({ ...current, name: event.target.value }))}
+                    />
+                  </div>
+                ) : null}
+
+                {fieldToHeader.email ? (
+                  <div className="mb-3">
+                    <label className="form-label" htmlFor="edit-row-email">{t('common.email')}</label>
+                    <input
+                      id="edit-row-email"
+                      type="email"
+                      className="form-control"
+                      value={editDraft.email}
+                      onChange={(event) => {
+                        setEditDraft((current) => ({ ...current, email: event.target.value }));
+                        setEditError('');
+                      }}
+                      autoFocus
+                    />
+                  </div>
+                ) : null}
+
+                {fieldToHeader.company ? (
+                  <div className="mb-4">
+                    <label className="form-label" htmlFor="edit-row-company">{t('common.company')}</label>
+                    <input
+                      id="edit-row-company"
+                      type="text"
+                      className="form-control"
+                      value={editDraft.company}
+                      onChange={(event) => setEditDraft((current) => ({ ...current, company: event.target.value }))}
+                    />
+                  </div>
+                ) : null}
+
+                <button type="submit" className="btn btn-primary w-100" disabled={editSaving}>
+                  {editSaving ? t('common.loading') : t('common.save')}
+                </button>
+              </form>
+            ) : null}
+          </Sheet>
 
           {step === 4 ? (
             <div className="text-center py-4">
