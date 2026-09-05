@@ -111,7 +111,10 @@ export default function CampaignsPage() {
   }
 
   function openCampaign(event) {
-    navigate(`/campaigns/${event.currentTarget.dataset.id}`);
+    const { id, status } = event.currentTarget.dataset;
+    // Draft abhi bhi badli ja sakti hai — usko edit wizard me kholte hain.
+    // Baaki sab (bheji ja chuki, chal rahi, waghera) sirf report dikhati hai.
+    navigate(status === 'Draft' ? `/campaigns/${id}/edit` : `/campaigns/${id}`);
   }
 
   function goToNewCampaign() {
@@ -183,7 +186,12 @@ export default function CampaignsPage() {
                 </thead>
                 <tbody>
                   {campaigns.map((campaign) => (
-                    <tr key={campaign.id} data-id={campaign.id} onClick={openCampaign}>
+                    <tr
+                      key={campaign.id}
+                      data-id={campaign.id}
+                      data-status={campaign.status}
+                      onClick={openCampaign}
+                    >
                       <td>
                         <div className="mw-table__primary">{campaign.name}</div>
                         {campaign.template ? (
@@ -231,6 +239,7 @@ export default function CampaignsPage() {
                       type="button"
                       className="mw-rec__title mw-rec__titlebtn"
                       data-id={campaign.id}
+                      data-status={campaign.status}
                       onClick={openCampaign}
                     >
                       {campaign.name}
@@ -326,7 +335,9 @@ export default function CampaignsPage() {
                   key={action.key}
                   to={
                     action.key === 'analytics' || action.key === 'recipients'
-                      ? `/campaigns/${actionsFor.id}`
+                      ? actionsFor.status === 'Draft'
+                        ? `/campaigns/${actionsFor.id}/edit`
+                        : `/campaigns/${actionsFor.id}`
                       : '/reports'
                   }
                   className="list-group-item list-group-item-action d-flex align-items-center gap-3"

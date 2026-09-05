@@ -307,6 +307,48 @@ router.post(
   })
 );
 
+// --- badlo (sirf Draft) -------------------------------------------------------
+// Bheji ja chuki campaign ka matter badalna galat hai — log ne jo email
+// paayi wo waisi hi rehni chahiye. Isliye sirf Draft yahan se badal sakti hai;
+// Scheduled/Sending/Sent ke apne alag raaste hain (schedule, pause).
+router.put(
+  '/:id',
+  requireModule('campaigns', 'edit'),
+  validate(campaignInput),
+  asyncHandler(async (req, res) => {
+    const existing = await one('SELECT id, status FROM campaigns WHERE id = $1', [req.params.id]);
+    if (!existing) throw notFound('Yeh campaign nahi mila');
+    if (existing.status !== 'Draft') {
+      throw badRequest('Sirf Draft campaign ko edit kar sakte ho.');
+    }
+
+    const b = req.body;
+
+    await query(
+      `UPDATE campaigns
+          SET name = $1, account_id = $2, sender_name = $3, reply_to = $4, subject = $5,
+              preheader = $6, template_id = $7, html = $8, batch_size = $9, batch_delay = $10,
+              open_tracking = $11, click_tracking = $12, subscribe_button = $13,
+              status = $14, scheduled_at = $15, updated_at = now()
+        WHERE id = $16`,
+      [b.name, b.accountId, b.senderName ?? null, b.replyTo ?? null, b.subject,
+       b.preheader ?? null, b.templateId || null, b.html, b.batchSize, b.batchDelay,
+       b.openTracking, b.clickTracking, b.subscribeButton,
+       b.scheduledAt ? 'Scheduled' : 'Draft', b.scheduledAt ?? null, req.params.id]
+    );
+
+    await logActivity(req, {
+      action: 'updated',
+      module: 'campaigns',
+      item: b.name,
+      detail: 'Draft campaign badla gaya',
+    });
+
+    const row = await one(`${SELECT} WHERE c.id = $1`, [req.params.id]);
+    res.json({ campaign: toApi(row) });
+  })
+);
+
 // --- recipients jodo --------------------------------------------------------
 // Teen tarike: seedhi list, ek group, ya subscribers.
 router.post(

@@ -72,6 +72,9 @@ export default function App() {
             <Route element={<RequireModule module="campaigns" action="create" />}>
               <Route path="/campaigns/new" element={<CampaignWizardPage />} />
             </Route>
+            <Route element={<RequireModule module="campaigns" action="edit" />}>
+              <Route path="/campaigns/:campaignId/edit" element={<CampaignWizardPage />} />
+            </Route>
 
             <Route element={<RequireModule module="contacts" />}>
               <Route path="/contacts" element={<ContactsPage />} />

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 
 import PageHeader from '../components/ui/PageHeader';
 import { appConfig } from '../config/appConfig';
@@ -60,6 +60,15 @@ function toServerTime(localValue) {
   return Number.isNaN(when.getTime()) ? null : when.toISOString();
 }
 
+/** toServerTime() ka ulta — server ki ISO date se datetime-local box ki value. */
+function toLocalInputValue(isoValue) {
+  if (!isoValue) return '';
+  const when = new Date(isoValue);
+  if (Number.isNaN(when.getTime())) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${when.getFullYear()}-${pad(when.getMonth() + 1)}-${pad(when.getDate())}T${pad(when.getHours())}:${pad(when.getMinutes())}`;
+}
+
 /** Manual list ke box me likhe email nikalta hai. */
 function parseManualList(text) {
   return String(text || '')
@@ -75,6 +84,10 @@ export default function CampaignWizardPage() {
   const navigate = useNavigate();
   const { templates } = useWorkspace();
 
+  // Route me id ho to ek maujooda Draft edit ho rahi hai, warna naya banana hai.
+  const { campaignId: editId } = useParams();
+  const isEditing = Boolean(editId);
+
   const accountsCall = useApi('/api/accounts');
   const accounts = useMemo(() => accountsCall.data?.accounts ?? [], [accountsCall.data]);
 
@@ -84,12 +97,69 @@ export default function CampaignWizardPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [loadingDraft, setLoadingDraft] = useState(isEditing);
 
   // Ek baar campaign ban jane ke baad uski id yahan rehti hai — dobara
-  // "Send" dabane par nayi campaign nahi banti.
-  const [campaignId, setCampaignId] = useState(null);
+  // "Send" dabane par nayi campaign nahi banti. Edit mode me shuru se hi
+  // maujood hai.
+  const [campaignId, setCampaignId] = useState(editId ?? null);
   const [live, setLive] = useState(null);
   const [recipientCount, setRecipientCount] = useState(0);
+  // Draft me pehle se kitne log jude the — dubara jodne se koi aur na jud
+  // jaye isliye yaad rakhte hain (source yaad nahi rehta, sirf ginti).
+  const [originalRecipientCount, setOriginalRecipientCount] = useState(0);
+
+  // Edit mode: maujooda Draft ka data laa kar wizard bhar dete hain.
+  useEffect(() => {
+    if (!editId) return undefined;
+    let alive = true;
+
+    (async () => {
+      try {
+        const data = await api.get(`/api/campaigns/${editId}`);
+        if (!alive) return;
+        const c = data.campaign;
+
+        if (c.status !== 'Draft') {
+          // Sirf Draft yahan se badalti hai — baaki ke liye analytics page.
+          navigate(`/campaigns/${editId}`, { replace: true });
+          return;
+        }
+
+        setDraft((current) => ({
+          ...current,
+          name: c.name ?? '',
+          account: c.sender ?? '',
+          senderName: c.senderName || appConfig.company,
+          replyTo: c.replyTo ?? '',
+          subject: c.subject ?? '',
+          preheader: c.preheader ?? '',
+          templateId: c.templateId ?? '',
+          templateName: c.template ?? '',
+          templateHtml: c.html ?? '',
+          batchSize: c.batchSize ?? 100,
+          batchDelay: c.batchDelay ?? 2,
+          openTracking: c.openTracking ?? true,
+          clickTracking: c.clickTracking ?? false,
+          subscribeButton: c.subscribeButton ?? false,
+          schedule: c.scheduledAt ? 'later' : 'now',
+          scheduleAt: toLocalInputValue(c.scheduledAt),
+        }));
+        setOriginalRecipientCount(c.recipients ?? 0);
+        setRecipientCount(c.recipients ?? 0);
+      } catch (err) {
+        toast.error(err instanceof ApiError ? err.message : t('toast.networkError'));
+        navigate('/campaigns');
+      } finally {
+        if (alive) setLoadingDraft(false);
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editId]);
 
   // Pehla template aur pehla account apne aap chun lete hain — zyadatar log
   // yahi chunte hain, aur khali form se shuru karna bura lagta hai.
@@ -237,8 +307,7 @@ export default function CampaignWizardPage() {
       const account = accounts.find((item) => item.email === draft.account);
       if (!account) throw new ApiError(400, 'bad_request', t('wiz.needAccount'));
 
-      // 1. campaign banao
-      const created = await api.post('/api/campaigns', {
+      const payload = {
         scheduledAt: sendAt,
         name: draft.name.trim(),
         accountId: account.id,
@@ -253,15 +322,25 @@ export default function CampaignWizardPage() {
         openTracking: Boolean(draft.openTracking),
         clickTracking: Boolean(draft.clickTracking),
         subscribeButton: Boolean(draft.subscribeButton),
-      });
+      };
+
+      // 1. campaign banao, ya (edit mode me) maujooda Draft update karo
+      const created = isEditing
+        ? await api.put(`/api/campaigns/${editId}`, payload)
+        : await api.post('/api/campaigns', payload);
 
       const id = created.campaign.id;
       setCampaignId(id);
 
-      // 2. log jodo — jaha se user ne chuna hai
-      const added = await api.post(`/api/campaigns/${id}/recipients`, recipientPayload());
-      const count = added.added ?? added.total ?? 0;
-      setRecipientCount(count);
+      // 2. log jodo — jaha se user ne chuna hai. Edit me agar Draft me pehle
+      // se log jude the, unhe waisa hi rehne dete hain — dobara jodne se
+      // source yaad na hone ki wajah se galat log bhi jud sakte hain.
+      let count = originalRecipientCount;
+      if (count === 0) {
+        const added = await api.post(`/api/campaigns/${id}/recipients`, recipientPayload());
+        count = added.added ?? added.total ?? 0;
+        setRecipientCount(count);
+      }
 
       if (count === 0) {
         setError(t('wiz.noRecipients'));
@@ -350,6 +429,21 @@ export default function CampaignWizardPage() {
   // Schedule chuna hai ya nahi — screen par kai jagah isi se farq padta hai,
   // isliye ek hi jagah se tay karte hain.
   const isScheduled = draft.schedule === 'later';
+
+  // --- edit mode: maujooda Draft ka data aane tak intezaar --------------------
+  if (loadingDraft) {
+    return (
+      <div className="mw-stack">
+        <PageHeader title={t('camp.editCampaign')} breadcrumb={[{ label: t('nav.campaigns'), to: '/campaigns' }]} />
+        <Card>
+          <div className="mw-card__body p-5 text-center mw-text-muted">
+            <div className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" />
+            {t('common.loading')}
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   // --- schedule ho gayi: kuch bhejna nahi hai, bas batana hai --------------
   //
@@ -519,12 +613,12 @@ export default function CampaignWizardPage() {
   return (
     <div className="mw-stack">
       <PageHeader
-        title={t('dash.createCampaign')}
+        title={isEditing ? t('camp.editCampaign') : t('dash.createCampaign')}
         subtitle={t('wiz.subtitle')}
         helpTopic="wizard"
         breadcrumb={[
           { label: t('nav.campaigns'), to: '/campaigns' },
-          { label: t('dash.createCampaign') },
+          { label: isEditing ? t('camp.editCampaign') : t('dash.createCampaign') },
         ]}
       />
 

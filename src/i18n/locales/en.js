@@ -123,6 +123,7 @@ export default {
 
   // --- Campaigns ---------------------------------------------------------
   'camp.title': 'Campaigns',
+  'camp.editCampaign': 'Edit campaign',
   'camp.subtitle': 'Every campaign you have created, with its sending and tracking result.',
   'camp.recipients': 'Recipients',
   'camp.sender': 'Sender',
