@@ -14,6 +14,8 @@ import EmptyState from '../components/ui/EmptyState';
 import Sheet from '../components/ui/Sheet';
 import { useServerList } from '../api/useServerList';
 import { formatDate, formatNumber, percent } from '../utils/format';
+import { ApiError, api } from '../api/client';
+import { useToast } from '../components/ui/ToastProvider';
 
 const STATUSES = ['Sent', 'Sending', 'Scheduled', 'Paused', 'Draft'];
 
@@ -35,6 +37,7 @@ const SORTS = [
 export default function CampaignsPage() {
   const t = useT();
   const navigate = useNavigate();
+  const toast = useToast();
 
   const [status, setStatus] = useState('All');
   const [sort, setSort] = useState('date');
@@ -42,6 +45,10 @@ export default function CampaignsPage() {
   // Box me turant, server se 200ms ruk kar — type karte waqt atakta nahi.
   const search = useDebouncedValue(query, 200);
   const [actionsFor, setActionsFor] = useState(null);
+  // Delete se pehle ek confirm step — campaign ka bheja hua data waapas nahi
+  // aata, isliye galti se ek click me delete nahi hone dena.
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   /**
    * Search, filter aur sort — teenon server par lagte hain.
@@ -83,6 +90,24 @@ export default function CampaignsPage() {
 
   function closeActions() {
     setActionsFor(null);
+    setConfirmDelete(false);
+  }
+
+  async function handleDelete() {
+    if (!actionsFor) return;
+    setDeleting(true);
+    try {
+      await api.delete(`/api/campaigns/${actionsFor.id}`);
+      pager.reload();
+      toast.success(t('toast.campaignDeleted'), actionsFor.name);
+      closeActions();
+    } catch (error) {
+      // Chalti hui campaign ko backend khud rok deta hai — wahi wajah dikha
+      // dete hain, koi generic error nahi.
+      toast.error(error instanceof ApiError ? error.message : t('toast.networkError'));
+    } finally {
+      setDeleting(false);
+    }
   }
 
   function openCampaign(event) {
@@ -260,8 +285,36 @@ export default function CampaignsPage() {
         />
       </Card>
 
-      <Sheet open={Boolean(actionsFor)} title={actionsFor ? actionsFor.name : ''} onClose={closeActions}>
-        {actionsFor ? (
+      <Sheet
+        open={Boolean(actionsFor)}
+        title={actionsFor ? (confirmDelete ? t('camp.deleteConfirmTitle') : actionsFor.name) : ''}
+        onClose={closeActions}
+      >
+        {actionsFor && confirmDelete ? (
+          <>
+            <p className="mw-fs-14 mw-text-muted mb-4">
+              {t('camp.deleteConfirmText')} <strong>{actionsFor.name}</strong>
+            </p>
+            <div className="d-flex gap-2">
+              <button
+                type="button"
+                className="btn btn-outline-secondary flex-fill"
+                onClick={() => setConfirmDelete(false)}
+                disabled={deleting}
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger flex-fill"
+                onClick={handleDelete}
+                disabled={deleting}
+              >
+                {deleting ? t('common.loading') : t('common.delete')}
+              </button>
+            </div>
+          </>
+        ) : actionsFor ? (
           <>
             <div className="mw-row mw-row--between mb-3">
               <StatusPill status={actionsFor.status} />
@@ -284,6 +337,15 @@ export default function CampaignsPage() {
                   <i className="bi bi-chevron-right ms-auto mw-fs-12 mw-text-muted-2" />
                 </Link>
               ))}
+              <button
+                type="button"
+                className="list-group-item list-group-item-action d-flex align-items-center gap-3 text-danger"
+                onClick={() => setConfirmDelete(true)}
+              >
+                <i className="bi bi-trash3 mw-fs-16" />
+                <span className="mw-fs-14 mw-fw-600">{t('common.delete')}</span>
+                <i className="bi bi-chevron-right ms-auto mw-fs-12 mw-text-muted-2" />
+              </button>
             </div>
           </>
         ) : null}
