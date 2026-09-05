@@ -9,6 +9,7 @@
     "lint": "oxlint",
     "server": "npm --prefix server run dev",
     "server:seed": "npm --prefix server run seed",
+    "server:seed:clean": "npm --prefix server run seed:clean",
     "server:install": "npm --prefix server install",
     "audit:ui": "node audit.mjs",
     "preview": "vite preview",

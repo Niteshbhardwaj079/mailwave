@@ -67,6 +67,29 @@ async function seedRoles() {
   }
 }
 
+/**
+ * Naye client ke liye: koi fake company data nahi, sirf ek Super Admin jisse
+ * wo khud login karke aage sab kuch (contacts, templates, email account) apna
+ * bana sake.
+ */
+async function seedCleanAdmin() {
+  const passwordHash = await hashPassword(env.seedPassword);
+  const name = process.env.ADMIN_NAME || 'Admin';
+  const initials = name
+    .split(/\s+/)
+    .map((word) => word[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+
+  await query(
+    `INSERT INTO users (id, name, email, password_hash, role_key, status, initials)
+     VALUES ($1,$2,$3,$4,'super_admin','Active',$5)
+     ON CONFLICT (email) DO NOTHING`,
+    [newId('u'), name, env.seedEmail, passwordHash, initials]
+  );
+}
+
 async function seedUsers() {
   // Only the seed account gets a usable password; everyone else is "Invited"
   // until a Super Admin sets one or they follow an invite link.
@@ -151,7 +174,10 @@ async function seedContacts() {
 }
 
 async function seedTemplates() {
-  const author = teamUsers[0]?.id ?? null;
+  // teamUsers[0] sirf demo mode me DB me hota hai. Clean mode me asli banaya
+  // hua Super Admin hi first row hota hai — isliye DB se hi poochte hain.
+  const authorRow = await one('SELECT id FROM users ORDER BY created_at LIMIT 1');
+  const author = authorRow?.id ?? null;
 
   for (const [index, starter] of starterTemplates.entries()) {
     await query(
@@ -325,20 +351,30 @@ async function seedSettings() {
 /**
  * Every step is ON CONFLICT DO NOTHING, so seeding an already-seeded database
  * changes nothing. It never overwrites work someone has already done.
+ *
+ * `clean: true` (naye client ke liye) sirf roles, ek Super Admin, aur app
+ * chalane ke liye zaroori cheezein (system emails, settings, generic starter
+ * templates) banata hai — koi GoWebKart wala fake contact/campaign/user nahi.
  */
-export async function seed() {
+export async function seed({ clean = false } = {}) {
   await migrate();
 
   await transaction(async () => {
     await seedRoles();
-    await seedUsers();
-    await seedContacts();
+
+    if (clean) {
+      await seedCleanAdmin();
+    } else {
+      await seedUsers();
+      await seedContacts();
+      await seedAccounts();
+      await seedCampaigns();
+      await seedSubscribers();
+      await seedActivity();
+    }
+
     await seedTemplates();
-    await seedAccounts();
-    await seedCampaigns();
-    await seedSubscribers();
     await seedSystemEmails();
-    await seedActivity();
     await seedSettings();
   });
 
@@ -360,9 +396,11 @@ export async function seed() {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  seed()
+  const clean = process.argv.includes('--clean');
+
+  seed({ clean })
     .then(async (counts) => {
-      console.log('Seeded:');
+      console.log(clean ? 'Seeded (clean — no demo data):' : 'Seeded:');
       for (const row of counts) console.log(`  ${String(row.name).padEnd(14)} ${row.n}`);
       console.log(`\nSign in with ${env.seedEmail} / ${env.seedPassword}`);
       await closeDb();

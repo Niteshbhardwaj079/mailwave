@@ -148,6 +148,28 @@ Agar ye dikhe to samajh jao ki abhi bhi PGlite par ho:
 [db] CHETAVNI: client ke server par DATABASE_URL me asli Postgres lagana zaroori hai
 ```
 
+### Naye client ke liye — bina fake demo data ke
+
+`npm run server:seed` GoWebKart ka demo data bhi bhar deta hai (fake campaigns,
+contacts, "Rohit Sharma" jaisa naam) — apne testing ke liye theek hai, par kisi
+asli client ko dene se pehle **isse mat chalana**.
+
+Naye client ke fresh database par ye chalao — sirf roles, generic starter
+templates, aur EK Super Admin banega, koi fake data nahi:
+
+```
+server\.env me pehle ye set karo:
+  SEED_EMAIL=client-ka-email@company.com
+  SEED_PASSWORD=koi-bhi-strong-password
+  ADMIN_NAME=Client Ka Naam
+
+phir chalao:
+  npm run server:seed:clean
+```
+
+Client isi email/password se login karke khud apne contacts, templates, aur
+email account jod sakta hai.
+
 ---
 
 ## 6. Backup
