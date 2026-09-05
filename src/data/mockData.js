@@ -566,12 +566,6 @@ export const emailLogTimeline = [
   { id: 'e5', time: '11:03 AM', text: 'Open detected (estimate)', tone: 'info' },
 ];
 
-export const notifications = [
-  { id: 'n1', title: 'Campaign finished', text: 'Independence Day Offer 2026 sent to 5,200 recipients.', time: '2h ago', icon: 'bi-check-circle', tone: 'success' },
-  { id: 'n2', title: 'Sending in progress', text: 'August Product Update — 2,380 of 3,120 sent.', time: '10m ago', icon: 'bi-send', tone: 'primary' },
-  { id: 'n3', title: 'Account needs attention', text: 'courses@gowebkart.com SMTP test failed.', time: 'Yesterday', icon: 'bi-exclamation-triangle', tone: 'warning' },
-];
-
 export const reportTypes = [
   { id: 'rp1', nameKey: 'rep.type.campaign', descKey: 'rep.type.campaignDesc', icon: 'bi-file-earmark-bar-graph' },
   { id: 'rp2', nameKey: 'rep.type.activity', descKey: 'rep.type.activityDesc', icon: 'bi-people' },

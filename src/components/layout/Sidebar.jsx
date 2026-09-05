@@ -6,7 +6,7 @@ import { useT } from '../../i18n/I18nProvider';
 import { useWorkspace } from '../../store/WorkspaceProvider';
 import { appConfig } from '../../config/appConfig';
 import { useApi } from '../../api/useApi';
-import { formatCompact } from '../../utils/format';
+import { formatCompact, formatNumber, percentValue } from '../../utils/format';
 
 function linkClass({ isActive }) {
   return `mw-navlink ${isActive ? 'is-active' : ''}`.trim();
@@ -21,6 +21,11 @@ export default function Sidebar({ open, onClose }) {
   // par server ki rate-limit lag jati thi.
   const countsCall = useApi('/api/stats/counts');
   const fromServer = countsCall.data?.counts ?? {};
+
+  const quotaCall = useApi('/api/stats/quota');
+  const sentToday = quotaCall.data?.sentToday ?? 0;
+  const dailyLimit = quotaCall.data?.dailyLimit ?? 0;
+  const quotaPct = percentValue(sentToday, dailyLimit);
 
   const counts = {
     campaigns: fromServer.campaigns ?? 0,
@@ -85,12 +90,16 @@ export default function Sidebar({ open, onClose }) {
         <div className="mw-quota">
           <div className="mw-row mw-row--between">
             <span className="mw-quota__title">{t('topbar.quota')}</span>
-            <span className="mw-quota__meta mw-num">2,460 / 8,000</span>
+            <span className="mw-quota__meta mw-num">
+              {formatNumber(sentToday)} / {dailyLimit > 0 ? formatNumber(dailyLimit) : '—'}
+            </span>
           </div>
           <div className="mt-2">
-            <ProgressBar value={30.75} label={t('topbar.quota')} />
+            <ProgressBar value={quotaPct} label={t('topbar.quota')} />
           </div>
-          <p className="mw-quota__meta mt-2 mb-0">{t('topbar.quotaNote')}</p>
+          <p className="mw-quota__meta mt-2 mb-0">
+            {dailyLimit > 0 ? t('topbar.quotaNote') : t('topbar.quotaNoAccount')}
+          </p>
         </div>
       </div>
     </aside>

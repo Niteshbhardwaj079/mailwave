@@ -88,6 +88,30 @@ export function formatDateTime(iso, locale = activeLocale) {
   });
 }
 
+/**
+ * "2h ago" jaisi chhoti si duration — notifications ke liye. Purani cheez ke
+ * liye poori tareekh hi behtar hai, isliye 7 din se zyada purane par
+ * formatDateTime par gir jaate hain.
+ */
+export function formatRelative(iso, t, locale = activeLocale) {
+  if (!iso) return '';
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return '';
+
+  const minutes = Math.max(0, Math.floor((Date.now() - then) / 60000));
+  if (minutes < 1) return t('time.justNow');
+  if (minutes < 60) return t('time.minsAgo', { count: minutes });
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return t('time.hoursAgo', { count: hours });
+
+  const days = Math.floor(hours / 24);
+  if (days === 1) return t('time.yesterday');
+  if (days < 7) return t('time.daysAgo', { count: days });
+
+  return formatDateTime(iso, locale);
+}
+
 export function initialsOf(name) {
   if (!name) return '?';
   return name

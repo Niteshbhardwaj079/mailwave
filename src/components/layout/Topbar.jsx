@@ -1,14 +1,26 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 
-import { notifications } from '../../data/mockData';
 import { SearchInput } from '../ui/Controls';
 import LanguagePicker from './LanguagePicker';
 import { AccentPicker, ThemeToggle } from './ThemeControls';
 import { useT } from '../../i18n/I18nProvider';
 import { useWorkspace } from '../../store/WorkspaceProvider';
 import { useAuth } from '../../store/AuthProvider';
+import { useApi } from '../../api/useApi';
 import { roleLabel } from '../../utils/roles';
+import { formatRelative } from '../../utils/format';
+
+/** Server ke aankde ko screen ka title/text deta hai — dono ek hi jagah. */
+function describeNotification(item, t) {
+  if (item.kind === 'sending') {
+    return { title: t('notif.sendingTitle'), text: t('notif.sendingText', { name: item.name, done: item.done, total: item.total }) };
+  }
+  if (item.kind === 'finished') {
+    return { title: t('notif.finishedTitle'), text: t('notif.finishedText', { name: item.name, count: item.sent }) };
+  }
+  return { title: t('notif.accountTitle'), text: t('notif.accountText', { email: item.email, status: item.status }) };
+}
 
 export default function Topbar({ title, onOpenMenu }) {
   const t = useT();
@@ -18,6 +30,8 @@ export default function Topbar({ title, onOpenMenu }) {
   const [openPanel, setOpenPanel] = useState(null);
   const notifRef = useRef(null);
   const profileRef = useRef(null);
+  const notificationsCall = useApi('/api/stats/notifications');
+  const notifications = notificationsCall.data?.notifications ?? [];
 
   // Bahar kahin bhi click karte hi khula hua panel band ho jaye — dono
   // dropdown ek hi jagah se sambhalte hain kyunki state ek hi hai.
@@ -87,7 +101,7 @@ export default function Topbar({ title, onOpenMenu }) {
             aria-expanded={openPanel === 'notifications'}
           >
             <i className="bi bi-bell" />
-            <span className="mw-iconbtn__dot" aria-hidden="true" />
+            {notifications.length > 0 ? <span className="mw-iconbtn__dot" aria-hidden="true" /> : null}
           </button>
 
           {openPanel === 'notifications' ? (
@@ -95,22 +109,29 @@ export default function Topbar({ title, onOpenMenu }) {
               <div className="px-3 py-3 border-bottom">
                 <span className="mw-fs-14 mw-fw-700">{t('topbar.notifications')}</span>
               </div>
-              <ul className="list-unstyled m-0 p-0">
-                {notifications.map((item) => (
-                  <li key={item.id} className="px-3 py-3 border-bottom">
-                    <div className="mw-row align-items-start">
-                      <span className={`mw-kpi__icon mw-kpi__icon--${item.tone}`} aria-hidden="true">
-                        <i className={`bi ${item.icon}`} />
-                      </span>
-                      <span className="flex-grow-1">
-                        <span className="d-block mw-fs-13 mw-fw-600 mw-text-ink">{item.title}</span>
-                        <span className="d-block mw-fs-12 mw-text-muted">{item.text}</span>
-                        <span className="d-block mw-fs-11 mw-text-muted-2 mt-1">{item.time}</span>
-                      </span>
-                    </div>
-                  </li>
-                ))}
-              </ul>
+              {notifications.length === 0 ? (
+                <p className="mw-fs-13 mw-text-muted px-3 py-4 mb-0 text-center">{t('topbar.noNotifications')}</p>
+              ) : (
+                <ul className="list-unstyled m-0 p-0">
+                  {notifications.map((item) => {
+                    const { title, text } = describeNotification(item, t);
+                    return (
+                      <li key={item.id} className="px-3 py-3 border-bottom">
+                        <div className="mw-row align-items-start">
+                          <span className={`mw-kpi__icon mw-kpi__icon--${item.tone}`} aria-hidden="true">
+                            <i className={`bi ${item.icon}`} />
+                          </span>
+                          <span className="flex-grow-1">
+                            <span className="d-block mw-fs-13 mw-fw-600 mw-text-ink">{title}</span>
+                            <span className="d-block mw-fs-12 mw-text-muted">{text}</span>
+                            <span className="d-block mw-fs-11 mw-text-muted-2 mt-1">{formatRelative(item.at, t)}</span>
+                          </span>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
               <div className="px-3 py-2 text-center">
                 <Link to="/activity" className="mw-fs-12 mw-fw-600" onClick={closePanels}>
                   {t('topbar.viewAll')}

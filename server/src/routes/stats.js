@@ -75,6 +75,107 @@ router.get(
   })
 );
 
+/**
+ * Sidebar ke neeche wala "aaj kitna bheja" — sabhi connected accounts ka
+ * sent_today aur daily_limit jod kar. Jis account ka din badal chuka hai
+ * (quota_date purana hai) uska sent_today ab 0 maana jata hai — sender.js
+ * bhi yahi hisaab lagata hai jab bhejna shuru karta hai.
+ *
+ * Permission ki jaanch nahi lagti — jaise /counts, yeh bhi sirf ginti hai.
+ */
+router.get(
+  '/quota',
+  asyncHandler(async (req, res) => {
+    const row = await one(`
+      SELECT
+        coalesce(sum(CASE WHEN quota_date = current_date THEN sent_today ELSE 0 END), 0)::int AS sent_today,
+        coalesce(sum(daily_limit), 0)::int AS daily_limit
+      FROM email_accounts
+    `);
+
+    res.json({ sentToday: row?.sent_today ?? 0, dailyLimit: row?.daily_limit ?? 0 });
+  })
+);
+
+/**
+ * Topbar ki ghanti — asli events se banti hai, koi kahani nahi:
+ *   1. Jo campaign abhi bhej rahi hai
+ *   2. Jo campaign pichhle 7 din me poori hui
+ *   3. Jo email account "Connected" nahi hai
+ */
+router.get(
+  '/notifications',
+  asyncHandler(async (req, res) => {
+    const items = [];
+
+    const sending = await many(`
+      SELECT c.id, c.name, c.started_at,
+             (SELECT count(*)::int FROM campaign_recipients r WHERE r.campaign_id = c.id) AS total,
+             (SELECT count(*)::int FROM campaign_recipients r WHERE r.campaign_id = c.id AND r.status IN ('Sent','Failed')) AS done
+        FROM campaigns c
+       WHERE c.status = 'Sending'
+       ORDER BY c.started_at DESC
+       LIMIT 5
+    `);
+    sending.forEach((row) => {
+      items.push({
+        id: `sending-${row.id}`,
+        kind: 'sending',
+        campaignId: row.id,
+        name: row.name,
+        done: row.done,
+        total: row.total,
+        at: row.started_at,
+        icon: 'bi-send',
+        tone: 'primary',
+      });
+    });
+
+    const finished = await many(`
+      SELECT c.id, c.name, c.finished_at,
+             (SELECT count(*)::int FROM campaign_recipients r WHERE r.campaign_id = c.id AND r.status = 'Sent') AS sent
+        FROM campaigns c
+       WHERE c.status = 'Sent' AND c.finished_at >= now() - interval '7 days'
+       ORDER BY c.finished_at DESC
+       LIMIT 5
+    `);
+    finished.forEach((row) => {
+      items.push({
+        id: `finished-${row.id}`,
+        kind: 'finished',
+        campaignId: row.id,
+        name: row.name,
+        sent: row.sent,
+        at: row.finished_at,
+        icon: 'bi-check-circle',
+        tone: 'success',
+      });
+    });
+
+    const accounts = await many(`
+      SELECT id, email, status, updated_at FROM email_accounts
+       WHERE status != 'Connected'
+       ORDER BY updated_at DESC
+       LIMIT 5
+    `);
+    accounts.forEach((row) => {
+      items.push({
+        id: `account-${row.id}`,
+        kind: 'account',
+        email: row.email,
+        status: row.status,
+        at: row.updated_at,
+        icon: 'bi-exclamation-triangle',
+        tone: 'warning',
+      });
+    });
+
+    items.sort((a, b) => new Date(b.at) - new Date(a.at));
+
+    res.json({ notifications: items.slice(0, 10) });
+  })
+);
+
 // --- dashboard ke upar wale cards -------------------------------------------
 router.get(
   '/dashboard',
