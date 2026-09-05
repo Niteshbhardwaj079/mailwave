@@ -150,7 +150,7 @@ Agar ye dikhe to samajh jao ki abhi bhi PGlite par ho:
 
 ### Naye client ke liye — bina fake demo data ke
 
-`npm run server:seed` GoWebKart ka demo data bhi bhar deta hai (fake campaigns,
+`npm run server:seed` Gowebkart ka demo data bhi bhar deta hai (fake campaigns,
 contacts, "Rohit Sharma" jaisa naam) — apne testing ke liye theek hai, par kisi
 asli client ko dene se pehle **isse mat chalana**.
 

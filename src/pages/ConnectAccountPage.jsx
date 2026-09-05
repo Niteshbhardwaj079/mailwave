@@ -299,7 +299,7 @@ export default function ConnectAccountPage() {
                 className="form-control"
                 value={values.displayName}
                 onChange={handleValue}
-                placeholder="GoWebKart"
+                placeholder="Gowebkart"
               />
               <div className="form-text">{t('acc.senderHelp')}</div>
             </div>

@@ -354,7 +354,7 @@ async function seedSettings() {
  *
  * `clean: true` (naye client ke liye) sirf roles, ek Super Admin, aur app
  * chalane ke liye zaroori cheezein (system emails, settings, generic starter
- * templates) banata hai — koi GoWebKart wala fake contact/campaign/user nahi.
+ * templates) banata hai — koi Gowebkart wala fake contact/campaign/user nahi.
  */
 export async function seed({ clean = false } = {}) {
   await migrate();

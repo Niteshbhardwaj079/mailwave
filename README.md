@@ -227,7 +227,7 @@ export const appConfig = {
   name: 'MailWave',
   tagline: 'Campaigns & tracking',
   logoIcon: 'bi-send-fill',
-  company: 'GoWebKart',
+  company: 'Gowebkart',
   supportEmail: 'support@gowebkart.com',
   titleSuffix: 'Email Campaign Platform',
   defaultTheme: 'system',

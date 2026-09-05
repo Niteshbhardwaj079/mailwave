@@ -9,7 +9,7 @@ export const currentUser = {
   email: 'rohit@gowebkart.com',
   role: 'Workspace Owner',
   initials: 'RS',
-  company: 'GoWebKart',
+  company: 'Gowebkart',
 };
 
 export const dashboardKpis = [
@@ -85,7 +85,7 @@ export const campaigns = [
     id: 'cmp_1041',
     name: 'Independence Day Offer 2026',
     sender: 'offers@gowebkart.com',
-    senderName: 'GoWebKart Offers',
+    senderName: 'Gowebkart Offers',
     recipients: 5200,
     sent: 5200,
     delivered: 5104,
@@ -106,7 +106,7 @@ export const campaigns = [
     id: 'cmp_1040',
     name: 'August Product Update',
     sender: 'hello@gowebkart.com',
-    senderName: 'GoWebKart Team',
+    senderName: 'Gowebkart Team',
     recipients: 3120,
     sent: 2380,
     delivered: 2341,
@@ -127,7 +127,7 @@ export const campaigns = [
     id: 'cmp_1039',
     name: 'Web Design Course — Batch 12',
     sender: 'courses@gowebkart.com',
-    senderName: 'GoWebKart Academy',
+    senderName: 'Gowebkart Academy',
     recipients: 1480,
     sent: 1480,
     delivered: 1449,
@@ -148,7 +148,7 @@ export const campaigns = [
     id: 'cmp_1038',
     name: 'Cart Abandon Reminder',
     sender: 'shop@gowebkart.com',
-    senderName: 'GoWebKart Shop',
+    senderName: 'Gowebkart Shop',
     recipients: 940,
     sent: 0,
     delivered: 0,
@@ -169,7 +169,7 @@ export const campaigns = [
     id: 'cmp_1037',
     name: 'Welcome Series — Step 1',
     sender: 'hello@gowebkart.com',
-    senderName: 'GoWebKart Team',
+    senderName: 'Gowebkart Team',
     recipients: 2600,
     sent: 2600,
     delivered: 2571,
@@ -190,7 +190,7 @@ export const campaigns = [
     id: 'cmp_1036',
     name: 'Feedback Survey (Q3)',
     sender: 'hello@gowebkart.com',
-    senderName: 'GoWebKart Team',
+    senderName: 'Gowebkart Team',
     recipients: 780,
     sent: 0,
     delivered: 0,
@@ -211,7 +211,7 @@ export const campaigns = [
     id: 'cmp_1035',
     name: 'Diwali Early Bird (Paused)',
     sender: 'offers@gowebkart.com',
-    senderName: 'GoWebKart Offers',
+    senderName: 'Gowebkart Offers',
     recipients: 4100,
     sent: 1200,
     delivered: 1178,
@@ -447,9 +447,9 @@ export function getEmailLog(campaign, row) {
 }
 
 export const emailAccounts = [
-  { id: 'acc_1', email: 'hello@gowebkart.com', provider: 'Gmail', providerKey: 'google', senderName: 'GoWebKart Team', replyTo: 'hello@gowebkart.com', status: 'Connected', dailyLimit: 2000, usedToday: 640 },
-  { id: 'acc_2', email: 'offers@gowebkart.com', provider: 'Microsoft 365', providerKey: 'microsoft', senderName: 'GoWebKart Offers', replyTo: 'support@gowebkart.com', status: 'Connected', dailyLimit: 5000, usedToday: 1820 },
-  { id: 'acc_3', email: 'courses@gowebkart.com', provider: 'Custom SMTP', providerKey: 'smtp', senderName: 'GoWebKart Academy', replyTo: 'courses@gowebkart.com', status: 'Needs attention', dailyLimit: 1000, usedToday: 0 },
+  { id: 'acc_1', email: 'hello@gowebkart.com', provider: 'Gmail', providerKey: 'google', senderName: 'Gowebkart Team', replyTo: 'hello@gowebkart.com', status: 'Connected', dailyLimit: 2000, usedToday: 640 },
+  { id: 'acc_2', email: 'offers@gowebkart.com', provider: 'Microsoft 365', providerKey: 'microsoft', senderName: 'Gowebkart Offers', replyTo: 'support@gowebkart.com', status: 'Connected', dailyLimit: 5000, usedToday: 1820 },
+  { id: 'acc_3', email: 'courses@gowebkart.com', provider: 'Custom SMTP', providerKey: 'smtp', senderName: 'Gowebkart Academy', replyTo: 'courses@gowebkart.com', status: 'Needs attention', dailyLimit: 1000, usedToday: 0 },
 ];
 
 export const providerOptions = [

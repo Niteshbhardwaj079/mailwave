@@ -54,7 +54,7 @@ export const brand = {
   // --- Company (email ke footer me aur legal ke liye) ----------------------
 
   /** Jis company ka yeh app hai. Email footer me yahi naam jata hai. */
-  company: 'GoWebKart',
+  company: 'Gowebkart',
 
   /** Madad ke liye log yahan likhenge. */
   supportEmail: 'support@gowebkart.in',
