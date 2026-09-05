@@ -91,6 +91,12 @@ export default function CampaignWizardPage() {
   const accountsCall = useApi('/api/accounts');
   const accounts = useMemo(() => accountsCall.data?.accounts ?? [], [accountsCall.data]);
 
+  // "Existing contacts" step ke Groups/Segments dono asli data se aate hain.
+  const contactGroupsCall = useApi('/api/contacts/groups/all');
+  const contactGroups = useMemo(() => contactGroupsCall.data?.groups ?? [], [contactGroupsCall.data]);
+  const segmentsCall = useApi('/api/segments');
+  const segments = useMemo(() => segmentsCall.data?.segments ?? [], [segmentsCall.data]);
+
   const [step, setStep] = useState(0);
   const [draft, setDraft] = useState(INITIAL_DRAFT);
   const [category, setCategory] = useState('All');
@@ -186,9 +192,23 @@ export default function CampaignWizardPage() {
    */
   const [willReach, setWillReach] = useState(0);
 
+  // Group id aur segment id alag prefix se bante hain (g_ aur seg_) — isi se
+  // pata chal jata hai "existing" step me kya chuna gaya hai, alag se yaad
+  // rakhne ki zarurat nahi.
+  const selectedExistingId = draft.groups[0] ?? '';
+  const selectedIsSegment = selectedExistingId.startsWith('seg_');
+
   useEffect(() => {
     if (draft.recipientSource === 'manual') {
       setWillReach(parseManualList(draft.manualList).length);
+      return undefined;
+    }
+
+    if (draft.recipientSource === 'existing' && selectedIsSegment) {
+      // Segment ki ginti server se hi live aati hai (segments list ke saath) —
+      // dobara pochne ki zarurat nahi.
+      const segment = segments.find((item) => item.id === selectedExistingId);
+      setWillReach(segment?.count ?? 0);
       return undefined;
     }
 
@@ -197,7 +217,9 @@ export default function CampaignWizardPage() {
     (async () => {
       try {
         const params = new URLSearchParams({ source: recipientSourceKey() });
-        if (draft.recipientSource === 'group' && draft.groups[0]) params.set('groupId', draft.groups[0]);
+        if (draft.recipientSource === 'existing' && selectedExistingId) {
+          params.set('groupId', selectedExistingId);
+        }
 
         const data = await api.get(`/api/campaigns/recipient-count?${params}`);
         if (alive) setWillReach(data.count ?? 0);
@@ -210,11 +232,11 @@ export default function CampaignWizardPage() {
       alive = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draft.recipientSource, draft.manualList, draft.groups]);
+  }, [draft.recipientSource, draft.manualList, selectedExistingId, selectedIsSegment, segments]);
 
   /** Screen ka naam server ke naam me badalta hai. */
   function recipientSourceKey() {
-    if (draft.recipientSource === 'group') return 'group';
+    if (draft.recipientSource === 'existing' && !selectedIsSegment) return 'group';
     if (draft.recipientSource === 'subscribers') return 'subscribers';
     return 'all';
   }
@@ -277,6 +299,9 @@ export default function CampaignWizardPage() {
     if (draft.recipientSource === 'manual' && parseManualList(draft.manualList).length === 0) {
       return t('wiz.needRecipients');
     }
+    if (draft.recipientSource === 'existing' && draft.groups.length === 0) {
+      return t('wiz.needGroupOrSegment');
+    }
 
     if (draft.schedule === 'later') {
       const when = toServerTime(draft.scheduleAt);
@@ -337,7 +362,7 @@ export default function CampaignWizardPage() {
       // source yaad na hone ki wajah se galat log bhi jud sakte hain.
       let count = originalRecipientCount;
       if (count === 0) {
-        const added = await api.post(`/api/campaigns/${id}/recipients`, recipientPayload());
+        const added = await api.post(`/api/campaigns/${id}/recipients`, await recipientPayload());
         count = added.added ?? added.total ?? 0;
         setRecipientCount(count);
       }
@@ -371,13 +396,22 @@ export default function CampaignWizardPage() {
   }
 
   /** Recipients ki request kis shape me jayegi. */
-  function recipientPayload() {
+  async function recipientPayload() {
     if (draft.recipientSource === 'manual') {
       return { source: 'list', people: parseManualList(draft.manualList) };
     }
-    if (draft.recipientSource === 'group' && draft.groups[0]) {
-      return { source: 'group', groupId: draft.groups[0] };
+
+    if (draft.recipientSource === 'existing' && selectedExistingId) {
+      if (selectedIsSegment) {
+        // Segment ka apna "source" backend nahi jaanta — uske asli contacts
+        // nikaal kar seedhi list bhej dete hain, jaisi manually type ki gayi ho.
+        const data = await api.get(`/api/segments/${selectedExistingId}/contacts`);
+        const people = (data.contacts ?? []).map((c) => ({ email: c.email, name: c.name ?? null }));
+        return { source: 'list', people };
+      }
+      return { source: 'group', groupId: selectedExistingId };
     }
+
     if (draft.recipientSource === 'subscribers') {
       return { source: 'subscribers' };
     }
@@ -641,7 +675,15 @@ export default function CampaignWizardPage() {
 
         <div className="mw-card__body">
           {step === 0 ? <StepInfo draft={draft} onChange={updateDraft} accounts={accounts} /> : null}
-          {step === 1 ? <StepRecipients draft={draft} onChange={updateDraft} recipientCount={willReach} /> : null}
+          {step === 1 ? (
+            <StepRecipients
+              draft={draft}
+              onChange={updateDraft}
+              recipientCount={willReach}
+              contactGroups={contactGroups}
+              segments={segments}
+            />
+          ) : null}
           {step === 2 ? (
             <StepTemplate draft={draft} onChange={updateDraft} category={category} onCategoryChange={setCategory} />
           ) : null}

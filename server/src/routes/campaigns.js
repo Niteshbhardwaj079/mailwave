@@ -419,7 +419,7 @@ router.post(
          ON CONFLICT (campaign_id, lower(email)) DO NOTHING`,
         [newId('rcp'), campaign.id, row.contactId ?? null, row.email, row.name ?? null, JSON.stringify(row.data ?? {})]
       );
-      if (result.affectedRows) added += 1;
+      if (result.affectedRows ?? result.rowCount) added += 1;
     }
 
     const total = await one(

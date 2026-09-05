@@ -284,7 +284,7 @@ router.post(
       detail: 'Ek saath kai contact hataye gaye',
     });
 
-    res.json({ ok: true, deleted: result.affectedRows ?? req.body.ids.length });
+    res.json({ ok: true, deleted: result.affectedRows ?? result.rowCount ?? req.body.ids.length });
   })
 );
 

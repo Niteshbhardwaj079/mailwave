@@ -710,7 +710,9 @@ export default {
   'rec.manualHelp': 'One per line, or separated by commas. You can also write Name <email> pairs.',
   'rec.manualNote': 'We check each address as you type and show duplicates before sending.',
   'rec.groups': 'Contact groups',
+  'rec.noGroups': 'No groups yet — make one from the Contacts page.',
   'rec.segments': 'Saved segments',
+  'rec.noSegments': 'No segments yet — make one from the Segments page.',
   'rec.contactsCount': '{count} contacts',
   'rec.cleanNote': 'Unsubscribed and bounced contacts are removed from the list automatically. You never have to check that yourself.',
 
@@ -1191,6 +1193,7 @@ export default {
   'wiz.needSubject': 'Write a subject line',
   'wiz.needContent': 'Pick a template or write the email first',
   'wiz.needRecipients': 'Add at least one email address',
+  'wiz.needGroupOrSegment': 'Choose a group or segment to send to',
   'wiz.noRecipients': 'Nobody to send to. Everyone in that list has unsubscribed or bounced.',
   'wiz.startedToast': 'Sending started — {count} people',
   'wiz.pauseNote': 'Pausing is safe. Whoever is left stays in the queue and carries on from there.',
