@@ -56,6 +56,14 @@ export default function ContactsPage() {
   const [groupSaving, setGroupSaving] = useState(false);
   const [groupError, setGroupError] = useState('');
 
+  // --- group ka naam badalna / hatana -----------------------------------
+  const [manageGroup, setManageGroup] = useState(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [renameSaving, setRenameSaving] = useState(false);
+  const [renameError, setRenameError] = useState('');
+  const [confirmDeleteGroup, setConfirmDeleteGroup] = useState(false);
+  const [deletingGroup, setDeletingGroup] = useState(false);
+
   // Groups aur tags — filter ke dropdown aur upar wale KPI card ke liye.
   const groupsCall = useApi('/api/contacts/groups/all');
   const tagsCall = useApi('/api/contacts/tags/all');
@@ -266,6 +274,53 @@ export default function ContactsPage() {
     }
   }
 
+  function openManageGroup(item) {
+    setManageGroup(item);
+    setRenameValue(item.name);
+    setRenameError('');
+    setConfirmDeleteGroup(false);
+  }
+
+  function closeManageGroup() {
+    setManageGroup(null);
+  }
+
+  async function submitRenameGroup(event) {
+    event.preventDefault();
+    if (!renameValue.trim()) {
+      setRenameError(t('con.groupNameNeeded'));
+      return;
+    }
+
+    setRenameSaving(true);
+    try {
+      await api.put(`/api/contacts/groups/${manageGroup.id}`, { name: renameValue.trim() });
+      groupsCall.reload();
+      pager.reload();
+      toast.success(t('toast.groupRenamed'), renameValue.trim());
+      setManageGroup(null);
+    } catch (error) {
+      setRenameError(error instanceof ApiError ? error.message : t('toast.networkError'));
+    } finally {
+      setRenameSaving(false);
+    }
+  }
+
+  async function deleteGroup() {
+    setDeletingGroup(true);
+    try {
+      await api.delete(`/api/contacts/groups/${manageGroup.id}`);
+      groupsCall.reload();
+      pager.reload();
+      toast.success(t('toast.groupDeleted'), manageGroup.name);
+      setManageGroup(null);
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : t('toast.networkError'));
+    } finally {
+      setDeletingGroup(false);
+    }
+  }
+
   function handleDraftField(event) {
     const { name, value } = event.target;
     setDraft((current) => ({ ...current, [name]: value }));
@@ -329,7 +384,12 @@ export default function ContactsPage() {
 
       <div className="mw-kpi-grid">
         {groups.map((item) => (
-          <article key={item.id} className="mw-kpi">
+          <button
+            key={item.id}
+            type="button"
+            className="mw-kpi mw-kpi--button"
+            onClick={() => openManageGroup(item)}
+          >
             <span className={`mw-kpi__icon mw-kpi__icon--${item.tone}`} aria-hidden="true">
               <i className="bi bi-collection" />
             </span>
@@ -337,9 +397,9 @@ export default function ContactsPage() {
               <p className="mw-kpi__label">{item.name}</p>
               <div className="mw-kpi__value">{formatNumber(item.count)}</div>
             </div>
-          </article>
+          </button>
         ))}
-        <button type="button" className="mw-kpi mw-kpi--add" onClick={openNewGroup}>
+        <button type="button" className="mw-kpi mw-kpi--button mw-kpi--add" onClick={openNewGroup}>
           <span className="mw-kpi__icon mw-kpi__icon--muted" aria-hidden="true">
             <i className="bi bi-plus-lg" />
           </span>
@@ -348,6 +408,76 @@ export default function ContactsPage() {
           </div>
         </button>
       </div>
+
+      <Sheet
+        open={Boolean(manageGroup)}
+        title={manageGroup ? manageGroup.name : ''}
+        onClose={closeManageGroup}
+      >
+        {manageGroup && confirmDeleteGroup ? (
+          <>
+            <p className="mw-fs-14 mw-text-muted mb-4">
+              {t('con.deleteGroupConfirmText', { count: formatNumber(manageGroup.count) })}{' '}
+              <strong>{manageGroup.name}</strong>
+            </p>
+            <div className="d-flex gap-2">
+              <button
+                type="button"
+                className="btn btn-outline-secondary flex-fill"
+                onClick={() => setConfirmDeleteGroup(false)}
+                disabled={deletingGroup}
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger flex-fill"
+                onClick={deleteGroup}
+                disabled={deletingGroup}
+              >
+                {deletingGroup ? t('common.loading') : t('common.delete')}
+              </button>
+            </div>
+          </>
+        ) : manageGroup ? (
+          <>
+            <form onSubmit={submitRenameGroup}>
+              {renameError ? (
+                <div className="mw-note mw-note--warning mb-3" role="alert">
+                  <i className="bi bi-exclamation-triangle mw-note__icon" aria-hidden="true" />
+                  <div>{renameError}</div>
+                </div>
+              ) : null}
+              <div className="mb-4">
+                <label className="form-label" htmlFor="rename-group-name">{t('con.groupName')}</label>
+                <input
+                  id="rename-group-name"
+                  type="text"
+                  className="form-control"
+                  value={renameValue}
+                  onChange={(event) => {
+                    setRenameValue(event.target.value);
+                    setRenameError('');
+                  }}
+                  autoFocus
+                />
+              </div>
+              <button type="submit" className="btn btn-primary w-100 mb-3" disabled={renameSaving}>
+                {renameSaving ? t('common.loading') : t('common.save')}
+              </button>
+            </form>
+            <hr />
+            <button
+              type="button"
+              className="btn btn-outline-danger w-100"
+              onClick={() => setConfirmDeleteGroup(true)}
+            >
+              <i className="bi bi-trash3 me-2" />
+              {t('con.deleteGroup')}
+            </button>
+          </>
+        ) : null}
+      </Sheet>
 
       <Sheet open={groupFormOpen} title={t('con.newGroupTitle')} onClose={closeNewGroup}>
         <form onSubmit={submitGroup}>

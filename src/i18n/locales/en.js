@@ -359,6 +359,8 @@ export default {
   'con.newGroupTitle': 'Create a group',
   'con.groupName': 'Group name',
   'con.groupNameNeeded': 'Give the group a name',
+  'con.deleteGroup': 'Delete this group',
+  'con.deleteGroupConfirmText': 'The group is removed, but its {count} contacts stay — they just lose this tag:',
   'con.tags': 'Tags',
   'con.added': 'Added',
 
@@ -1078,6 +1080,8 @@ export default {
   'con.selectAllCapped': 'Selected the first {max}. Narrow the filter to work on the rest.',
   'toast.contactAdded': 'Contact added',
   'toast.groupCreated': 'Group created',
+  'toast.groupRenamed': 'Group renamed',
+  'toast.groupDeleted': 'Group removed',
   'toast.contactDeleted': 'Contact removed',
   'bulk.doneExport': '{count} downloaded',
   'toast.networkError': 'Cannot reach the server. Check your internet and try again.',

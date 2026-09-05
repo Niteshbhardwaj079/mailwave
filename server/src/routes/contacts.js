@@ -357,6 +357,62 @@ router.post(
   })
 );
 
+router.put(
+  '/groups/:id',
+  requireModule('contacts', 'edit'),
+  validate(z.object({
+    name: z.string().trim().min(1, 'Group ko naam do').max(80),
+  })),
+  asyncHandler(async (req, res) => {
+    const existing = await one('SELECT id FROM contact_groups WHERE id = $1', [req.params.id]);
+    if (!existing) throw notFound('Yeh group nahi mila');
+
+    await query('UPDATE contact_groups SET name = $1 WHERE id = $2', [req.body.name, req.params.id]);
+
+    await logActivity(req, {
+      action: 'updated',
+      module: 'contacts',
+      item: req.body.name,
+      detail: 'Group ka naam badla gaya',
+    });
+
+    const row = await one(
+      `SELECT g.id, g.name, g.tone, count(c.id)::int AS count
+         FROM contact_groups g
+         LEFT JOIN contacts c ON c.group_id = g.id
+        WHERE g.id = $1
+        GROUP BY g.id, g.name, g.tone`,
+      [req.params.id]
+    );
+    res.json({ group: row });
+  })
+);
+
+/**
+ * Group hatane se uske contacts hate nahi jaate — sirf unka group-tag hat
+ * jaata hai (contacts.group_id apne aap NULL ho jaata hai). Yeh jaan-boojh
+ * kar hai: ek folder ka naam mitana chahiye, jo usme rakha hai wo nahi.
+ */
+router.delete(
+  '/groups/:id',
+  requireModule('contacts', 'delete'),
+  asyncHandler(async (req, res) => {
+    const existing = await one('SELECT id, name FROM contact_groups WHERE id = $1', [req.params.id]);
+    if (!existing) throw notFound('Yeh group nahi mila');
+
+    await query('DELETE FROM contact_groups WHERE id = $1', [req.params.id]);
+
+    await logActivity(req, {
+      action: 'deleted',
+      module: 'contacts',
+      item: existing.name,
+      detail: 'Group hata diya gaya — contacts wahin rahe, sirf group-tag hata',
+    });
+
+    res.json({ ok: true });
+  })
+);
+
 /**
  * Jitne bhi tag istemaal me hain — filter ke dropdown ke liye.
  *

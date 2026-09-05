@@ -122,17 +122,22 @@
   }
 }
 
+// KPI card ko <button> se bhi banaya ja sake, isliye browser ka default button
+// look hata dete hain — dikhta bilkul ek `<article>` jaisa hi hai.
+.mw-kpi--button {
+  cursor: pointer;
+  width: 100%;
+  text-align: start;
+  font: inherit;
+  color: inherit;
+}
+
 // Ek dashed "+" tile jab KPI grid me ek naya item banane ka option dena ho
 // (jaise Contacts page par "New group").
 .mw-kpi--add {
   border-style: dashed;
   border-color: var(--mw-line-strong);
   background-color: transparent;
-  cursor: pointer;
-  width: 100%;
-  text-align: start;
-  font: inherit;
-  color: inherit;
 
   &:hover {
     border-color: var(--mw-primary);
