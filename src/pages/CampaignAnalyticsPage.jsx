@@ -96,7 +96,13 @@ export default function CampaignAnalyticsPage() {
   }, [refreshAll]);
 
   const campaign = campaignCall.data?.campaign ?? null;
-  const rows = useMemo(() => recipientsCall.data?.recipients ?? [], [recipientsCall.data]);
+  // Kuch contacts bina naam ke import hue the (purana data) — naam khaali ho
+  // to email hi dikha dete hain, taaki row.name.slice() jaisi jagah crash na
+  // ho aur list me khaali jagah bhi na dikhe.
+  const rows = useMemo(
+    () => (recipientsCall.data?.recipients ?? []).map((row) => ({ ...row, name: row.name?.trim() || row.email })),
+    [recipientsCall.data]
+  );
 
   // Graph ke X-axis par chhoti date chahiye ("26 Aug"). Server asli date
   // bhejta hai; padhne layak banana screen ka kaam hai.

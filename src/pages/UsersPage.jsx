@@ -15,6 +15,7 @@ import { useWorkspace } from '../store/WorkspaceProvider';
 import { PERMISSION_ACTIONS, PERMISSION_MODULES, ROLE_ICONS, ROLE_TONES } from '../data/adminData';
 import { roleDesc, roleLabel } from '../utils/roles';
 import { formatDateTime, initialsOf } from '../utils/format';
+import { isValidEmail } from '../utils/validation';
 
 const EMPTY_USER = { name: '', email: '', role: '', department: '', status: 'Invited' };
 const EMPTY_ROLE = { name: '', description: '', tone: 'primary', icon: 'bi-person', copyFrom: '' };
@@ -51,6 +52,8 @@ export default function UsersPage() {
   const selectedRole = pickedRole || roles[1]?.key || roles[0]?.key || '';
   const setSelectedRole = setPickedRole;
   const [editingUser, setEditingUser] = useState(null);
+  const [userFormError, setUserFormError] = useState('');
+  const [userSaving, setUserSaving] = useState(false);
   const [editingRole, setEditingRole] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleteBlocked, setDeleteBlocked] = useState(null);
@@ -87,25 +90,49 @@ export default function UsersPage() {
   // --- users ---------------------------------------------------------------
   function openNewUser() {
     setEditingUser({ ...EMPTY_USER, role: roles[roles.length - 1]?.key || '' });
+    setUserFormError('');
   }
 
   function openEditUser(event) {
     setEditingUser(users.find((user) => user.id === event.currentTarget.dataset.id) || null);
+    setUserFormError('');
   }
 
   function closeUser() {
     setEditingUser(null);
+    setUserFormError('');
   }
 
   function handleUserField(event) {
     const { name, value } = event.target;
     setEditingUser((current) => ({ ...current, [name]: value }));
+    setUserFormError('');
   }
 
-  function submitUser() {
-    if (!editingUser?.name || !editingUser?.email) return;
-    saveUser({ ...editingUser, initials: editingUser.initials || initialsOf(editingUser.name) });
-    setEditingUser(null);
+  async function submitUser() {
+    const name = editingUser?.name?.trim() || '';
+    const email = editingUser?.email?.trim() || '';
+
+    if (!name) {
+      setUserFormError(t('users.needName'));
+      return;
+    }
+    if (!email || !isValidEmail(email)) {
+      setUserFormError(t('users.needEmail'));
+      return;
+    }
+    if (!editingUser?.role) {
+      setUserFormError(t('users.needRole'));
+      return;
+    }
+
+    setUserSaving(true);
+    // saveUser() server ki taraf se fail ho sakta hai (jaise email pehle se
+    // kisi aur user ki hai) — tabhi sheet band karo jab asal me save ho jaye,
+    // warna user ka bhara hua form gum ho jaata hai bina wajah bataye.
+    const saved = await saveUser({ ...editingUser, name, email, initials: editingUser.initials || initialsOf(name) });
+    setUserSaving(false);
+    if (saved) setEditingUser(null);
   }
 
   function handleToggleStatus(event) {
@@ -674,14 +701,21 @@ export default function UsersPage() {
             <button type="button" className="btn btn-outline-secondary flex-fill" onClick={closeUser}>
               {t('common.cancel')}
             </button>
-            <button type="button" className="btn btn-primary flex-fill" onClick={submitUser}>
-              {editingUser?.id ? t('common.saveChanges') : t('users.invite')}
+            <button type="button" className="btn btn-primary flex-fill" onClick={submitUser} disabled={userSaving}>
+              {userSaving ? t('common.loading') : editingUser?.id ? t('common.saveChanges') : t('users.invite')}
             </button>
           </>
         }
       >
         {editingUser ? (
           <div className="row g-3">
+            {userFormError ? (
+              <div className="col-12">
+                <Note tone="warning" icon="bi-exclamation-triangle">
+                  {userFormError}
+                </Note>
+              </div>
+            ) : null}
             <div className="col-12 col-md-6">
               <label className="form-label" htmlFor="user-name">
                 {t('common.name')}

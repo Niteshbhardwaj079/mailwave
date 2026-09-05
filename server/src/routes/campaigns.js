@@ -251,7 +251,9 @@ router.get(
     const items = rows.map((r) => ({
       id: r.id,
       email: r.email,
-      name: r.name,
+      // Kuch contacts bina naam ke import hue the — email hi dikha dete hain,
+      // taaki screen par khaali jagah ya crash na ho.
+      name: r.name || r.email,
       status: r.status,
       error: r.error,
       sentAt: r.sent_at,

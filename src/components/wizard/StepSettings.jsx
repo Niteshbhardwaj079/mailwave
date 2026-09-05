@@ -3,6 +3,13 @@ import { batchOptions } from '../../data/mockData';
 import { formatNumber } from '../../utils/format';
 import { useT } from '../../i18n/I18nProvider';
 
+/** Native picker ko beeta hua din/waqt dikhane hi nahi dete. */
+function minScheduleValue() {
+  const now = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+}
+
 const SCHEDULE_OPTIONS = [
   { key: 'now', titleKey: 'send.now', descKey: 'send.nowDesc', icon: 'bi-lightning-charge' },
   { key: 'later', titleKey: 'send.later', descKey: 'send.laterDesc', icon: 'bi-calendar-event' },
@@ -222,6 +229,7 @@ export default function StepSettings({ draft, onChange, recipientCount = 0 }) {
                 className="form-control"
                 value={draft.scheduleAt}
                 onChange={handleScheduleAt}
+                min={minScheduleValue()}
               />
             </div>
           </div>

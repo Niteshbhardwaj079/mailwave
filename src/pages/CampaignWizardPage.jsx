@@ -21,6 +21,7 @@ import { ApiError, api } from '../api/client';
 import { useApi } from '../api/useApi';
 import { useToast } from '../components/ui/ToastProvider';
 import { formatDateTime, formatNumber, percentValue } from '../utils/format';
+import { isValidEmail } from '../utils/validation';
 
 const INITIAL_DRAFT = {
   name: '',
@@ -269,11 +270,44 @@ export default function CampaignWizardPage() {
   }
 
   function goNext() {
+    const missing = stepError(step);
+    if (missing) {
+      setError(missing);
+      return;
+    }
+    setError('');
     setStep((current) => Math.min(wizardSteps.length - 1, current + 1));
   }
 
   function goBack() {
+    setError('');
     setStep((current) => Math.max(0, current - 1));
+  }
+
+  /**
+   * Stepper ke header se seedha kisi bhi step par jump kar sakte hain.
+   * Peechhe jaana hamesha theek hai; aage jaana sirf tabhi jab beech ke sab
+   * steps bhare hue hon — warna khaali steps chhupe rehte aur galti pata hi
+   * na chalti.
+   */
+  function jumpToStep(index) {
+    if (index <= step) {
+      setError('');
+      setStep(index);
+      return;
+    }
+
+    for (let i = step; i < index; i += 1) {
+      const missing = stepError(i);
+      if (missing) {
+        setError(missing);
+        setStep(i);
+        return;
+      }
+    }
+
+    setError('');
+    setStep(index);
   }
 
   function openConfirm() {
@@ -290,24 +324,55 @@ export default function CampaignWizardPage() {
     setConfirmOpen(false);
   }
 
-  /** Bhejne se pehle jo cheezein zaroori hain. */
-  function whatIsMissing() {
-    if (!draft.name.trim()) return t('wiz.needName');
-    if (!draft.account) return t('wiz.needAccount');
-    if (!draft.subject.trim()) return t('wiz.needSubject');
-    if (!draft.templateHtml.trim()) return t('wiz.needContent');
-    if (draft.recipientSource === 'manual' && parseManualList(draft.manualList).length === 0) {
-      return t('wiz.needRecipients');
-    }
-    if (draft.recipientSource === 'existing' && draft.groups.length === 0) {
-      return t('wiz.needGroupOrSegment');
+  /**
+   * Ek step ke liye jo bhi zaroori hai — index 0=Info, 1=Recipients,
+   * 2=Template, 3=Content, 4=Settings, 5=Review.
+   *
+   * "Continue" par isi step ki jaanch hoti hai, taaki galti turant pata chale
+   * — sabse aakhir tak intezaar karke ek saath sab kuch batana bura lagta hai.
+   */
+  function stepError(index) {
+    if (index === 0) {
+      if (!draft.name.trim()) return t('wiz.needName');
+      if (!draft.account) return t('wiz.needAccount');
+      if (!draft.subject.trim()) return t('wiz.needSubject');
+      if (draft.replyTo.trim() && !isValidEmail(draft.replyTo)) return t('wiz.badReplyTo');
+      return '';
     }
 
-    if (draft.schedule === 'later') {
-      const when = toServerTime(draft.scheduleAt);
-      if (!when) return t('wiz.needTime');
-      // Beeta hua time chunna kisi kaam ka nahi — wo turant chal padegi.
-      if (new Date(when) <= new Date()) return t('wiz.timeInPast');
+    if (index === 1) {
+      if (draft.recipientSource === 'manual' && parseManualList(draft.manualList).length === 0) {
+        return t('wiz.needRecipients');
+      }
+      if (draft.recipientSource === 'existing' && draft.groups.length === 0) {
+        return t('wiz.needGroupOrSegment');
+      }
+      return '';
+    }
+
+    if (index === 3) {
+      if (!draft.templateHtml.trim()) return t('wiz.needContent');
+      return '';
+    }
+
+    if (index === 4) {
+      if (draft.schedule === 'later') {
+        const when = toServerTime(draft.scheduleAt);
+        if (!when) return t('wiz.needTime');
+        // Beeta hua time chunna kisi kaam ka nahi — wo turant chal padegi.
+        if (new Date(when) <= new Date()) return t('wiz.timeInPast');
+      }
+      return '';
+    }
+
+    return '';
+  }
+
+  /** Bhejne se pehle sab steps ek-ek karke jaanch leta hai — aakhri suraksha. */
+  function whatIsMissing() {
+    for (let index = 0; index < wizardSteps.length; index += 1) {
+      const message = stepError(index);
+      if (message) return message;
     }
 
     return '';
@@ -671,7 +736,7 @@ export default function CampaignWizardPage() {
       ) : null}
 
       <Card flush>
-        <Stepper steps={wizardSteps} current={step} onJump={setStep} ariaLabel={t('wiz.steps')} />
+        <Stepper steps={wizardSteps} current={step} onJump={jumpToStep} ariaLabel={t('wiz.steps')} />
 
         <div className="mw-card__body">
           {step === 0 ? <StepInfo draft={draft} onChange={updateDraft} accounts={accounts} /> : null}
