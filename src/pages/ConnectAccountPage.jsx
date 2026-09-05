@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
+import { appConfig } from '../config/appConfig';
 import PageHeader from '../components/ui/PageHeader';
 import { Card } from '../components/ui/Card';
 import { Note } from '../components/ui/Controls';
@@ -299,7 +300,7 @@ export default function ConnectAccountPage() {
                 className="form-control"
                 value={values.displayName}
                 onChange={handleValue}
-                placeholder="Gowebkart"
+                placeholder={appConfig.company}
               />
               <div className="form-text">{t('acc.senderHelp')}</div>
             </div>
