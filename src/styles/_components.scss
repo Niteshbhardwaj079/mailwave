@@ -466,6 +466,25 @@
   flex: 0 0 auto;
 }
 
+// Ek tag pill ke andar "x" — jaise editable tag-list me tag hatane ke liye.
+.mw-tagremove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  margin-inline-start: 0.2rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.75;
+
+  &:hover {
+    opacity: 1;
+  }
+}
+
 .mw-status--success {
   background-color: var(--mw-success-soft);
   color: var(--mw-success-ink);

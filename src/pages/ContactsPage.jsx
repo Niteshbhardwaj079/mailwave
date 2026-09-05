@@ -29,7 +29,9 @@ const EMPTY_CONTACT = {
   email: '',
   phone: '',
   company: '',
+  city: '',
   groupId: '',
+  tags: [],
   consentSource: 'website',
 };
 
@@ -49,6 +51,9 @@ export default function ContactsPage() {
   const [draft, setDraft] = useState(EMPTY_CONTACT);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
+  // null = naya contact banaya jaa raha hai; id = us contact ko edit kiya jaa raha hai.
+  const [editingId, setEditingId] = useState(null);
+  const [tagInput, setTagInput] = useState('');
 
   // --- naya group (bilkul optional — koi majboor nahi, jisko chahiye banaye) --
   const [groupFormOpen, setGroupFormOpen] = useState(false);
@@ -234,13 +239,50 @@ export default function ContactsPage() {
 
   // --- naya contact ---------------------------------------------------------
   function openAdd() {
-    setDraft({ ...EMPTY_CONTACT, groupId: groups[0]?.id ?? '' });
+    setEditingId(null);
+    setDraft(EMPTY_CONTACT);
+    setTagInput('');
+    setFormError('');
+    setAddOpen(true);
+  }
+
+  function openEditContact(contact) {
+    setEditingId(contact.id);
+    setDraft({
+      name: contact.name ?? '',
+      email: contact.email ?? '',
+      phone: contact.phone ?? '',
+      company: contact.company ?? '',
+      city: contact.city ?? '',
+      groupId: contact.groupId ?? '',
+      tags: contact.tags ?? [],
+      consentSource: contact.consentSource ?? 'website',
+    });
+    setTagInput('');
     setFormError('');
     setAddOpen(true);
   }
 
   function closeAdd() {
     setAddOpen(false);
+  }
+
+  /** Enter ya comma dabate hi likha hua text ek tag ban jata hai. */
+  function handleTagInputKeyDown(event) {
+    if (event.key !== 'Enter' && event.key !== ',') return;
+    event.preventDefault();
+
+    const value = tagInput.trim();
+    if (!value) return;
+
+    setDraft((current) =>
+      current.tags.includes(value) ? current : { ...current, tags: [...current.tags, value] }
+    );
+    setTagInput('');
+  }
+
+  function removeTag(tagToRemove) {
+    setDraft((current) => ({ ...current, tags: current.tags.filter((item) => item !== tagToRemove) }));
   }
 
   // --- naya group --------------------------------------------------------
@@ -335,20 +377,28 @@ export default function ContactsPage() {
 
     setSaving(true);
     try {
-      await api.post('/api/contacts', {
+      const payload = {
         name: draft.name.trim() || null,
         email: draft.email.trim(),
         phone: draft.phone.trim() || null,
         company: draft.company.trim() || null,
+        city: draft.city.trim() || null,
         groupId: draft.groupId || null,
         consentSource: draft.consentSource,
-        tags: [],
-      });
+        tags: draft.tags,
+      };
+
+      if (editingId) {
+        await api.put(`/api/contacts/${editingId}`, payload);
+      } else {
+        await api.post('/api/contacts', payload);
+      }
 
       setAddOpen(false);
       pager.reload();
       groupsCall.reload();
-      toast.success(t('toast.contactAdded'), draft.email);
+      tagsCall.reload();
+      toast.success(editingId ? t('toast.contactUpdated') : t('toast.contactAdded'), draft.email);
     } catch (error) {
       // Wahi email pehle se hai — yeh sabse aam galti hai, isliye saaf message
       // form me hi dikhate hain, toast me nahi jo ud jata hai.
@@ -670,6 +720,14 @@ export default function ContactsPage() {
                         <button
                           type="button"
                           className="mw-iconbtn"
+                          onClick={() => openEditContact(contact)}
+                          aria-label={`${t('common.edit')} ${contact.name}`}
+                        >
+                          <i className="bi bi-pencil" />
+                        </button>
+                        <button
+                          type="button"
+                          className="mw-iconbtn"
                           data-id={contact.id}
                           data-name={contact.name}
                           onClick={handleDeleteOne}
@@ -707,6 +765,14 @@ export default function ContactsPage() {
                   <div className="mw-row mw-row--between mw-fs-12 mw-text-muted">
                     <span>{contact.company}</span>
                     <span>{contact.phone}</span>
+                    <button
+                      type="button"
+                      className="mw-iconbtn"
+                      onClick={() => openEditContact(contact)}
+                      aria-label={`${t('common.edit')} ${contact.name}`}
+                    >
+                      <i className="bi bi-pencil" />
+                    </button>
                   </div>
                   <div className="mw-row mw-row--wrap mt-2">
                     {contact.tags.map((item) => (
@@ -752,7 +818,7 @@ export default function ContactsPage() {
 
       <Sheet
         open={addOpen}
-        title={t('con.addTitle')}
+        title={editingId ? t('con.editTitle') : t('con.addTitle')}
         onClose={closeAdd}
         footer={
           <>
@@ -826,6 +892,18 @@ export default function ContactsPage() {
               onChange={handleDraftField}
             />
           </div>
+          <div className="col-12 col-md-6">
+            <label className="form-label" htmlFor="new-city">{t('common.city')}</label>
+            <input
+              id="new-city"
+              name="city"
+              type="text"
+              className="form-control"
+              placeholder="Mumbai"
+              value={draft.city}
+              onChange={handleDraftField}
+            />
+          </div>
           <div className="col-12">
             <label className="form-label" htmlFor="new-group">{t('con.group')}</label>
             <select
@@ -835,12 +913,43 @@ export default function ContactsPage() {
               value={draft.groupId}
               onChange={handleDraftField}
             >
+              <option value="">{t('imp.noGroup')}</option>
               {groups.map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.name}
                 </option>
               ))}
             </select>
+          </div>
+          <div className="col-12">
+            <label className="form-label" htmlFor="new-tags">{t('con.tags')}</label>
+            <input
+              id="new-tags"
+              type="text"
+              className="form-control"
+              placeholder={t('con.tagsPlaceholder')}
+              value={tagInput}
+              onChange={(event) => setTagInput(event.target.value)}
+              onKeyDown={handleTagInputKeyDown}
+            />
+            <div className="form-text">{t('con.tagsHelp')}</div>
+            {draft.tags.length > 0 ? (
+              <div className="mw-row mw-row--wrap mt-2">
+                {draft.tags.map((item) => (
+                  <span key={item} className="mw-status mw-status--primary">
+                    {item}
+                    <button
+                      type="button"
+                      className="mw-tagremove"
+                      onClick={() => removeTag(item)}
+                      aria-label={`${t('common.delete')} ${item}`}
+                    >
+                      <i className="bi bi-x" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            ) : null}
           </div>
           <div className="col-12">
             <label className="form-label" htmlFor="new-consent">{t('con.consentLabel')}</label>

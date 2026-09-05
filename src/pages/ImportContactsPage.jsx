@@ -57,9 +57,9 @@ const MAX_BYTES = 20 * 1024 * 1024;
 /** Jo column apne aap pehchaan liye jate hain. */
 const GUESS = {
   email: ['email', 'email address', 'e-mail', 'mail'],
-  name: ['name', 'full name', 'contact name', 'first name'],
-  phone: ['phone', 'mobile', 'contact', 'phone number'],
-  company: ['company', 'organisation', 'organization', 'firm', 'business'],
+  name: ['name', 'full name', 'contact name', 'first name', 'customer name', 'client name', 'person name'],
+  phone: ['phone', 'mobile', 'contact', 'phone number', 'mobile number', 'whatsapp'],
+  company: ['company', 'organisation', 'organization', 'firm', 'business', 'company name'],
   city: ['city', 'town', 'location'],
 };
 
