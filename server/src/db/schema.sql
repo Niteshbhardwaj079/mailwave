@@ -74,6 +74,18 @@ CREATE TABLE IF NOT EXISTS password_tokens (
   created_at  timestamptz NOT NULL DEFAULT now()
 );
 
+-- Email change is a promise until the NEW address proves it can receive mail.
+-- The users row keeps the old email until this token is used.
+CREATE TABLE IF NOT EXISTS email_change_tokens (
+  id          text PRIMARY KEY,
+  user_id     text NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  new_email   text NOT NULL,
+  token_hash  text NOT NULL UNIQUE,
+  expires_at  timestamptz NOT NULL,
+  used_at     timestamptz,
+  created_at  timestamptz NOT NULL DEFAULT now()
+);
+
 -- --- contacts ---------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS contact_groups (

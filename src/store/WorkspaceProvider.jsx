@@ -470,8 +470,17 @@ export function WorkspaceProvider({ children }) {
             : current.map((item) => (item.id === record.id ? record : item))
         );
 
-        // Naya user bana = invite email gaya. Purana = sirf details badli.
-        toast.success(isNew ? t('toast.userInvited') : t('toast.userSaved'), record.name);
+        // Naya user bana = invite email gaya. Email badla = naye address par
+        // confirm-link gaya, ruk hi nahi (record.email abhi bhi purana hai).
+        // Baaki = sirf details badli.
+        toast.success(
+          isNew
+            ? t('toast.userInvited')
+            : data.pendingEmail
+              ? t('toast.emailChangePending')
+              : t('toast.userSaved'),
+          record.name
+        );
         refreshActivity();
         return record;
       } catch (error) {

@@ -409,6 +409,11 @@ export default {
   'auth.doneSub': 'You can sign in now. We have emailed you a confirmation.',
   'auth.badLinkTitle': 'This link is not valid',
   'auth.badLinkSub': 'Reset links work once and last 1 hour. Ask for a new one from the sign-in page.',
+  'auth.confirmEmailWorking': 'Confirming your email…',
+  'auth.confirmEmailDoneTitle': 'Email confirmed',
+  'auth.confirmEmailDoneSub': 'Your sign-in email is now',
+  'auth.confirmEmailErrorTitle': 'This link is not valid',
+  'auth.confirmEmailErrorSub': 'Confirmation links work once and last 1 hour. Ask a Super Admin to change your email again.',
 
   // --- Super Admin password tools -----------------------------------------
   'users.password': 'Password',
@@ -1049,6 +1054,7 @@ export default {
   'toast.imageRemoved': 'Image removed',
   'toast.linkCopied': 'Link copied',
   'toast.userSaved': 'User details saved',
+  'toast.emailChangePending': 'Details saved. A confirmation link was sent to the new email address.',
   'toast.userInvited': 'Invite sent',
   'toast.userEnabled': 'Account turned on',
   'toast.userDisabled': 'Account turned off',

@@ -31,6 +31,7 @@ const UsersPage = lazy(() => import('./pages/UsersPage'));
 const ActivityLogPage = lazy(() => import('./pages/ActivityLogPage'));
 const OnboardingPage = lazy(() => import('./pages/OnboardingPage'));
 const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'));
+const ConfirmEmailPage = lazy(() => import('./pages/ConfirmEmailPage'));
 const SystemEmailsPage = lazy(() => import('./pages/SystemEmailsPage'));
 const BackupPage = lazy(() => import('./pages/BackupPage'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
@@ -54,6 +55,7 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage mode="reset" />} />
         <Route path="/set-password" element={<ResetPasswordPage mode="invite" />} />
+        <Route path="/confirm-email" element={<ConfirmEmailPage />} />
         {/* Standalone so the link can be shared without the rest of the app */}
         <Route path="/templates/:templateId/preview" element={<TemplatePreviewPage />} />
 

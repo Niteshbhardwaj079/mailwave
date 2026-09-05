@@ -422,6 +422,53 @@ router.post(
   })
 );
 
+/**
+ * Email change ka doosra pehlu: naya address wale link par click karte hi
+ * yahan tak pahunchta hai. Tabhi jaake users.email asal me badalta hai.
+ */
+router.post(
+  '/confirm-email-change',
+  authLimiter,
+  asyncHandler(async (req, res) => {
+    const schema = z.object({ token: z.string().min(10, 'That link is not valid') });
+
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) throw badRequest('That link is not valid');
+
+    const stored = await one(
+      `SELECT id, user_id, new_email, expires_at, used_at FROM email_change_tokens WHERE token_hash = $1`,
+      [hashToken(parsed.data.token)]
+    );
+
+    if (!stored || stored.used_at || new Date(stored.expires_at) < new Date()) {
+      throw badRequest('That link has expired. Ask a Super Admin to change your email again.');
+    }
+
+    const clash = await one('SELECT id FROM users WHERE lower(email) = lower($1) AND id <> $2', [
+      stored.new_email,
+      stored.user_id,
+    ]);
+    if (clash) throw badRequest('Is email se ek aur user pehle se hai');
+
+    await query('UPDATE users SET email = $1, updated_at = now() WHERE id = $2', [
+      stored.new_email,
+      stored.user_id,
+    ]);
+    await query('UPDATE email_change_tokens SET used_at = now() WHERE id = $1', [stored.id]);
+
+    const user = await one('SELECT id, name, email FROM users WHERE id = $1', [stored.user_id]);
+    await logActivity({ ...req, user }, {
+      action: 'updated',
+      module: 'users',
+      item: user?.name ?? stored.user_id,
+      detail: 'Email confirm ho gaya',
+      after: `Email: ${stored.new_email}`,
+    });
+
+    res.json({ ok: true, email: stored.new_email });
+  })
+);
+
 /** Changing your own password, while signed in. */
 router.post(
   '/change-password',

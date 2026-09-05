@@ -146,6 +146,28 @@ ${button('Sign in', 'sign_in_url', '#d97706')}`,
     ),
   },
   {
+    key: 'user.emailChangeConfirm',
+    group: 'account',
+    name: 'Confirm new email address',
+    event: 'A Super Admin/Admin changes a user’s sign-in email',
+    to: 'The NEW email address (not the old one)',
+    critical: true,
+    subject: 'Confirm your new {{app_name}} email address',
+    variables: ['name', 'new_email', 'confirm_url', 'changed_by', 'app_name', 'company', 'support_email'],
+    html: shell(
+      `            <h1 style="margin:0 0 14px;font-size:22px;color:#111827">Confirm this email address</h1>
+            <p style="margin:0 0 12px;font-size:15px;line-height:1.7;color:#374151">
+              Hello {{name}}, {{changed_by}} asked to change your {{app_name}} sign-in email to
+              <strong>{{new_email}}</strong>. Nothing has changed yet — confirm you can read mail here first.
+            </p>
+${button('Confirm this email', 'confirm_url')}
+            <p style="margin:20px 0 0;font-size:13px;color:#6b7280">
+              This link works for 1 hour and can be used once. If you did not expect this, ignore it — your old
+              email keeps working.
+            </p>`
+    ),
+  },
+  {
     key: 'login.newDevice',
     group: 'account',
     name: 'Sign-in from a new device',

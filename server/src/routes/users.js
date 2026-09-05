@@ -155,13 +155,23 @@ router.put(
       await guardLastSuperAdmin(existing.id);
     }
 
+    // Email seedha nahi badalte — pehle naye address par ek confirm-link
+    // jaata hai. Jab tak wahan se confirm na ho, purana email hi chalta rehta
+    // hai. Warna galti se typo kiya hua email save ho jaata aur wo user kabhi
+    // andar hi nahi aa pata.
+    const emailChanged = email.toLowerCase() !== existing.email.toLowerCase();
+
     await query(
       `UPDATE users
-          SET name = $1, email = $2, role_key = $3, department = $4, status = $5,
-              initials = $6, updated_at = now()
-        WHERE id = $7`,
-      [name, email, role, department, status, initialsOf(name), req.params.id]
+          SET name = $1, role_key = $2, department = $3, status = $4,
+              initials = $5, updated_at = now()
+        WHERE id = $6`,
+      [name, role, department, status, initialsOf(name), req.params.id]
     );
+
+    if (emailChanged) {
+      await sendEmailChangeConfirm(req, existing, email);
+    }
 
     // Band kiye gaye user ki har khuli session turant band ho jaye.
     if (status === 'Disabled') {
@@ -174,6 +184,7 @@ router.put(
     const changes = [];
     if (existing.role_key !== role) changes.push(`Role: ${existing.role_key} se ${role}`);
     if (existing.status !== status) changes.push(`Status: ${existing.status} se ${status}`);
+    if (emailChanged) changes.push(`Naya email jodne ke liye "${email}" par confirm-link bheja`);
 
     await logActivity(req, {
       action: 'updated',
@@ -184,10 +195,13 @@ router.put(
       after: changes.length ? `${role} / ${status}` : null,
     });
 
+    // Purana email hi abhi bhi asli hai (naya wala sirf tab lagta hai jab
+    // confirm ho chuka ho) — isliye ye do notification usi purane par jaati
+    // hain, naye (abhi tak validate na hue) address par nahi.
     if (existing.role_key !== role) {
       await sendSystemEmail(
         'user.roleChanged',
-        { email, name },
+        { email: existing.email, name },
         {
           old_role: existing.role_key,
           new_role: role,
@@ -200,13 +214,13 @@ router.put(
     if (existing.status !== 'Disabled' && status === 'Disabled') {
       await sendSystemEmail(
         'user.disabled',
-        { email, name },
+        { email: existing.email, name },
         { changed_by: req.user.name, change_time: new Date().toUTCString() }
       );
     }
 
     const row = await one(`${USER_SELECT} WHERE id = $1`, [req.params.id]);
-    res.json({ user: userToApi(row) });
+    res.json({ user: userToApi(row), pendingEmail: emailChanged ? email : null });
   })
 );
 
@@ -362,6 +376,37 @@ async function sendInvite(req, user) {
   if (!sent.ok) {
     console.warn(
       `[users] ${user.email} ko invite email nahi ja saka (${sent.reason}). Link neeche hai, 7 din chalega:\n  ${inviteUrl}`
+    );
+  }
+}
+
+/**
+ * Email badalne se pehle NAYE address par ek confirm-link bhejta hai. Jab tak
+ * wahan se click nahi hota, users.email waisa hi rehta hai jaisa pehle tha —
+ * isliye ek typo se kisi ka account lock nahi hota.
+ */
+async function sendEmailChangeConfirm(req, existing, newEmail) {
+  const { token, hash } = newRefreshToken();
+
+  await query(
+    `INSERT INTO email_change_tokens (id, user_id, new_email, token_hash, expires_at)
+     VALUES ($1,$2,$3,$4, now() + interval '1 hour')`,
+    [newId('ect'), existing.id, newEmail, hash]
+  );
+
+  const confirmUrl = `${env.appUrl}/confirm-email?token=${token}`;
+
+  const sent = await sendSystemEmail(
+    'user.emailChangeConfirm',
+    { email: newEmail, name: existing.name },
+    { new_email: newEmail, confirm_url: confirmUrl, changed_by: req.user.name }
+  );
+
+  // Email na ja paye to link console par — warna naya email kabhi confirm hi
+  // nahi ho payega.
+  if (!sent.ok) {
+    console.warn(
+      `[users] ${newEmail} ko confirm-email link nahi ja saka (${sent.reason}). Link neeche hai, 1 ghanta chalega:\n  ${confirmUrl}`
     );
   }
 }
