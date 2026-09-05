@@ -9,7 +9,7 @@ import { Note, SearchInput } from '../components/ui/Controls';
 import FilterSelect, { FilterBar } from '../components/ui/FilterSelect';
 import { useT } from '../i18n/I18nProvider';
 import { useWorkspace } from '../store/WorkspaceProvider';
-import BulkBar from '../components/ui/BulkBar';
+import BulkBar, { SelectAllCheckbox } from '../components/ui/BulkBar';
 import { useBulkSelection } from '../utils/useBulkSelection';
 import { downloadCsv, objectsToRows } from '../utils/download';
 import StatusPill from '../components/ui/StatusPill';
@@ -582,6 +582,14 @@ export default function CampaignAnalyticsPage() {
               <table className="mw-table mw-table--wide mw-table--clickable">
                 <thead>
                   <tr>
+                    <th scope="col" className="mw-table__check">
+                      <SelectAllCheckbox
+                        checked={bulk.allVisibleSelected}
+                        indeterminate={bulk.someVisibleSelected}
+                        onChange={bulk.toggleAllVisible}
+                        label={t('bulk.selectAllRows')}
+                      />
+                    </th>
                     <th scope="col">Name</th>
                     <th scope="col">Email</th>
                     <th scope="col">Status</th>
