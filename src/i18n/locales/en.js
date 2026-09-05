@@ -1157,6 +1157,7 @@ export default {
   'imp.searchPlaceholder': 'Search name, email or company…',
   'imp.totalCount': '{count} rows',
   'imp.filteredCount': 'Showing {shown} of {total} rows',
+  'imp.autoRemovedNote': '{count} duplicate rows were removed automatically — nothing more to do for those.',
   'imp.downloadCorrected': 'Download corrected file',
   'imp.removedNote': '{count} rows removed from this import.',
   'imp.undoRemovals': 'Undo',

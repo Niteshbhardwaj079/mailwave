@@ -107,7 +107,7 @@ export default function ImportContactsPage() {
   const [revalidating, setRevalidating] = useState(false);
 
   const [editingRow, setEditingRow] = useState(null); // previewRow object
-  const [editDraft, setEditDraft] = useState({ name: '', email: '', company: '' });
+  const [editDraft, setEditDraft] = useState({ name: '', email: '', phone: '', company: '' });
   const [editError, setEditError] = useState('');
   const [editSaving, setEditSaving] = useState(false);
 
@@ -275,7 +275,33 @@ export default function ImportContactsPage() {
         groupId: groupId || null,
         commit: false,
       });
-      setReport(data.report ?? data);
+      const freshReport = data.report ?? data;
+
+      // Duplicate turant hata dete hain — upload hote hi, preview khulne se
+      // pehle. Invalid/missing wali rows chhod dete hain, unhe user khud
+      // dekh kar theek ya delete kare.
+      const autoExcluded = new Set(excludedIndices);
+      for (const problem of freshReport.problems ?? []) {
+        if (REASON_FLAG[problem.reason] === 'duplicate') autoExcluded.add(problem.row - 2);
+      }
+
+      if (autoExcluded.size !== excludedIndices.size) {
+        setExcludedIndices(autoExcluded);
+        // Rows hatne se baaki bachi rows ka position badal jata hai — dobara
+        // jaanch karte hain taaki "kaun si row kis wajah se ruki" sahi rahe.
+        // Ginti (total/valid/duplicates waghera) purani jaanch wali hi
+        // rakhte hain — warna "0 duplicates" dikhega jabki asal me hataye
+        // gaye the.
+        const recheck = await api.post('/api/contacts/import', {
+          rows: buildWorkingMapped(rows, autoExcluded),
+          groupId: groupId || null,
+          commit: false,
+        });
+        setReport({ ...freshReport, problems: (recheck.report ?? recheck).problems });
+      } else {
+        setReport(freshReport);
+      }
+
       setStep(2);
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : t('toast.networkError'));
@@ -354,6 +380,7 @@ export default function ImportContactsPage() {
           originalIndex: entry.originalIndex,
           name: value.name ?? '',
           email: value.email ?? '',
+          phone: value.phone ?? '',
           company: value.company ?? '',
           flag: problem ? (REASON_FLAG[problem.reason] ?? 'invalid') : 'valid',
           detail: problem?.detail ?? '',
@@ -370,6 +397,7 @@ export default function ImportContactsPage() {
         text &&
         !row.name.toLowerCase().includes(text) &&
         !row.email.toLowerCase().includes(text) &&
+        !row.phone.toLowerCase().includes(text) &&
         !row.company.toLowerCase().includes(text)
       ) {
         return false;
@@ -407,7 +435,7 @@ export default function ImportContactsPage() {
   // --- ek row edit karna --------------------------------------------------
   function openEditRow(row) {
     setEditingRow(row);
-    setEditDraft({ name: row.name, email: row.email, company: row.company });
+    setEditDraft({ name: row.name, email: row.email, phone: row.phone, company: row.company });
     setEditError('');
   }
 
@@ -429,6 +457,7 @@ export default function ImportContactsPage() {
         const updated = { ...row };
         if (fieldToHeader.name) updated[fieldToHeader.name] = editDraft.name.trim();
         if (fieldToHeader.email) updated[fieldToHeader.email] = editDraft.email.trim();
+        if (fieldToHeader.phone) updated[fieldToHeader.phone] = editDraft.phone.trim();
         if (fieldToHeader.company) updated[fieldToHeader.company] = editDraft.company.trim();
         return updated;
       });
@@ -445,14 +474,14 @@ export default function ImportContactsPage() {
   /** Jo abhi valid hain unhi ko file me utaarta hai — sahi, saaf list. */
   function downloadCorrected() {
     const validRows = previewRows.filter((row) => row.flag === 'valid');
-    downloadCsv(
-      'contacts-corrected.csv',
-      objectsToRows(validRows, [
-        { key: 'name', label: t('common.name') },
-        { key: 'email', label: t('common.email') },
-        { key: 'company', label: t('common.company') },
-      ])
-    );
+    const columns = [
+      { key: 'name', label: t('common.name') },
+      { key: 'email', label: t('common.email') },
+    ];
+    if (fieldToHeader.phone) columns.push({ key: 'phone', label: t('common.phone') });
+    columns.push({ key: 'company', label: t('common.company') });
+
+    downloadCsv('contacts-corrected.csv', objectsToRows(validRows, columns));
   }
 
   const duplicates =
@@ -641,6 +670,12 @@ export default function ImportContactsPage() {
                   duplicates: formatNumber(duplicates),
                 })}
               </Note>
+
+              {excludedIndices.size > 0 ? (
+                <Note tone="success" icon="bi-check-circle">
+                  {t('imp.autoRemovedNote', { count: formatNumber(excludedIndices.size) })}
+                </Note>
+              ) : null}
             </>
           ) : null}
 
@@ -748,6 +783,7 @@ export default function ImportContactsPage() {
                           <th scope="col">{t('imp.col.row')}</th>
                           <th scope="col">{t('common.name')}</th>
                           <th scope="col">{t('common.email')}</th>
+                          {fieldToHeader.phone ? <th scope="col">{t('common.phone')}</th> : null}
                           <th scope="col">{t('common.company')}</th>
                           <th scope="col">{t('imp.col.check')}</th>
                           <th scope="col" className="text-end">
@@ -770,6 +806,7 @@ export default function ImportContactsPage() {
                             <td className="mw-table__muted">{row.row}</td>
                             <td className="mw-table__primary">{row.name}</td>
                             <td>{row.email || <span className="mw-text-muted-2">{t('imp.empty')}</span>}</td>
+                            {fieldToHeader.phone ? <td className="mw-table__muted">{row.phone}</td> : null}
                             <td className="mw-table__muted">{row.company}</td>
                             <td>
                               <StatusPill status={t(FLAG_KEY[row.flag])} tone={FLAG_TONE[row.flag]} />
@@ -819,7 +856,9 @@ export default function ImportContactsPage() {
                         </div>
                         <div className="mw-row mw-row--between mt-2">
                           <span className="mw-fs-12 mw-text-muted">
-                            {t('imp.rowOf', { row: row.row })} · {row.company}
+                            {t('imp.rowOf', { row: row.row })}
+                            {fieldToHeader.phone && row.phone ? ` · ${row.phone}` : ''}
+                            {row.company ? ` · ${row.company}` : ''}
                           </span>
                           <span>
                             <button type="button" className="mw-iconbtn" onClick={() => openEditRow(row)}>
@@ -884,6 +923,19 @@ export default function ImportContactsPage() {
                         setEditError('');
                       }}
                       autoFocus
+                    />
+                  </div>
+                ) : null}
+
+                {fieldToHeader.phone ? (
+                  <div className="mb-3">
+                    <label className="form-label" htmlFor="edit-row-phone">{t('common.phone')}</label>
+                    <input
+                      id="edit-row-phone"
+                      type="tel"
+                      className="form-control"
+                      value={editDraft.phone}
+                      onChange={(event) => setEditDraft((current) => ({ ...current, phone: event.target.value }))}
                     />
                   </div>
                 ) : null}
