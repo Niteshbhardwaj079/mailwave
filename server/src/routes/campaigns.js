@@ -749,10 +749,13 @@ router.post(
     const campaign = await one('SELECT id, name FROM campaigns WHERE id = $1', [req.params.id]);
     if (!campaign) throw notFound('Yeh campaign nahi mila');
 
+    // Jo unsubscribe kar chuka hai use dobara bhejne ki koshish bhi nahi
+    // karte — sender khud bhi use suppression list se rok deta, lekin isse
+    // pehle hi uska asli "Sent" record (kab bheja tha) mit jaata, jo galat hai.
     const clause =
       req.body.target === 'failed'
-        ? `campaign_id = $1 AND status = 'Failed'`
-        : `campaign_id = $1 AND status IN ('Sent','Delivered') AND open_count = 0`;
+        ? `campaign_id = $1 AND status = 'Failed' AND unsubscribed = false`
+        : `campaign_id = $1 AND status IN ('Sent','Delivered') AND open_count = 0 AND unsubscribed = false`;
 
     const result = await query(
       `UPDATE campaign_recipients SET status = 'Pending', error = NULL, sent_at = NULL WHERE ${clause}`,
@@ -760,9 +763,10 @@ router.post(
     );
     const affected = result.affectedRows ?? result.rowCount ?? 0;
 
-    if (affected > 0) {
-      await startCampaign(campaign.id, { company: env.brand.company });
-    }
+    // Hamesha jaga dete hain, sirf abhi affected hue logon ke liye nahi —
+    // agar is campaign me pehle se hi koi aur 'Pending' fasa pada ho (jaise
+    // kisi purani resend ka adhoora kaam), wo bhi isi mauke par nikal jaye.
+    await startCampaign(campaign.id, { company: env.brand.company });
 
     await logActivity(req, {
       action: 'updated',
@@ -805,24 +809,31 @@ router.post(
     const { kind, ids, campaignName } = req.body;
 
     const rows = await many(
-      'SELECT id, email, campaign_id FROM campaign_recipients WHERE id = ANY($1)',
+      'SELECT id, email, campaign_id, unsubscribed FROM campaign_recipients WHERE id = ANY($1)',
       [ids]
     );
     if (rows.length === 0) throw badRequest('Inme se koi recipient nahi mila');
 
     if (kind === 'resend') {
+      // Jo unsubscribe kar chuka hai use dobara bhejne ki koshish nahi
+      // karte — warna uska asli "kab bheja tha" record mit jaata, aur
+      // sender khud bhi use suppression list se rok dega.
+      const resendIds = rows.filter((row) => !row.unsubscribed).map((row) => row.id);
+
       // 'Pending' kar dene se sender inhe agli baar wapas utha lega — LEKIN
       // agar campaign pehle hi poori ho chuki hai (status 'Sent'/'Failed'),
       // to bhejne wala loop khud se dobara chalu nahi hota. Isliye har
       // asar wali campaign ko yahin se dobara shuru bhi kar dete hain.
-      await query(
-        `UPDATE campaign_recipients
-            SET status = 'Pending', error = NULL, sent_at = NULL
-          WHERE id = ANY($1)`,
-        [ids]
-      );
+      if (resendIds.length > 0) {
+        await query(
+          `UPDATE campaign_recipients
+              SET status = 'Pending', error = NULL, sent_at = NULL
+            WHERE id = ANY($1)`,
+          [resendIds]
+        );
+      }
 
-      const campaignIds = [...new Set(rows.map((row) => row.campaign_id))];
+      const campaignIds = [...new Set(rows.filter((row) => !row.unsubscribed).map((row) => row.campaign_id))];
       for (const cid of campaignIds) {
         await startCampaign(cid, { company: env.brand.company });
       }
