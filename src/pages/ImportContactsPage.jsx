@@ -646,6 +646,23 @@ export default function ImportContactsPage() {
 
           {step === 3 ? (
             <>
+              <div className="mw-row mw-row--between mw-row--wrap">
+                <span className="mw-fs-13 mw-fw-650">
+                  {filteredPreviewRows.length === workingEntries.length
+                    ? t('imp.totalCount', { count: formatNumber(workingEntries.length) })
+                    : t('imp.filteredCount', {
+                        shown: formatNumber(filteredPreviewRows.length),
+                        total: formatNumber(workingEntries.length),
+                      })}
+                </span>
+                {revalidating ? (
+                  <span className="mw-fs-12 mw-text-muted">
+                    <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" />
+                    {t('common.loading')}
+                  </span>
+                ) : null}
+              </div>
+
               <FilterBar
                 onClear={() => {
                   setPreviewFlag('all');
