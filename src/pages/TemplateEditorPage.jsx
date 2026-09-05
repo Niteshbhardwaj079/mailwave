@@ -92,15 +92,15 @@ export default function TemplateEditorPage() {
     setTab('code');
   }
 
-  function handleSave() {
-    const record = saveTemplate({
+  async function handleSave() {
+    const record = await saveTemplate({
       id: savedId || undefined,
       name: name.trim() || t('tpl.newTemplate'),
       category,
       subject,
       html,
-      createdBy: 'Rohit Sharma',
     });
+    if (!record) return;
     setSavedId(record.id);
     setSavedOpen(true);
   }

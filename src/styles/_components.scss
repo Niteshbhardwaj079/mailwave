@@ -1683,6 +1683,23 @@
   }
 }
 
+.mw-spin {
+  animation: mw-spin 0.8s linear infinite;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+@keyframes mw-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 @media (max-width: 479.98px) {
   .mw-tplgrid {
     grid-template-columns: 1fr;

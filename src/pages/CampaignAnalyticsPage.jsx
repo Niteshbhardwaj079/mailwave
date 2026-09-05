@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 
 import PageHeader from '../components/ui/PageHeader';
@@ -67,6 +67,33 @@ export default function CampaignAnalyticsPage() {
   });
   const trendCall = useApi(`/api/campaigns/${campaignId}/trend`, { deps: [campaignId] });
   const linksCall = useApi(`/api/campaigns/${campaignId}/links`, { deps: [campaignId] });
+
+  const [lastUpdated, setLastUpdated] = useState(new Date());
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Chaaron calls apna-apna data ek hi hamare server se laate hain — koi
+  // per-hit paid API nahi, isliye baar-baar mangwana bhi free hai.
+  const refreshAll = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([
+      campaignCall.refresh(),
+      recipientsCall.refresh(),
+      trendCall.refresh(),
+      linksCall.refresh(),
+    ]);
+    setLastUpdated(new Date());
+    setRefreshing(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [campaignId]);
+
+  // Tab khuli rehte hue har 30s me chupchap taaza kar deta hai — page reload
+  // ki zaroorat nahi. Tab background me ho to rukta hai, taaki fazool na chale.
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (document.visibilityState === 'visible') refreshAll();
+    }, 30000);
+    return () => clearInterval(timer);
+  }, [refreshAll]);
 
   const campaign = campaignCall.data?.campaign ?? null;
   const rows = useMemo(() => recipientsCall.data?.recipients ?? [], [recipientsCall.data]);
@@ -264,6 +291,13 @@ export default function CampaignAnalyticsPage() {
         breadcrumb={[{ label: 'Campaigns', to: '/campaigns' }, { label: campaign.name }]}
         actions={
           <>
+            <span className="mw-fs-12 mw-text-muted mw-hide-mobile me-1 align-self-center">
+              {t('camp.lastUpdated', { time: lastUpdated.toLocaleTimeString() })}
+            </span>
+            <button type="button" className="btn btn-outline-secondary" onClick={refreshAll} disabled={refreshing}>
+              <i className={`bi bi-arrow-clockwise me-2 ${refreshing ? 'mw-spin' : ''}`.trim()} />
+              {refreshing ? t('camp.refreshing') : t('camp.refresh')}
+            </button>
             <button type="button" className="btn btn-outline-secondary mw-hide-mobile" disabled={!hasResults}>
               <i className="bi bi-download me-2" />
               Export
