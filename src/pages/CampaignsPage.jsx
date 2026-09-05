@@ -49,6 +49,7 @@ export default function CampaignsPage() {
   // aata, isliye galti se ek click me delete nahi hone dena.
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [resending, setResending] = useState(false);
 
   /**
    * Search, filter aur sort — teenon server par lagte hain.
@@ -107,6 +108,27 @@ export default function CampaignsPage() {
       toast.error(error instanceof ApiError ? error.message : t('toast.networkError'));
     } finally {
       setDeleting(false);
+    }
+  }
+
+  async function handleResend(target) {
+    if (!actionsFor || resending) return;
+    setResending(true);
+    try {
+      const data = await api.post(`/api/campaigns/${actionsFor.id}/resend`, { target });
+      pager.reload();
+      toast.success(
+        data.affected > 0
+          ? t(target === 'failed' ? 'toast.resendFailedDone' : 'toast.resendUnopenedDone', {
+              count: data.affected,
+            })
+          : t('toast.resendNothing')
+      );
+      closeActions();
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : t('toast.networkError'));
+    } finally {
+      setResending(false);
     }
   }
 
@@ -330,24 +352,50 @@ export default function CampaignsPage() {
               <span className="mw-fs-12 mw-text-muted">{formatDate(actionsFor.date)}</span>
             </div>
             <div className="list-group list-group-flush">
-              {ROW_ACTIONS.map((action) => (
-                <Link
-                  key={action.key}
-                  to={
-                    action.key === 'analytics' || action.key === 'recipients'
-                      ? actionsFor.status === 'Draft'
-                        ? `/campaigns/${actionsFor.id}/edit`
-                        : `/campaigns/${actionsFor.id}`
-                      : '/reports'
-                  }
-                  className="list-group-item list-group-item-action d-flex align-items-center gap-3"
-                  onClick={closeActions}
-                >
-                  <i className={`bi ${action.icon} mw-fs-16 mw-text-primary`} />
-                  <span className="mw-fs-14 mw-fw-600">{t(action.labelKey)}</span>
-                  <i className="bi bi-chevron-right ms-auto mw-fs-12 mw-text-muted-2" />
-                </Link>
-              ))}
+              {ROW_ACTIONS.map((action) => {
+                // Resend sirf tabhi kaam ka hai jab kuch bheja ja chuka ho.
+                if (action.key === 'resend' && actionsFor.sent === 0) return null;
+                if (action.key === 'failed' && actionsFor.failed === 0) return null;
+
+                if (action.key === 'resend' || action.key === 'failed') {
+                  return (
+                    <button
+                      key={action.key}
+                      type="button"
+                      className="list-group-item list-group-item-action d-flex align-items-center gap-3"
+                      onClick={() => handleResend(action.key === 'failed' ? 'failed' : 'unopened')}
+                      disabled={resending}
+                    >
+                      <i className={`bi ${action.icon} mw-fs-16 mw-text-primary`} />
+                      <span className="mw-fs-14 mw-fw-600">{t(action.labelKey)}</span>
+                      {resending ? (
+                        <span className="spinner-border spinner-border-sm ms-auto" role="status" aria-hidden="true" />
+                      ) : (
+                        <i className="bi bi-chevron-right ms-auto mw-fs-12 mw-text-muted-2" />
+                      )}
+                    </button>
+                  );
+                }
+
+                return (
+                  <Link
+                    key={action.key}
+                    to={
+                      action.key === 'analytics' || action.key === 'recipients'
+                        ? actionsFor.status === 'Draft'
+                          ? `/campaigns/${actionsFor.id}/edit`
+                          : `/campaigns/${actionsFor.id}`
+                        : '/reports'
+                    }
+                    className="list-group-item list-group-item-action d-flex align-items-center gap-3"
+                    onClick={closeActions}
+                  >
+                    <i className={`bi ${action.icon} mw-fs-16 mw-text-primary`} />
+                    <span className="mw-fs-14 mw-fw-600">{t(action.labelKey)}</span>
+                    <i className="bi bi-chevron-right ms-auto mw-fs-12 mw-text-muted-2" />
+                  </Link>
+                );
+              })}
               <button
                 type="button"
                 className="list-group-item list-group-item-action d-flex align-items-center gap-3 text-danger"

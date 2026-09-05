@@ -147,6 +147,13 @@ async function unsubscribe(req, res) {
     `UPDATE contacts SET status = 'Unsubscribed', updated_at = now() WHERE lower(email) = lower($1)`,
     [recipient.email]
   );
+  // Agar yeh insaan kabhi "Subscribe" bhi dabaya tha, to Subscribers page par
+  // bhi ab "chhod diya" dikhna chahiye — warna wahan hamesha "Subscribed" hi
+  // dikhta rehta, chahe woh unsubscribe kar chuka ho.
+  await query(
+    `UPDATE subscribers SET status = 'Left later' WHERE lower(email) = lower($1)`,
+    [recipient.email]
+  );
   // Suppression list = pakki rok. Ab koi bhi campaign ise nahi bhejega.
   await query(
     `INSERT INTO suppression (email, reason, detail) VALUES ($1,'unsubscribed',$2)

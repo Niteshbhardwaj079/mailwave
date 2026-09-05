@@ -735,6 +735,49 @@ router.post(
   })
 );
 
+/**
+ * Poori campaign ke liye "unopened ko dobara bhejo" ya "failed ko dobara
+ * bhejo" — Campaigns list ke "..." menu se aata hai, jahan par recipient ki
+ * id list nahi hoti (wo sirf analytics screen par load hoti hai). Isliye
+ * yahan seedha campaign_id + criteria se match karte hain.
+ */
+router.post(
+  '/:id/resend',
+  requireModule('campaigns', 'edit'),
+  validate(z.object({ target: z.enum(['unopened', 'failed']) })),
+  asyncHandler(async (req, res) => {
+    const campaign = await one('SELECT id, name FROM campaigns WHERE id = $1', [req.params.id]);
+    if (!campaign) throw notFound('Yeh campaign nahi mila');
+
+    const clause =
+      req.body.target === 'failed'
+        ? `campaign_id = $1 AND status = 'Failed'`
+        : `campaign_id = $1 AND status IN ('Sent','Delivered') AND open_count = 0`;
+
+    const result = await query(
+      `UPDATE campaign_recipients SET status = 'Pending', error = NULL, sent_at = NULL WHERE ${clause}`,
+      [campaign.id]
+    );
+    const affected = result.affectedRows ?? result.rowCount ?? 0;
+
+    if (affected > 0) {
+      await startCampaign(campaign.id, { company: env.brand.company });
+    }
+
+    await logActivity(req, {
+      action: 'updated',
+      module: 'campaigns',
+      item: campaign.name,
+      detail:
+        req.body.target === 'failed'
+          ? `Failed hue ${affected} logon ko dobara bhejne laga`
+          : `Na khole gaye ${affected} logon ko dobara bhejne laga`,
+    });
+
+    res.json({ ok: true, affected });
+  })
+);
+
 // --- recipients par ek saath kaam -------------------------------------------
 /**
  * Campaign ke report par chune hue logon par ek saath kaam.
@@ -768,13 +811,21 @@ router.post(
     if (rows.length === 0) throw badRequest('Inme se koi recipient nahi mila');
 
     if (kind === 'resend') {
-      // 'Pending' kar dene se sender inhe agli baar wapas utha lega.
+      // 'Pending' kar dene se sender inhe agli baar wapas utha lega — LEKIN
+      // agar campaign pehle hi poori ho chuki hai (status 'Sent'/'Failed'),
+      // to bhejne wala loop khud se dobara chalu nahi hota. Isliye har
+      // asar wali campaign ko yahin se dobara shuru bhi kar dete hain.
       await query(
         `UPDATE campaign_recipients
             SET status = 'Pending', error = NULL, sent_at = NULL
           WHERE id = ANY($1)`,
         [ids]
       );
+
+      const campaignIds = [...new Set(rows.map((row) => row.campaign_id))];
+      for (const cid of campaignIds) {
+        await startCampaign(cid, { company: env.brand.company });
+      }
     }
 
     if (kind === 'remove') {

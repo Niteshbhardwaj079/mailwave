@@ -100,7 +100,14 @@ export default function CampaignAnalyticsPage() {
   // to email hi dikha dete hain, taaki row.name.slice() jaisi jagah crash na
   // ho aur list me khaali jagah bhi na dikhe.
   const rows = useMemo(
-    () => (recipientsCall.data?.recipients ?? []).map((row) => ({ ...row, name: row.name?.trim() || row.email })),
+    () =>
+      (recipientsCall.data?.recipients ?? []).map((row) => ({
+        ...row,
+        name: row.name?.trim() || row.email,
+        // Unsubscribe alag column hai, status nahi — isliye jab tak yahan na
+        // jodein, table/filter me kabhi dikhta hi nahi ki kaun chhod gaya.
+        displayStatus: row.unsubscribed ? 'Unsubscribed' : row.status,
+      })),
     [recipientsCall.data]
   );
 
@@ -125,7 +132,7 @@ export default function CampaignAnalyticsPage() {
         (status === 'NotOpened' && !row.opened) ||
         (status === 'Clicked' && row.clicked) ||
         (status === 'NotClicked' && !row.clicked) ||
-        row.status === status;
+        row.displayStatus === status;
       const freqOk = row.openCount >= Number(frequency);
       const textOk = !text || row.name.toLowerCase().includes(text) || row.email.toLowerCase().includes(text);
       return statusOk && freqOk && textOk;
@@ -139,6 +146,26 @@ export default function CampaignAnalyticsPage() {
     () => filtered.filter((row) => bulk.isSelected(row.id)),
     [filtered, bulk]
   );
+
+  const [resendingTop, setResendingTop] = useState(false);
+
+  async function handleResendUnopened() {
+    setResendingTop(true);
+    try {
+      const data = await api.post(`/api/campaigns/${campaignId}/resend`, { target: 'unopened' });
+      setBulkDone(
+        data.affected > 0
+          ? t('toast.resendUnopenedDone', { count: data.affected })
+          : t('toast.resendNothing')
+      );
+      recipientsCall.reload();
+      campaignCall.reload();
+    } catch (error) {
+      setBulkDone('');
+    } finally {
+      setResendingTop(false);
+    }
+  }
 
   function quickFilterFailed() {
     setStatus('Failed');
@@ -308,9 +335,14 @@ export default function CampaignAnalyticsPage() {
               <i className="bi bi-download me-2" />
               Export
             </button>
-            <button type="button" className="btn btn-outline-primary mw-hide-mobile" disabled={!hasResults}>
-              <i className="bi bi-arrow-repeat me-2" />
-              {t('camp.resendUnopened')}
+            <button
+              type="button"
+              className="btn btn-outline-primary mw-hide-mobile"
+              onClick={handleResendUnopened}
+              disabled={!hasResults || resendingTop}
+            >
+              <i className={`bi bi-arrow-repeat me-2 ${resendingTop ? 'mw-spin' : ''}`.trim()} />
+              {resendingTop ? t('camp.refreshing') : t('camp.resendUnopened')}
             </button>
             <button type="button" className="btn btn-primary mw-btn-block-mobile">
               <i className="bi bi-diagram-3 me-2" />
@@ -588,7 +620,7 @@ export default function CampaignAnalyticsPage() {
                       </td>
                       <td className="mw-table__muted">{row.email}</td>
                       <td>
-                        <StatusPill status={row.status} />
+                        <StatusPill status={row.displayStatus} />
                       </td>
                       <td>{row.sent ? <i className="bi bi-check-lg mw-text-success" /> : <span className="mw-text-muted-2">—</span>}</td>
                       <td>{row.opened ? <i className="bi bi-check-lg mw-text-success" /> : <span className="mw-text-muted-2">No</span>}</td>
@@ -622,7 +654,7 @@ export default function CampaignAnalyticsPage() {
                       {row.name}
                       <span className="d-block mw-rec__sub">{row.email}</span>
                     </span>
-                    <StatusPill status={row.status} />
+                    <StatusPill status={row.displayStatus} />
                   </div>
                   <div className="mw-rec__stats">
                     <span className="mw-rec__stat">
