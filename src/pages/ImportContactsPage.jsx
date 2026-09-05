@@ -107,7 +107,7 @@ export default function ImportContactsPage() {
   const [revalidating, setRevalidating] = useState(false);
 
   const [editingRow, setEditingRow] = useState(null); // previewRow object
-  const [editDraft, setEditDraft] = useState({ name: '', email: '', phone: '', company: '' });
+  const [editDraft, setEditDraft] = useState({ name: '', email: '', phone: '', company: '', city: '' });
   const [editError, setEditError] = useState('');
   const [editSaving, setEditSaving] = useState(false);
 
@@ -382,6 +382,7 @@ export default function ImportContactsPage() {
           email: value.email ?? '',
           phone: value.phone ?? '',
           company: value.company ?? '',
+          city: value.city ?? '',
           flag: problem ? (REASON_FLAG[problem.reason] ?? 'invalid') : 'valid',
           detail: problem?.detail ?? '',
         };
@@ -398,7 +399,8 @@ export default function ImportContactsPage() {
         !row.name.toLowerCase().includes(text) &&
         !row.email.toLowerCase().includes(text) &&
         !row.phone.toLowerCase().includes(text) &&
-        !row.company.toLowerCase().includes(text)
+        !row.company.toLowerCase().includes(text) &&
+        !row.city.toLowerCase().includes(text)
       ) {
         return false;
       }
@@ -435,7 +437,7 @@ export default function ImportContactsPage() {
   // --- ek row edit karna --------------------------------------------------
   function openEditRow(row) {
     setEditingRow(row);
-    setEditDraft({ name: row.name, email: row.email, phone: row.phone, company: row.company });
+    setEditDraft({ name: row.name, email: row.email, phone: row.phone, company: row.company, city: row.city });
     setEditError('');
   }
 
@@ -459,6 +461,7 @@ export default function ImportContactsPage() {
         if (fieldToHeader.email) updated[fieldToHeader.email] = editDraft.email.trim();
         if (fieldToHeader.phone) updated[fieldToHeader.phone] = editDraft.phone.trim();
         if (fieldToHeader.company) updated[fieldToHeader.company] = editDraft.company.trim();
+        if (fieldToHeader.city) updated[fieldToHeader.city] = editDraft.city.trim();
         return updated;
       });
 
@@ -480,6 +483,7 @@ export default function ImportContactsPage() {
     ];
     if (fieldToHeader.phone) columns.push({ key: 'phone', label: t('common.phone') });
     columns.push({ key: 'company', label: t('common.company') });
+    if (fieldToHeader.city) columns.push({ key: 'city', label: t('common.city') });
 
     downloadCsv('contacts-corrected.csv', objectsToRows(validRows, columns));
   }
@@ -785,6 +789,7 @@ export default function ImportContactsPage() {
                           <th scope="col">{t('common.email')}</th>
                           {fieldToHeader.phone ? <th scope="col">{t('common.phone')}</th> : null}
                           <th scope="col">{t('common.company')}</th>
+                          {fieldToHeader.city ? <th scope="col">{t('common.city')}</th> : null}
                           <th scope="col">{t('imp.col.check')}</th>
                           <th scope="col" className="text-end">
                             {t('imp.col.action')}
@@ -808,6 +813,7 @@ export default function ImportContactsPage() {
                             <td>{row.email || <span className="mw-text-muted-2">{t('imp.empty')}</span>}</td>
                             {fieldToHeader.phone ? <td className="mw-table__muted">{row.phone}</td> : null}
                             <td className="mw-table__muted">{row.company}</td>
+                            {fieldToHeader.city ? <td className="mw-table__muted">{row.city}</td> : null}
                             <td>
                               <StatusPill status={t(FLAG_KEY[row.flag])} tone={FLAG_TONE[row.flag]} />
                             </td>
@@ -859,6 +865,7 @@ export default function ImportContactsPage() {
                             {t('imp.rowOf', { row: row.row })}
                             {fieldToHeader.phone && row.phone ? ` · ${row.phone}` : ''}
                             {row.company ? ` · ${row.company}` : ''}
+                            {fieldToHeader.city && row.city ? ` · ${row.city}` : ''}
                           </span>
                           <span>
                             <button type="button" className="mw-iconbtn" onClick={() => openEditRow(row)}>
@@ -941,7 +948,7 @@ export default function ImportContactsPage() {
                 ) : null}
 
                 {fieldToHeader.company ? (
-                  <div className="mb-4">
+                  <div className="mb-3">
                     <label className="form-label" htmlFor="edit-row-company">{t('common.company')}</label>
                     <input
                       id="edit-row-company"
@@ -949,6 +956,19 @@ export default function ImportContactsPage() {
                       className="form-control"
                       value={editDraft.company}
                       onChange={(event) => setEditDraft((current) => ({ ...current, company: event.target.value }))}
+                    />
+                  </div>
+                ) : null}
+
+                {fieldToHeader.city ? (
+                  <div className="mb-4">
+                    <label className="form-label" htmlFor="edit-row-city">{t('common.city')}</label>
+                    <input
+                      id="edit-row-city"
+                      type="text"
+                      className="form-control"
+                      value={editDraft.city}
+                      onChange={(event) => setEditDraft((current) => ({ ...current, city: event.target.value }))}
                     />
                   </div>
                 ) : null}

@@ -61,6 +61,7 @@ export default {
   'common.name': 'Name',
   'common.email': 'Email',
   'common.phone': 'Phone',
+  'common.city': 'City',
   'common.company': 'Company',
   'common.role': 'Role',
   'common.category': 'Category',
