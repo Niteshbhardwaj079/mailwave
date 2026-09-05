@@ -477,12 +477,10 @@ export default function ImportContactsPage() {
   /** Jo abhi valid hain unhi ko file me utaarta hai — sahi, saaf list. */
   function downloadCorrected() {
     const validRows = previewRows.filter((row) => row.flag === 'valid');
-    const columns = [
-      { key: 'name', label: t('common.name') },
-      { key: 'email', label: t('common.email') },
-    ];
+    const columns = [{ key: 'email', label: t('common.email') }];
+    if (fieldToHeader.name) columns.unshift({ key: 'name', label: t('common.name') });
     if (fieldToHeader.phone) columns.push({ key: 'phone', label: t('common.phone') });
-    columns.push({ key: 'company', label: t('common.company') });
+    if (fieldToHeader.company) columns.push({ key: 'company', label: t('common.company') });
     if (fieldToHeader.city) columns.push({ key: 'city', label: t('common.city') });
 
     downloadCsv('contacts-corrected.csv', objectsToRows(validRows, columns));
@@ -785,10 +783,10 @@ export default function ImportContactsPage() {
                             />
                           </th>
                           <th scope="col">{t('imp.col.row')}</th>
-                          <th scope="col">{t('common.name')}</th>
+                          {fieldToHeader.name ? <th scope="col">{t('common.name')}</th> : null}
                           <th scope="col">{t('common.email')}</th>
                           {fieldToHeader.phone ? <th scope="col">{t('common.phone')}</th> : null}
-                          <th scope="col">{t('common.company')}</th>
+                          {fieldToHeader.company ? <th scope="col">{t('common.company')}</th> : null}
                           {fieldToHeader.city ? <th scope="col">{t('common.city')}</th> : null}
                           <th scope="col">{t('imp.col.check')}</th>
                           <th scope="col" className="text-end">
@@ -809,10 +807,10 @@ export default function ImportContactsPage() {
                               />
                             </td>
                             <td className="mw-table__muted">{row.row}</td>
-                            <td className="mw-table__primary">{row.name}</td>
+                            {fieldToHeader.name ? <td className="mw-table__primary">{row.name}</td> : null}
                             <td>{row.email || <span className="mw-text-muted-2">{t('imp.empty')}</span>}</td>
                             {fieldToHeader.phone ? <td className="mw-table__muted">{row.phone}</td> : null}
-                            <td className="mw-table__muted">{row.company}</td>
+                            {fieldToHeader.company ? <td className="mw-table__muted">{row.company}</td> : null}
                             {fieldToHeader.city ? <td className="mw-table__muted">{row.city}</td> : null}
                             <td>
                               <StatusPill status={t(FLAG_KEY[row.flag])} tone={FLAG_TONE[row.flag]} />
