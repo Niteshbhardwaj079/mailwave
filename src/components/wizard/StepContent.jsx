@@ -6,9 +6,10 @@ import { Note, Segmented } from '../ui/Controls';
 import { useT } from '../../i18n/I18nProvider';
 import { mergeVariables } from '../../data/mockData';
 
-export default function StepContent({ draft, onChange }) {
+export default function StepContent({ draft, onChange, showErrors = false }) {
   const t = useT();
   const [view, setView] = useState('desktop');
+  const contentMissing = showErrors && !draft.templateHtml.trim();
 
   const VIEWS = [
     { value: 'desktop', label: t('common.desktop') },
@@ -86,6 +87,12 @@ export default function StepContent({ draft, onChange }) {
       ) : (
         <HtmlPreview html={draft.templateHtml} device={view} />
       )}
+
+      {contentMissing ? (
+        <Note tone="warning" icon="bi-exclamation-triangle">
+          {t('wiz.needContent')}
+        </Note>
+      ) : null}
 
       <Note tone="info" icon="bi-pencil-square">
         {t('tpl.htmlHelp')}{' '}

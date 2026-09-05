@@ -64,6 +64,15 @@ export function Segmented({ items, value, onChange, ariaLabel = 'View' }) {
   );
 }
 
+/** Zaroori field ke label ke aage laal * — sirf yahi bata deta hai ki bharna zaroori hai. */
+export function Required() {
+  return (
+    <span className="mw-required" aria-hidden="true">
+      *
+    </span>
+  );
+}
+
 export function Note({ tone = 'info', icon = 'bi-info-circle', children }) {
   return (
     <div className={`mw-note mw-note--${tone}`}>

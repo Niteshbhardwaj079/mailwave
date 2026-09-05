@@ -1,4 +1,4 @@
-import { Note } from '../ui/Controls';
+import { Note, Required } from '../ui/Controls';
 import { batchOptions } from '../../data/mockData';
 import { formatNumber } from '../../utils/format';
 import { useT } from '../../i18n/I18nProvider';
@@ -15,8 +15,13 @@ const SCHEDULE_OPTIONS = [
   { key: 'later', titleKey: 'send.later', descKey: 'send.laterDesc', icon: 'bi-calendar-event' },
 ];
 
-export default function StepSettings({ draft, onChange, recipientCount = 0 }) {
+export default function StepSettings({ draft, onChange, recipientCount = 0, showErrors = false }) {
   const t = useT();
+
+  const scheduleInvalid =
+    showErrors &&
+    draft.schedule === 'later' &&
+    (!draft.scheduleAt || new Date(draft.scheduleAt) <= new Date());
 
   /** "Send all at once" has no number in it; the other choices do. */
   function batchLabel(option) {
@@ -222,15 +227,19 @@ export default function StepSettings({ draft, onChange, recipientCount = 0 }) {
             <div className="col-12 col-md-6">
               <label className="form-label" htmlFor="schedule-at">
                 {t('send.dateTime')}
+                <Required />
               </label>
               <input
                 id="schedule-at"
                 type="datetime-local"
-                className="form-control"
+                className={`form-control ${scheduleInvalid ? 'is-invalid' : ''}`.trim()}
                 value={draft.scheduleAt}
                 onChange={handleScheduleAt}
                 min={minScheduleValue()}
               />
+              <div className="invalid-feedback">
+                {!draft.scheduleAt ? t('wiz.needTime') : t('wiz.timeInPast')}
+              </div>
             </div>
           </div>
         ) : null}

@@ -22,11 +22,16 @@ const SOURCES = [
  * prefix alag hota hai (g_ / seg_), isliye alag se "kaunsa chuna" yaad
  * rakhne ki zarurat nahi.
  */
-export default function StepRecipients({ draft, onChange, contactGroups, segments }) {
+export default function StepRecipients({ draft, onChange, contactGroups, segments, showErrors = false }) {
   const t = useT();
   const navigate = useNavigate();
   const { subscribers } = useWorkspace();
   const activeSubscribers = subscribers.filter((item) => item.status === 'Subscribed');
+
+  const manualInvalid =
+    showErrors && draft.recipientSource === 'manual' && !draft.manualList.trim();
+  const existingInvalid =
+    showErrors && draft.recipientSource === 'existing' && draft.groups.length === 0;
 
   function handleSubscriberToggle(event) {
     const { id } = event.currentTarget.dataset;
@@ -148,12 +153,13 @@ export default function StepRecipients({ draft, onChange, contactGroups, segment
             </label>
             <textarea
               id="manual-emails"
-              className="form-control"
+              className={`form-control ${manualInvalid ? 'is-invalid' : ''}`.trim()}
               rows={8}
               value={draft.manualList}
               onChange={handleManual}
               placeholder={'rahul@example.com\nAmit Kumar <amit@example.com>\npriya@example.com, neha@example.com'}
             />
+            <div className="invalid-feedback">{t('wiz.needRecipients')}</div>
             <div className="form-text">{t('rec.manualHelp')}</div>
           </div>
           <Note tone="info" icon="bi-info-circle">
@@ -227,6 +233,12 @@ export default function StepRecipients({ draft, onChange, contactGroups, segment
               </div>
             )}
           </div>
+
+          {existingInvalid ? (
+            <Note tone="warning" icon="bi-exclamation-triangle">
+              {t('wiz.needGroupOrSegment')}
+            </Note>
+          ) : null}
 
           <Note tone="success" icon="bi-shield-check">
             {t('rec.cleanNote')}

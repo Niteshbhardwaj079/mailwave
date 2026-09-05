@@ -103,6 +103,10 @@ export default function CampaignWizardPage() {
   const [category, setCategory] = useState('All');
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [error, setError] = useState('');
+  // Continue/Send dabane par jo step galat nikla, sirf uske field laal
+  // border/nishaan dikhate hain — khaali form kholte hi sab laal dikhna
+  // ghabra deta hai.
+  const [showErrors, setShowErrors] = useState(false);
   const [busy, setBusy] = useState(false);
   const [loadingDraft, setLoadingDraft] = useState(isEditing);
 
@@ -273,14 +277,17 @@ export default function CampaignWizardPage() {
     const missing = stepError(step);
     if (missing) {
       setError(missing);
+      setShowErrors(true);
       return;
     }
     setError('');
+    setShowErrors(false);
     setStep((current) => Math.min(wizardSteps.length - 1, current + 1));
   }
 
   function goBack() {
     setError('');
+    setShowErrors(false);
     setStep((current) => Math.max(0, current - 1));
   }
 
@@ -293,6 +300,7 @@ export default function CampaignWizardPage() {
   function jumpToStep(index) {
     if (index <= step) {
       setError('');
+      setShowErrors(false);
       setStep(index);
       return;
     }
@@ -301,16 +309,30 @@ export default function CampaignWizardPage() {
       const missing = stepError(i);
       if (missing) {
         setError(missing);
+        setShowErrors(true);
         setStep(i);
         return;
       }
     }
 
     setError('');
+    setShowErrors(false);
     setStep(index);
   }
 
   function openConfirm() {
+    // Jahan bhi ruki hai, wahin le jaao aur laal nishaan dikhao — sirf ek
+    // banner me "kuch chhoot gaya" bolna kaafi nahi, dikhna bhi chahiye kahan.
+    for (let i = 0; i < wizardSteps.length; i += 1) {
+      const missing = stepError(i);
+      if (missing) {
+        setError(missing);
+        setShowErrors(true);
+        setStep(i);
+        return;
+      }
+    }
+
     const missing = whatIsMissing();
     if (missing) {
       setError(missing);
@@ -739,7 +761,9 @@ export default function CampaignWizardPage() {
         <Stepper steps={wizardSteps} current={step} onJump={jumpToStep} ariaLabel={t('wiz.steps')} />
 
         <div className="mw-card__body">
-          {step === 0 ? <StepInfo draft={draft} onChange={updateDraft} accounts={accounts} /> : null}
+          {step === 0 ? (
+            <StepInfo draft={draft} onChange={updateDraft} accounts={accounts} showErrors={showErrors} />
+          ) : null}
           {step === 1 ? (
             <StepRecipients
               draft={draft}
@@ -747,13 +771,16 @@ export default function CampaignWizardPage() {
               recipientCount={willReach}
               contactGroups={contactGroups}
               segments={segments}
+              showErrors={showErrors}
             />
           ) : null}
           {step === 2 ? (
             <StepTemplate draft={draft} onChange={updateDraft} category={category} onCategoryChange={setCategory} />
           ) : null}
-          {step === 3 ? <StepContent draft={draft} onChange={updateDraft} /> : null}
-          {step === 4 ? <StepSettings draft={draft} onChange={updateDraft} recipientCount={willReach} /> : null}
+          {step === 3 ? <StepContent draft={draft} onChange={updateDraft} showErrors={showErrors} /> : null}
+          {step === 4 ? (
+            <StepSettings draft={draft} onChange={updateDraft} recipientCount={willReach} showErrors={showErrors} />
+          ) : null}
           {step === 5 ? <StepReview draft={draft} recipientCount={willReach} onSend={openConfirm} /> : null}
         </div>
 

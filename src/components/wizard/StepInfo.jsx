@@ -1,14 +1,20 @@
-import { Note } from '../ui/Controls';
+import { Note, Required } from '../ui/Controls';
 import { appConfig } from '../../config/appConfig';
 import { useT } from '../../i18n/I18nProvider';
+import { isValidEmail } from '../../utils/validation';
 
 // accounts wo hain jo SACH ME jude hue hain — server se aate hain. Pehle
 // yahan ek nakli list dikhti thi, aur us email se kabhi kuch jata hi nahi.
-export default function StepInfo({ draft, onChange, accounts = [] }) {
+export default function StepInfo({ draft, onChange, accounts = [], showErrors = false }) {
   const t = useT();
   function handleField(event) {
     onChange({ [event.target.name]: event.target.value });
   }
+
+  const nameInvalid = showErrors && !draft.name.trim();
+  const accountInvalid = showErrors && !draft.account;
+  const subjectInvalid = showErrors && !draft.subject.trim();
+  const replyToInvalid = showErrors && draft.replyTo.trim() && !isValidEmail(draft.replyTo);
 
   return (
     <div className="mw-stack">
@@ -21,27 +27,30 @@ export default function StepInfo({ draft, onChange, accounts = [] }) {
         <div className="col-12">
           <label className="form-label" htmlFor="campaign-name">
             {t('info.name')}
+            <Required />
           </label>
           <input
             id="campaign-name"
             name="name"
             type="text"
-            className="form-control"
+            className={`form-control ${nameInvalid ? 'is-invalid' : ''}`.trim()}
             value={draft.name}
             onChange={handleField}
             placeholder={t('tpl.namePlaceholder')}
           />
+          <div className="invalid-feedback">{t('wiz.needName')}</div>
           <div className="form-text">{t('info.nameHelp')}</div>
         </div>
 
         <div className="col-12 col-md-6">
           <label className="form-label" htmlFor="campaign-account">
             {t('info.account')}
+            <Required />
           </label>
           <select
             id="campaign-account"
             name="account"
-            className="form-select"
+            className={`form-select ${accountInvalid ? 'is-invalid' : ''}`.trim()}
             value={draft.account}
             onChange={handleField}
           >
@@ -52,6 +61,7 @@ export default function StepInfo({ draft, onChange, accounts = [] }) {
               </option>
             ))}
           </select>
+          <div className="invalid-feedback">{t('wiz.needAccount')}</div>
           <div className="form-text">{t('info.accountHelp')}</div>
         </div>
 
@@ -79,11 +89,12 @@ export default function StepInfo({ draft, onChange, accounts = [] }) {
             id="campaign-replyto"
             name="replyTo"
             type="email"
-            className="form-control"
+            className={`form-control ${replyToInvalid ? 'is-invalid' : ''}`.trim()}
             value={draft.replyTo}
             onChange={handleField}
             placeholder="support@yourcompany.com"
           />
+          <div className="invalid-feedback">{t('wiz.badReplyTo')}</div>
           <div className="form-text">{t('info.replyToHelp')}</div>
         </div>
 
@@ -97,16 +108,18 @@ export default function StepInfo({ draft, onChange, accounts = [] }) {
         <div className="col-12 col-md-6">
           <label className="form-label" htmlFor="campaign-subject">
             {t('info.subject')}
+            <Required />
           </label>
           <input
             id="campaign-subject"
             name="subject"
             type="text"
-            className="form-control"
+            className={`form-control ${subjectInvalid ? 'is-invalid' : ''}`.trim()}
             value={draft.subject}
             onChange={handleField}
             placeholder={t('info.subjectPlaceholder')}
           />
+          <div className="invalid-feedback">{t('wiz.needSubject')}</div>
           <div className="form-text">{t('info.subjectHelp')}</div>
         </div>
       </div>

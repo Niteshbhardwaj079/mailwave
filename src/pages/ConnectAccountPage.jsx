@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { appConfig } from '../config/appConfig';
 import PageHeader from '../components/ui/PageHeader';
 import { Card } from '../components/ui/Card';
-import { Note } from '../components/ui/Controls';
+import { Note, Required } from '../components/ui/Controls';
 import { useT } from '../i18n/I18nProvider';
 import { ApiError, api } from '../api/client';
 import { useApi } from '../api/useApi';
@@ -51,6 +51,8 @@ export default function ConnectAccountPage() {
   const [saving, setSaving] = useState(false);
   const [result, setResult] = useState(null);
   const [saved, setSaved] = useState(null);
+  // Test/Save dabane ke baad hi laal border dikhao.
+  const [attempted, setAttempted] = useState(false);
 
   const provider = useMemo(
     () => providers.find((item) => item.key === providerKey) ?? null,
@@ -65,6 +67,7 @@ export default function ConnectAccountPage() {
 
     setProviderKey(key);
     setResult(null);
+    setAttempted(false);
     setValues({
       ...EMPTY,
       // Apna hi email sabse aam hai — pehle se bhar dete hain.
@@ -122,6 +125,7 @@ export default function ConnectAccountPage() {
    * baad nahi, abhi pata chal jata hai.
    */
   async function testConnection() {
+    setAttempted(true);
     const missing = missingFields();
     if (missing) {
       setResult({ ok: false, message: missing });
@@ -149,6 +153,7 @@ export default function ConnectAccountPage() {
   }
 
   async function saveAccount() {
+    setAttempted(true);
     const missing = missingFields();
     if (missing) {
       setResult({ ok: false, message: missing });
@@ -280,16 +285,20 @@ export default function ConnectAccountPage() {
         <div className="mw-card__body">
           <div className="row g-3">
             <div className="col-12 col-md-6">
-              <label className="form-label" htmlFor="acc-email">{t('common.email')}</label>
+              <label className="form-label" htmlFor="acc-email">
+                {t('common.email')}
+                <Required />
+              </label>
               <input
                 id="acc-email"
                 name="email"
                 type="email"
-                className="form-control"
+                className={`form-control ${attempted && !values.email.trim() ? 'is-invalid' : ''}`.trim()}
                 value={values.email}
                 onChange={handleValue}
                 placeholder="you@yourcompany.com"
               />
+              <div className="invalid-feedback">{t('acc.needEmail')}</div>
             </div>
 
             <div className="col-12 col-md-6">
@@ -309,13 +318,14 @@ export default function ConnectAccountPage() {
             <div className="col-12">
               <label className="form-label" htmlFor="acc-pass">
                 {provider?.needsAppPassword ? t('acc.appPassword') : t('auth.password')}
+                <Required />
               </label>
               <div className="input-group">
                 <input
                   id="acc-pass"
                   name="pass"
                   type={showPass ? 'text' : 'password'}
-                  className="form-control"
+                  className={`form-control ${attempted && !values.pass ? 'is-invalid' : ''}`.trim()}
                   value={values.pass}
                   onChange={handleValue}
                   autoComplete="new-password"
@@ -328,6 +338,9 @@ export default function ConnectAccountPage() {
                 >
                   <i className={`bi ${showPass ? 'bi-eye-slash' : 'bi-eye'}`} />
                 </button>
+                <div className={`invalid-feedback ${attempted && !values.pass ? 'd-block' : ''}`.trim()}>
+                  {t('acc.needPassword')}
+                </div>
               </div>
               <div className="form-text">
                 {provider?.needsAppPassword ? t('acc.appPasswordHelp') : t('acc.passwordHelp')}
@@ -339,16 +352,20 @@ export default function ConnectAccountPage() {
             {isCustom ? (
               <>
                 <div className="col-12 col-md-6">
-                  <label className="form-label" htmlFor="acc-host">{t('smtp.host.title')}</label>
+                  <label className="form-label" htmlFor="acc-host">
+                    {t('smtp.host.title')}
+                    <Required />
+                  </label>
                   <input
                     id="acc-host"
                     name="host"
                     type="text"
-                    className="form-control"
+                    className={`form-control ${attempted && !values.host.trim() ? 'is-invalid' : ''}`.trim()}
                     value={values.host}
                     onChange={handleValue}
                     placeholder="smtp.yourprovider.com"
                   />
+                  <div className="invalid-feedback">{t('acc.needHost')}</div>
                   <div className="form-text">{t('smtp.host.help')}</div>
                 </div>
 

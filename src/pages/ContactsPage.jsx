@@ -5,7 +5,7 @@ import PageHeader from '../components/ui/PageHeader';
 import { Card, CardBody, CardHead } from '../components/ui/Card';
 import Pagination from '../components/ui/Pagination';
 import PageSizePicker from '../components/ui/PageSizePicker';
-import { Note, SearchInput } from '../components/ui/Controls';
+import { Note, Required, SearchInput } from '../components/ui/Controls';
 import FilterSelect, { FilterBar } from '../components/ui/FilterSelect';
 import { useT } from '../i18n/I18nProvider';
 import BulkBar, { SelectAllCheckbox } from '../components/ui/BulkBar';
@@ -499,11 +499,14 @@ export default function ContactsPage() {
                 </div>
               ) : null}
               <div className="mb-4">
-                <label className="form-label" htmlFor="rename-group-name">{t('con.groupName')}</label>
+                <label className="form-label" htmlFor="rename-group-name">
+                  {t('con.groupName')}
+                  <Required />
+                </label>
                 <input
                   id="rename-group-name"
                   type="text"
-                  className="form-control"
+                  className={`form-control ${renameError ? 'is-invalid' : ''}`.trim()}
                   value={renameValue}
                   onChange={(event) => {
                     setRenameValue(event.target.value);
@@ -511,6 +514,7 @@ export default function ContactsPage() {
                   }}
                   autoFocus
                 />
+                <div className="invalid-feedback">{renameError}</div>
               </div>
               <button type="submit" className="btn btn-primary w-100 mb-3" disabled={renameSaving}>
                 {renameSaving ? t('common.loading') : t('common.save')}
@@ -538,11 +542,14 @@ export default function ContactsPage() {
             </div>
           ) : null}
           <div className="mb-4">
-            <label className="form-label" htmlFor="new-group-name">{t('con.groupName')}</label>
+            <label className="form-label" htmlFor="new-group-name">
+              {t('con.groupName')}
+              <Required />
+            </label>
             <input
               id="new-group-name"
               type="text"
-              className="form-control"
+              className={`form-control ${groupError ? 'is-invalid' : ''}`.trim()}
               placeholder="VIP Customers"
               value={groupName}
               onChange={(event) => {
@@ -551,6 +558,7 @@ export default function ContactsPage() {
               }}
               autoFocus
             />
+            <div className="invalid-feedback">{groupError}</div>
           </div>
           <div className="d-flex gap-2">
             <button type="button" className="btn btn-outline-secondary flex-fill" onClick={closeNewGroup}>
@@ -857,16 +865,20 @@ export default function ContactsPage() {
             />
           </div>
           <div className="col-12 col-md-6">
-            <label className="form-label" htmlFor="new-email">{t('common.email')}</label>
+            <label className="form-label" htmlFor="new-email">
+              {t('common.email')}
+              <Required />
+            </label>
             <input
               id="new-email"
               name="email"
               type="email"
-              className="form-control"
+              className={`form-control ${formError ? 'is-invalid' : ''}`.trim()}
               placeholder="rahul@example.com"
               value={draft.email}
               onChange={handleDraftField}
             />
+            <div className="invalid-feedback">{formError}</div>
           </div>
           <div className="col-12 col-md-6">
             <label className="form-label" htmlFor="new-phone">{t('common.phone')}</label>

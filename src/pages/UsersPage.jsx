@@ -5,7 +5,7 @@ import { Card, CardFoot, CardHead } from '../components/ui/Card';
 import Pagination, { usePagination } from '../components/ui/Pagination';
 import { useDebouncedValue } from '../utils/useDebouncedValue';
 import PageSizePicker from '../components/ui/PageSizePicker';
-import { Note, SearchInput, Segmented } from '../components/ui/Controls';
+import { Note, Required, SearchInput, Segmented } from '../components/ui/Controls';
 import FilterSelect, { FilterBar } from '../components/ui/FilterSelect';
 import StatusPill from '../components/ui/StatusPill';
 import EmptyState from '../components/ui/EmptyState';
@@ -54,6 +54,8 @@ export default function UsersPage() {
   const [editingUser, setEditingUser] = useState(null);
   const [userFormError, setUserFormError] = useState('');
   const [userSaving, setUserSaving] = useState(false);
+  // Save dabane ke baad hi laal border dikhao — khaali form kholte hi nahi.
+  const [attemptedSave, setAttemptedSave] = useState(false);
   const [editingRole, setEditingRole] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleteBlocked, setDeleteBlocked] = useState(null);
@@ -91,16 +93,19 @@ export default function UsersPage() {
   function openNewUser() {
     setEditingUser({ ...EMPTY_USER, role: roles[roles.length - 1]?.key || '' });
     setUserFormError('');
+    setAttemptedSave(false);
   }
 
   function openEditUser(event) {
     setEditingUser(users.find((user) => user.id === event.currentTarget.dataset.id) || null);
     setUserFormError('');
+    setAttemptedSave(false);
   }
 
   function closeUser() {
     setEditingUser(null);
     setUserFormError('');
+    setAttemptedSave(false);
   }
 
   function handleUserField(event) {
@@ -110,6 +115,7 @@ export default function UsersPage() {
   }
 
   async function submitUser() {
+    setAttemptedSave(true);
     const name = editingUser?.name?.trim() || '';
     const email = editingUser?.email?.trim() || '';
 
@@ -719,42 +725,56 @@ export default function UsersPage() {
             <div className="col-12 col-md-6">
               <label className="form-label" htmlFor="user-name">
                 {t('common.name')}
+                <Required />
               </label>
               <input
                 id="user-name"
                 name="name"
                 type="text"
-                className="form-control"
+                className={`form-control ${attemptedSave && !editingUser.name.trim() ? 'is-invalid' : ''}`.trim()}
                 value={editingUser.name}
                 onChange={handleUserField}
                 placeholder="Neha Kulkarni"
               />
+              <div className="invalid-feedback">{t('users.needName')}</div>
             </div>
             <div className="col-12 col-md-6">
               <label className="form-label" htmlFor="user-email">
                 {t('common.email')}
+                <Required />
               </label>
               <input
                 id="user-email"
                 name="email"
                 type="email"
-                className="form-control"
+                className={`form-control ${
+                  attemptedSave && !isValidEmail(editingUser.email) ? 'is-invalid' : ''
+                }`.trim()}
                 value={editingUser.email}
                 onChange={handleUserField}
                 placeholder="neha@yourcompany.com"
               />
+              <div className="invalid-feedback">{t('users.needEmail')}</div>
             </div>
             <div className="col-12 col-md-6">
               <label className="form-label" htmlFor="user-role">
                 {t('common.role')}
+                <Required />
               </label>
-              <select id="user-role" name="role" className="form-select" value={editingUser.role} onChange={handleUserField}>
+              <select
+                id="user-role"
+                name="role"
+                className={`form-select ${attemptedSave && !editingUser.role ? 'is-invalid' : ''}`.trim()}
+                value={editingUser.role}
+                onChange={handleUserField}
+              >
                 {roles.map((item) => (
                   <option key={item.key} value={item.key}>
                     {roleLabel(item, t)}
                   </option>
                 ))}
               </select>
+              <div className="invalid-feedback">{t('users.needRole')}</div>
               <div className="form-text">
                 {roleDesc(roles.find((item) => item.key === editingUser.role), t)}
               </div>
@@ -935,12 +955,13 @@ export default function UsersPage() {
             <div>
               <label className="form-label" htmlFor="admin-new-password">
                 {t('auth.newPassword')}
+                <Required />
               </label>
               <div className="input-group">
                 <input
                   id="admin-new-password"
                   type={showAdminPassword ? 'text' : 'password'}
-                  className="form-control"
+                  className={`form-control ${passwordError ? 'is-invalid' : ''}`.trim()}
                   value={newPassword}
                   onChange={handleNewPassword}
                   autoComplete="new-password"
@@ -959,15 +980,17 @@ export default function UsersPage() {
             <div>
               <label className="form-label" htmlFor="admin-confirm-password">
                 {t('auth.confirmPassword')}
+                <Required />
               </label>
               <input
                 id="admin-confirm-password"
                 type={showAdminPassword ? 'text' : 'password'}
-                className="form-control"
+                className={`form-control ${passwordError ? 'is-invalid' : ''}`.trim()}
                 value={confirmPassword}
                 onChange={handleConfirmPassword}
                 autoComplete="new-password"
               />
+              <div className={`invalid-feedback ${passwordError ? 'd-block' : ''}`.trim()}>{passwordError}</div>
             </div>
 
             <div className="form-check">

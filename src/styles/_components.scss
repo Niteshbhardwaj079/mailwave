@@ -1683,6 +1683,12 @@
   }
 }
 
+.mw-required {
+  color: var(--bs-danger, #dc3545);
+  margin-inline-start: 0.2rem;
+  font-weight: 700;
+}
+
 .mw-spin {
   animation: mw-spin 0.8s linear infinite;
 
