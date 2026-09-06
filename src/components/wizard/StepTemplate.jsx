@@ -4,7 +4,7 @@ import FilterSelect from '../ui/FilterSelect';
 import EmptyState from '../ui/EmptyState';
 import { useT } from '../../i18n/I18nProvider';
 import { useWorkspace } from '../../store/WorkspaceProvider';
-import { templateCategories } from '../../data/mockData';
+import { templateCategories } from '../../data/constants';
 import { formatDate } from '../../utils/format';
 
 export default function StepTemplate({ draft, onChange, category, onCategoryChange }) {

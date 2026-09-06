@@ -15,7 +15,7 @@ import StepTemplate from '../components/wizard/StepTemplate';
 import StepContent from '../components/wizard/StepContent';
 import StepSettings from '../components/wizard/StepSettings';
 import StepReview from '../components/wizard/StepReview';
-import { wizardSteps } from '../data/mockData';
+import { wizardSteps } from '../data/constants';
 import { useWorkspace } from '../store/WorkspaceProvider';
 import { ApiError, api } from '../api/client';
 import { useApi } from '../api/useApi';

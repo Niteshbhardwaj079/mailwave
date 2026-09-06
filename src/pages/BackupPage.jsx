@@ -6,7 +6,7 @@ import { Note } from '../components/ui/Controls';
 import StatusPill from '../components/ui/StatusPill';
 import Sheet from '../components/ui/Sheet';
 import EmptyState from '../components/ui/EmptyState';
-import { ApiError, api, getAccessToken } from '../api/client';
+import { ApiError, api, apiBase, getAccessToken } from '../api/client';
 import { useApi } from '../api/useApi';
 import { useToast } from '../components/ui/ToastProvider';
 import { useT } from '../i18n/I18nProvider';
@@ -19,7 +19,6 @@ const STATUS_TONE = {
   failed: 'danger',
 };
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
 export default function BackupPage() {
   const t = useT();
@@ -69,7 +68,7 @@ export default function BackupPage() {
     setBusy(true);
 
     try {
-      const res = await fetch(`${API_BASE}/api/backups/${encodeURIComponent(name)}/download`, {
+      const res = await fetch(`${apiBase}/api/backups/${encodeURIComponent(name)}/download`, {
         credentials: 'include',
         headers: { Authorization: `Bearer ${getAccessToken()}` },
       });
@@ -152,7 +151,7 @@ export default function BackupPage() {
 
     setBusy(true);
     try {
-      const res = await fetch(`${API_BASE}/api/backups/upload`, {
+      const res = await fetch(`${apiBase}/api/backups/upload`, {
         method: 'POST',
         credentials: 'include',
         headers: {

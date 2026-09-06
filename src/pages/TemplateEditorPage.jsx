@@ -10,7 +10,7 @@ import ImageLibrary from '../components/templates/ImageLibrary';
 import { useT } from '../i18n/I18nProvider';
 import { useWorkspace } from '../store/WorkspaceProvider';
 import { BLANK_HTML, starterTemplates } from '../data/starterHtml';
-import { mergeVariables, templateCategories } from '../data/mockData';
+import { mergeVariables, templateCategories } from '../data/constants';
 
 export default function TemplateEditorPage() {
   const t = useT();

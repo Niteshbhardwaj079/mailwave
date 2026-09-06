@@ -15,7 +15,7 @@
 import { stat, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
-import { currentDriver, dumpDatabase, many, one, query, readAndValidateBackup, restoreDatabase } from '../db/client.js';
+import { currentDriver, dumpDatabase, many, one, query, readAndValidateBackup, restoreDatabase, withAdvisoryLock } from '../db/client.js';
 import { serverRoot } from '../env.js';
 import { newId } from '../lib/ids.js';
 import { getBackupStorage } from './backupStorage.js';
@@ -281,17 +281,25 @@ async function withAutoBackupLock(fn) {
     return fn();
   }
 
-  const { rows } = await query('SELECT pg_try_advisory_lock($1) AS ok', [AUTO_BACKUP_LOCK_KEY]);
-  if (!rows[0]?.ok) {
+  // Session-scoped locks (pg_try_advisory_lock/pg_advisory_unlock) turned out
+  // NOT to be safe here: measured directly against this project's own Neon
+  // connection, its pooler can silently hand two different clients the same
+  // backend session whenever neither has an open transaction, so two
+  // "different" connections could both successfully take the same session
+  // lock at once — no real mutual exclusion. A transaction-scoped lock
+  // (pg_try_advisory_xact_lock, via withAdvisoryLock) does not have this
+  // problem: transaction pooling dedicates one real backend for as long as a
+  // transaction stays open (confirmed the same way), and the lock releases
+  // itself on COMMIT — no separate unlock call to risk running on the wrong
+  // connection. fn() itself still runs through the ordinary pool, so its own
+  // writes (the backup's "running" → "successful" row) commit and become
+  // visible normally, not only once the whole backup finishes.
+  const { acquired, result } = await withAdvisoryLock(AUTO_BACKUP_LOCK_KEY, fn);
+  if (!acquired) {
     console.log('[backup] koi doosra process pehle se automatic backup kar raha hai — is baar skip.');
     return null;
   }
-
-  try {
-    return await fn();
-  } finally {
-    await query('SELECT pg_advisory_unlock($1)', [AUTO_BACKUP_LOCK_KEY]);
-  }
+  return result;
 }
 
 /**

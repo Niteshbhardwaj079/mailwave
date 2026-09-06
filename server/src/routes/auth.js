@@ -165,8 +165,8 @@ async function issueSession(req, res, user) {
   // XSS bug cannot walk away with a long-lived credential.
   res.cookie('mw_refresh', token, {
     httpOnly: true,
-    sameSite: 'lax',
-    secure: env.nodeEnv === 'production',
+    sameSite: env.authCookieSameSite,
+    secure: env.nodeEnv === 'production' || env.authCookieSameSite === 'none',
     expires,
     path: '/api/auth',
   });

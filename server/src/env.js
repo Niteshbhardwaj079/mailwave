@@ -43,6 +43,29 @@ function int(value, fallback) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+/**
+ * The very first Super Admin's password, used only the moment a database is
+ * seeded for the first time. `mailwave` as a friendly, typeable default is
+ * fine for the local, non-technical `start-mailwave.bat` walkthrough — but a
+ * live deployment must never boot with a well-known, publicly documented
+ * password. In production, an unset SEED_PASSWORD generates a random one
+ * instead of falling back to the guessable default, exactly like JWT_SECRET
+ * above — printed once so the operator can capture and change it.
+ */
+function resolveSeedPassword() {
+  if (process.env.SEED_PASSWORD) return process.env.SEED_PASSWORD;
+
+  if (process.env.NODE_ENV === 'production') {
+    const generated = randomBytes(9).toString('base64url');
+    console.warn('[env] No SEED_PASSWORD set in production — generated one for this run only:');
+    console.warn(`[env]   ${generated}`);
+    console.warn('[env] Save it now. Sign in once, then change it immediately from Settings > Security.');
+    return generated;
+  }
+
+  return 'mailwave';
+}
+
 export const env = {
   /** App ka naam, company, support email — sab brand.config.js se. */
   brand,
@@ -63,6 +86,17 @@ export const env = {
   accessTokenTtl: process.env.ACCESS_TOKEN_TTL || '15m',
   refreshTokenDays: int(process.env.REFRESH_TOKEN_DAYS, 30),
 
+  /**
+   * The refresh-token cookie's SameSite mode. 'lax' (the default) works for
+   * same-site deployments — including api.yourapp.com serving a frontend on
+   * yourapp.com, which only need to share a registrable domain, not an exact
+   * host. It only breaks if the frontend and backend are ever put on two
+   * UNRELATED domains (e.g. app.example.com calling api.otherdomain.com) —
+   * for that one case, set AUTH_COOKIE_SAMESITE=none (the cookie is already
+   * `secure` in production, which 'none' requires).
+   */
+  authCookieSameSite: process.env.AUTH_COOKIE_SAMESITE || 'lax',
+
   /** Browsers allowed to call the API. The Vite dev server by default. */
   corsOrigins: (process.env.CORS_ORIGINS || 'http://localhost:5173,http://localhost:5174')
     .split(',')
@@ -82,7 +116,7 @@ export const env = {
 
   /** Seed account, only used the first time the database is created. */
   seedEmail: process.env.SEED_EMAIL || 'rohit@gowebkart.com',
-  seedPassword: process.env.SEED_PASSWORD || 'mailwave',
+  seedPassword: resolveSeedPassword(),
 
   /**
    * Backup file kahan rakhi jaaye.

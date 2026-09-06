@@ -18,7 +18,7 @@ import { useBulkSelection } from '../utils/useBulkSelection';
 import { useDebouncedValue } from '../utils/useDebouncedValue';
 import { readSheet } from '../utils/readSheet';
 import { downloadCsv, objectsToRows } from '../utils/download';
-import { appFields } from '../data/mockData';
+import { appFields } from '../data/constants';
 import { formatNumber } from '../utils/format';
 
 const STEPS = [

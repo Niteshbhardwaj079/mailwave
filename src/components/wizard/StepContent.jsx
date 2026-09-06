@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import HtmlPreview from '../templates/HtmlPreview';
 import { Note, Segmented } from '../ui/Controls';
 import { useT } from '../../i18n/I18nProvider';
-import { mergeVariables } from '../../data/mockData';
+import { mergeVariables } from '../../data/constants';
 
 export default function StepContent({ draft, onChange, showErrors = false }) {
   const t = useT();

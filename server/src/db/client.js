@@ -19,6 +19,7 @@
 // Achhi baat: SQL dono me bilkul ek jaisa hai. Sirf DATABASE_URL bharna hai,
 // baaki code me kuch nahi badalta.
 // ---------------------------------------------------------------------------
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { createHash } from 'node:crypto';
 import { gunzip as gunzipCb, gzip as gzipCb } from 'node:zlib';
 import { promisify } from 'node:util';
@@ -27,6 +28,16 @@ import { env } from '../env.js';
 
 const gzip = promisify(gzipCb);
 const gunzip = promisify(gunzipCb);
+
+// pool.query()/pool.connect() can hand out a DIFFERENT physical connection on
+// every call — fine for one-off statements, but BEGIN and the statements that
+// are meant to be inside it must all land on the exact same connection, or
+// they silently autocommit outside the transaction and COMMIT/ROLLBACK end up
+// running on a connection that was never in one. This tracks "is there a
+// pinned client for the current async call chain?" so query()/exec() route to
+// it automatically — every existing caller keeps using the same query() they
+// already call, with no signature change.
+const pgTxClient = new AsyncLocalStorage();
 
 let instance = null;
 let driver = null;
@@ -59,8 +70,20 @@ async function connectPostgres() {
   console.log('[db] Asli Postgres se juda');
 
   return {
-    query: (sql, params) => pool.query(sql, params),
+    // A transaction pins one client via pgTxClient (see runInTransaction /
+    // withClient below) — when that's set, every query()/exec() call made
+    // anywhere inside it, however deeply nested, must reuse that exact
+    // connection instead of asking the pool for a fresh one.
+    query: (sql, params) => {
+      const pinned = pgTxClient.getStore();
+      return pinned ? pinned.query(sql, params) : pool.query(sql, params);
+    },
     exec: async (sql) => {
+      const pinned = pgTxClient.getStore();
+      if (pinned) {
+        await pinned.query(sql);
+        return;
+      }
       const client = await pool.connect();
       try {
         await client.query(sql);
@@ -69,6 +92,35 @@ async function connectPostgres() {
       }
     },
     close: () => pool.end(),
+    // A dedicated lock connection, deliberately NOT pinned via pgTxClient —
+    // fn() keeps using the ordinary pool for its own queries, autocommitted
+    // and visible to other viewers as it goes, exactly as if no lock were
+    // involved. Only the lock itself lives inside a transaction, because that
+    // is the only way pg_advisory_xact_lock's mutual exclusion is reliable
+    // through a transaction-pooled connection (see AUTO_BACKUP_LOCK_KEY's
+    // comment in services/backup.js for what was actually observed).
+    withExclusiveLock: async (lockKey, fn) => {
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        const { rows } = await client.query('SELECT pg_try_advisory_xact_lock($1) AS ok', [lockKey]);
+        if (!rows[0]?.ok) {
+          await client.query('ROLLBACK');
+          return { acquired: false };
+        }
+        try {
+          const result = await fn();
+          return { acquired: true, result };
+        } finally {
+          // Commits (not rolls back) even if fn() threw — losing the lock's
+          // holder is fine either way since it only ever wrapped fn(), never
+          // fn()'s own writes; what matters is releasing it promptly.
+          await client.query('COMMIT');
+        }
+      } finally {
+        client.release();
+      }
+    },
     // BEGIN/COMMIT/ROLLBACK sirf tab kaam karte hain jab teeno EK HI physical
     // connection par chalein — pool.query() har baar alag connection de sakta
     // hai. Isliye restore jaisa "sab kuch ek saath ya kuch nahi" kaam ek hi
@@ -77,7 +129,24 @@ async function connectPostgres() {
       const client = await pool.connect();
       try {
         await client.query('BEGIN');
-        const result = await fn(client);
+        const result = await pgTxClient.run(client, () => fn(client));
+        await client.query('COMMIT');
+        return result;
+      } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+      } finally {
+        client.release();
+      }
+    },
+    // Same one-client guarantee as withClient, but for transaction() below,
+    // whose callers keep using the ambient query()/exec() helpers instead of
+    // an explicit client argument.
+    runInTransaction: async (fn) => {
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        const result = await pgTxClient.run(client, fn);
         await client.query('COMMIT');
         return result;
       } catch (error) {
@@ -272,9 +341,21 @@ export async function exec(sql) {
   return conn.exec(sql);
 }
 
-/** Sab kuch hua ya kuch nahi — beech me adhoora nahi. */
+/**
+ * Sab kuch hua ya kuch nahi — beech me adhoora nahi.
+ *
+ * On Postgres this pins one physical connection for fn()'s entire run (via
+ * runInTransaction), so every query()/many()/one()/exec() call fn() makes —
+ * directly or through nested helpers — lands in the same transaction. PGlite
+ * has no pool to begin with, so plain BEGIN/COMMIT/ROLLBACK is already safe.
+ */
 export async function transaction(fn) {
   const conn = await getConnection();
+
+  if (conn.runInTransaction) {
+    return conn.runInTransaction(fn);
+  }
+
   await conn.exec('BEGIN');
   try {
     const result = await fn();
@@ -284,6 +365,21 @@ export async function transaction(fn) {
     await conn.exec('ROLLBACK');
     throw error;
   }
+}
+
+/**
+ * Runs fn() only if lockKey isn't already held elsewhere; returns
+ * `{ acquired: false }` without calling fn() if it is. Unlike transaction(),
+ * fn()'s own query()/many()/one() calls are NOT pinned to the lock's
+ * connection — they run and commit normally through the pool, so anything
+ * fn() writes is visible to other viewers immediately, not only once the
+ * whole thing finishes. Only meaningful on Postgres; PGlite is always a
+ * single process, so there's nothing to lock against and fn() just runs.
+ */
+export async function withAdvisoryLock(lockKey, fn) {
+  const conn = await getConnection();
+  if (!conn.withExclusiveLock) return { acquired: true, result: await fn() };
+  return conn.withExclusiveLock(lockKey, fn);
 }
 
 /** "table" ya "column" naam SQL me surakshit tarike se likhne ke liye. */

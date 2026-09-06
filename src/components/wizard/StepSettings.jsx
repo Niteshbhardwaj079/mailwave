@@ -1,5 +1,5 @@
 import { Note, Required } from '../ui/Controls';
-import { batchOptions } from '../../data/mockData';
+import { batchOptions } from '../../data/constants';
 import { formatNumber } from '../../utils/format';
 import { useT } from '../../i18n/I18nProvider';
 

@@ -14,11 +14,9 @@ import Sheet from '../components/ui/Sheet';
 import EmptyState from '../components/ui/EmptyState';
 import { useAuth } from '../store/AuthProvider';
 import { useApi } from '../api/useApi';
-import { ApiError, api } from '../api/client';
+import { ApiError, api, apiBase } from '../api/client';
 import { useToast } from '../components/ui/ToastProvider';
 import { formatDateTime, formatNumber } from '../utils/format';
-
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
 const SECTIONS = [
   { key: 'profile', labelKey: 'topbar.profile', icon: 'bi-person' },
@@ -962,7 +960,7 @@ export default function SettingsPage() {
               <Note tone="info" icon="bi-terminal">
                 <strong>{t('set.apiUsageTitle')} </strong>
                 {t('set.apiUsageText')}
-                <pre className="mw-codearea mw-codearea--sm mt-2 mb-0">{`curl ${API_BASE}/api/campaigns \\\n  -H "Authorization: Bearer mw_live_..."`}</pre>
+                <pre className="mw-codearea mw-codearea--sm mt-2 mb-0">{`curl ${apiBase}/api/campaigns \\\n  -H "Authorization: Bearer mw_live_..."`}</pre>
               </Note>
             </>
           ) : null}

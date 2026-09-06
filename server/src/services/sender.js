@@ -153,12 +153,20 @@ export async function startCampaign(campaignId, { company = env.brand.company } 
   const account = await one('SELECT * FROM email_accounts WHERE id = $1', [campaign.account_id]);
   if (!account) return { started: false, reason: 'no_account' };
 
-  await query(
+  // Atomic claim — the `running` check above only protects against this same
+  // process calling startCampaign twice; it says nothing if this app is ever
+  // run as more than one instance. A single UPDATE is always atomic in
+  // Postgres regardless of connection/session details, so whichever caller's
+  // UPDATE actually matches a non-'Sending' row wins; everyone else affects
+  // zero rows and backs off instead of both spawning a send loop.
+  const claimed = await one(
     `UPDATE campaigns
         SET status = 'Sending', pause_reason = NULL, started_at = COALESCE(started_at, now()), updated_at = now()
-      WHERE id = $1`,
+      WHERE id = $1 AND status != 'Sending'
+      RETURNING id`,
     [campaignId]
   );
+  if (!claimed) return { started: false, reason: 'already_running' };
 
   const controller = { stop: false };
   running.set(campaignId, controller);

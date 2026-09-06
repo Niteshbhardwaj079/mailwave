@@ -12,7 +12,7 @@ import { ApiError, api, qs } from '../api/client';
 import { useApi } from '../api/useApi';
 import { useToast } from '../components/ui/ToastProvider';
 import { downloadCsv, downloadXlsx } from '../utils/download';
-import { reportTypes } from '../data/mockData';
+import { reportTypes } from '../data/constants';
 
 const RANGES = [
   { value: '7d', label: '7 days' },

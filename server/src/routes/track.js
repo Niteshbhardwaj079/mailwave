@@ -12,7 +12,7 @@
 // ---------------------------------------------------------------------------
 import { Router } from 'express';
 
-import { one, query } from '../db/client.js';
+import { one, query, transaction } from '../db/client.js';
 import { env } from '../env.js';
 import { asyncHandler } from '../lib/http.js';
 import { clientIp } from '../lib/activity.js';
@@ -168,31 +168,37 @@ async function unsubscribe(req, res) {
     return;
   }
 
-  await query('UPDATE campaign_recipients SET unsubscribed = true WHERE id = $1', [recipientId]);
-  await enqueueWebhookEvent('contact.unsubscribed', {
-    campaignId: recipient.campaign_id,
-    recipientId: recipient.id,
-    email: recipient.email,
-    name: recipient.name,
+  // All five writes below must land together or not at all — a crash between
+  // them used to risk marking someone unsubscribed on this one recipient row
+  // without ever reaching the suppression list, which is exactly the record
+  // that stops every future campaign from emailing them again.
+  await transaction(async () => {
+    await query('UPDATE campaign_recipients SET unsubscribed = true WHERE id = $1', [recipientId]);
+    await enqueueWebhookEvent('contact.unsubscribed', {
+      campaignId: recipient.campaign_id,
+      recipientId: recipient.id,
+      email: recipient.email,
+      name: recipient.name,
+    });
+    await query(
+      `UPDATE contacts SET status = 'Unsubscribed', updated_at = now() WHERE lower(email) = lower($1)`,
+      [recipient.email]
+    );
+    // Agar yeh insaan kabhi "Subscribe" bhi dabaya tha, to Subscribers page par
+    // bhi ab "chhod diya" dikhna chahiye — warna wahan hamesha "Subscribed" hi
+    // dikhta rehta, chahe woh unsubscribe kar chuka ho.
+    await query(
+      `UPDATE subscribers SET status = 'Left later' WHERE lower(email) = lower($1)`,
+      [recipient.email]
+    );
+    // Suppression list = pakki rok. Ab koi bhi campaign ise nahi bhejega.
+    await query(
+      `INSERT INTO suppression (email, reason, detail) VALUES ($1,'unsubscribed',$2)
+       ON CONFLICT (email) DO NOTHING`,
+      [recipient.email, `Unsubscribed from campaign ${recipient.campaign_id}`]
+    );
+    await recordEvent(recipient.campaign_id, recipientId, 'unsubscribe', req);
   });
-  await query(
-    `UPDATE contacts SET status = 'Unsubscribed', updated_at = now() WHERE lower(email) = lower($1)`,
-    [recipient.email]
-  );
-  // Agar yeh insaan kabhi "Subscribe" bhi dabaya tha, to Subscribers page par
-  // bhi ab "chhod diya" dikhna chahiye — warna wahan hamesha "Subscribed" hi
-  // dikhta rehta, chahe woh unsubscribe kar chuka ho.
-  await query(
-    `UPDATE subscribers SET status = 'Left later' WHERE lower(email) = lower($1)`,
-    [recipient.email]
-  );
-  // Suppression list = pakki rok. Ab koi bhi campaign ise nahi bhejega.
-  await query(
-    `INSERT INTO suppression (email, reason, detail) VALUES ($1,'unsubscribed',$2)
-     ON CONFLICT (email) DO NOTHING`,
-    [recipient.email, `Unsubscribed from campaign ${recipient.campaign_id}`]
-  );
-  await recordEvent(recipient.campaign_id, recipientId, 'unsubscribe', req);
 
   res.type('html').send(
     page('You have been unsubscribed', 'You will not receive any more emails from this list. Sorry to see you go.')

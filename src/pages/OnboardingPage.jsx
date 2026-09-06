@@ -7,7 +7,7 @@ import { Note } from '../components/ui/Controls';
 import ProgressBar from '../components/ui/ProgressBar';
 import { appConfig } from '../config/appConfig';
 import { useT } from '../i18n/I18nProvider';
-import { onboardingSteps } from '../data/mockData';
+import { onboardingSteps } from '../data/constants';
 import { formatNumber } from '../utils/format';
 
 const STEP_LINKS = {

@@ -10,7 +10,7 @@ import EmptyState from '../components/ui/EmptyState';
 import Sheet from '../components/ui/Sheet';
 import { useT } from '../i18n/I18nProvider';
 import { useWorkspace } from '../store/WorkspaceProvider';
-import { templateCategories } from '../data/mockData';
+import { templateCategories } from '../data/constants';
 import { formatDate } from '../utils/format';
 
 export default function TemplatesPage() {

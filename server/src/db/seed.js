@@ -1,7 +1,8 @@
 import { pathToFileURL } from 'node:url';
 
-import { PERMISSION_MODULES, ROLES, activityLog, teamUsers } from '../../../src/data/adminData.js';
+import { DEFAULT_ROLES } from './defaultRoles.js';
 import {
+  activityLog,
   campaigns,
   contactGroups,
   contacts,
@@ -9,7 +10,8 @@ import {
   recipientActivity,
   segments,
   subscribers,
-} from '../../../src/data/mockData.js';
+  teamUsers,
+} from './demoData.js';
 import { starterTemplates } from '../../../src/data/starterHtml.js';
 import { systemEmailTemplates } from '../../../src/data/systemEmails.js';
 
@@ -36,7 +38,7 @@ function campaignStatus(status) {
 }
 
 async function seedRoles() {
-  for (const [index, role] of ROLES.entries()) {
+  for (const [index, role] of DEFAULT_ROLES.entries()) {
     await query(
       `INSERT INTO roles (key, label, label_key, descr, descr_key, tone, icon, locked, custom, sort_order)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
