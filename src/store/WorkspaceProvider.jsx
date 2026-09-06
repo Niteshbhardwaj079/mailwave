@@ -4,6 +4,29 @@ import { ApiError, api } from '../api/client';
 import { useAuth } from './AuthProvider';
 import { useToast } from '../components/ui/ToastProvider';
 import { useT } from '../i18n/I18nProvider';
+import { systemEmailTemplates } from '../data/systemEmails';
+
+/**
+ * Server sirf wahi cheez rakhta hai jo edit ho sakti hai (subject, html,
+ * enabled). Naam, event kab chalta hai, kise jaata hai, {{variable}} list —
+ * yeh sab kabhi badalta nahi, isliye yahin frontend me likha hai. Dono ko
+ * key se jod dete hain taaki screen ko poori jaankari mile.
+ */
+function mergeSystemEmails(rows) {
+  return rows.map((row) => {
+    const meta = systemEmailTemplates.find((item) => item.key === row.key);
+    return {
+      name: row.key,
+      event: '',
+      to: '',
+      group: 'work',
+      critical: false,
+      variables: [],
+      ...meta,
+      ...row,
+    };
+  });
+}
 
 /**
  * App ka saara saanjha data — ek hi jagah.
@@ -97,7 +120,7 @@ export function WorkspaceProvider({ children }) {
     if (rol) setRoles(rol.roles ?? []);
     if (usr) setUsers(usr.users ?? []);
     if (act) setActivity(act.activity ?? []);
-    if (sys) setSystemEmails(sys.systemEmails ?? []);
+    if (sys) setSystemEmails(mergeSystemEmails(sys.systemEmails ?? []));
     if (sub) setSubscribers(sub.subscribers ?? []);
 
     setLoading(false);

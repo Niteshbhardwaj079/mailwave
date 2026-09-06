@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import PageHeader from '../components/ui/PageHeader';
 import { useDebouncedValue } from '../utils/useDebouncedValue';
@@ -8,6 +8,7 @@ import FilterSelect, { FilterBar } from '../components/ui/FilterSelect';
 import StatusPill from '../components/ui/StatusPill';
 import EmptyState from '../components/ui/EmptyState';
 import HtmlPreview from '../components/templates/HtmlPreview';
+import ImageLibrary from '../components/templates/ImageLibrary';
 import { useT } from '../i18n/I18nProvider';
 import { useWorkspace } from '../store/WorkspaceProvider';
 import { EMAIL_GROUPS, fillPreview } from '../data/systemEmails';
@@ -22,7 +23,14 @@ export default function SystemEmailsPage() {
   // Box me turant, chhantai 200ms ruk kar — type karte waqt atakta nahi.
   const search = useDebouncedValue(query, 200);
   const [tab, setTab] = useState('preview');
-  const [saved, setSaved] = useState(false);
+
+  // Har keystroke par server ko bachana galat tha — type karte waqt screen
+  // atakti thi aur do jaldi-jaldi save ek dusre ko overwrite kar sakte the.
+  // Ab yahin draft me rakhte hain, "Save" dabane par hi asli save hota hai.
+  const [draftSubject, setDraftSubject] = useState('');
+  const [draftHtml, setDraftHtml] = useState('');
+  const [saving, setSaving] = useState(false);
+  const htmlRef = useRef(null);
 
   const visible = useMemo(() => {
     const text = search.trim().toLowerCase();
@@ -39,19 +47,49 @@ export default function SystemEmailsPage() {
 
   const selected = systemEmails.find((item) => item.key === selectedKey) || systemEmails[0];
 
+  // Selection badle, ya save/reset ke baad server se naya subject/html aaye,
+  // to draft ko usi se bhar dete hain. Typing ke dauraan yeh nahi chalta —
+  // subject/html tabhi badalte hain jab Save ya Reset khud unhe badal de.
+  useEffect(() => {
+    setDraftSubject(selected?.subject ?? '');
+    setDraftHtml(selected?.html ?? '');
+  }, [selected?.key, selected?.subject, selected?.html]);
+
+  const dirty = Boolean(selected) && (draftSubject !== selected.subject || draftHtml !== selected.html);
+
   function pick(event) {
     setSelectedKey(event.currentTarget.dataset.key);
-    setSaved(false);
   }
 
   function handleSubject(event) {
-    updateSystemEmail(selected.key, { subject: event.target.value });
-    setSaved(true);
+    setDraftSubject(event.target.value);
   }
 
   function handleHtml(event) {
-    updateSystemEmail(selected.key, { html: event.target.value });
-    setSaved(true);
+    setDraftHtml(event.target.value);
+  }
+
+  function insertAtCursor(snippet) {
+    const field = htmlRef.current;
+    if (!field) {
+      setDraftHtml((current) => current + snippet);
+      return;
+    }
+    const start = field.selectionStart ?? draftHtml.length;
+    const end = field.selectionEnd ?? draftHtml.length;
+    const next = `${draftHtml.slice(0, start)}${snippet}${draftHtml.slice(end)}`;
+    setDraftHtml(next);
+    window.requestAnimationFrame(() => {
+      field.focus();
+      field.selectionStart = start + snippet.length;
+      field.selectionEnd = start + snippet.length;
+    });
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    await updateSystemEmail(selected.key, { subject: draftSubject, html: draftHtml });
+    setSaving(false);
   }
 
   function handleToggle() {
@@ -60,7 +98,6 @@ export default function SystemEmailsPage() {
 
   function handleReset() {
     resetSystemEmail(selected.key);
-    setSaved(false);
   }
 
   function clearFilters() {
@@ -147,6 +184,7 @@ export default function SystemEmailsPage() {
                   items={[
                     { value: 'preview', label: t('common.preview') },
                     { value: 'edit', label: t('common.edit') },
+                    { value: 'images', label: t('img.title') },
                     { value: 'info', label: t('sysmail.details') },
                   ]}
                   value={tab}
@@ -184,7 +222,7 @@ export default function SystemEmailsPage() {
                       id="sysmail-subject"
                       type="text"
                       className="form-control"
-                      value={selected.subject}
+                      value={draftSubject}
                       onChange={handleSubject}
                     />
                   </div>
@@ -192,7 +230,7 @@ export default function SystemEmailsPage() {
                   <div className="mb-3">
                     <span className="form-label d-block">{t('sysmail.variables')}</span>
                     <div className="mw-row mw-row--wrap">
-                      {selected.variables.map((name) => (
+                      {(selected.variables ?? []).map((name) => (
                         <span key={name} className="mw-var">{`{{${name}}}`}</span>
                       ))}
                     </div>
@@ -204,21 +242,33 @@ export default function SystemEmailsPage() {
                   </label>
                   <textarea
                     id="sysmail-html"
+                    ref={htmlRef}
                     className="mw-codearea"
-                    value={selected.html}
+                    value={draftHtml}
                     onChange={handleHtml}
                     spellCheck="false"
                   />
+                  <p className="form-text">{t('tpl.unsavedNote')}</p>
 
                   <div className="mw-row mw-row--wrap mt-3">
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      onClick={handleSave}
+                      disabled={!dirty || saving}
+                    >
+                      <i className="bi bi-save me-2" />
+                      {saving ? t('common.loading') : t('common.save')}
+                    </button>
                     <button type="button" className="btn btn-outline-secondary btn-sm" onClick={handleReset}>
                       <i className="bi bi-arrow-counterclockwise me-2" />
                       {t('sysmail.reset')}
                     </button>
-                    {saved ? <span className="mw-fs-12 mw-text-success">{t('sysmail.autoSaved')}</span> : null}
                   </div>
                 </>
               ) : null}
+
+              {tab === 'images' ? <ImageLibrary onInsert={insertAtCursor} /> : null}
 
               {tab === 'info' ? (
                 <>
@@ -268,7 +318,7 @@ export default function SystemEmailsPage() {
                   <pre className="mw-codearea mw-codearea--sm mb-0">{`sendSystemEmail('${selected.key}', {
   to: recipient.email,
   vars: {
-${selected.variables.map((name) => `    ${name}: …,`).join('\n')}
+${(selected.variables ?? []).map((name) => `    ${name}: …,`).join('\n')}
   },
 });`}</pre>
                 </>
