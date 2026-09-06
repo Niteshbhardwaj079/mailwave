@@ -395,6 +395,7 @@ export default function CampaignAnalyticsPage() {
         title={campaign.name}
         subtitle={`Sent from ${campaign.sender} · ${campaign.template} template`}
         breadcrumb={[{ label: 'Campaigns', to: '/campaigns' }, { label: campaign.name }]}
+        helpTopic="analytics"
         actions={
           <>
             <span className="mw-fs-12 mw-text-muted mw-hide-mobile me-1 align-self-center">

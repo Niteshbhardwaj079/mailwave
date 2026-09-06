@@ -188,7 +188,7 @@ export default function ConnectAccountPage() {
   if (saved) {
     return (
       <div className="mw-stack">
-        <PageHeader title={t('acc.connected')} breadcrumb={breadcrumb} />
+        <PageHeader title={t('acc.connected')} breadcrumb={breadcrumb} helpTopic="connect" />
         <Card>
           <div className="mw-card__body text-center py-5">
             <span className="mw-empty__icon mx-auto" aria-hidden="true">
@@ -213,7 +213,7 @@ export default function ConnectAccountPage() {
   if (!providerKey) {
     return (
       <div className="mw-stack">
-        <PageHeader title={t('acc.connect')} subtitle={t('acc.chooseProviderSub')} breadcrumb={breadcrumb} />
+        <PageHeader title={t('acc.connect')} subtitle={t('acc.chooseProviderSub')} breadcrumb={breadcrumb} helpTopic="connect" />
 
         {providersCall.loading ? (
           <div className="p-5 text-center mw-text-muted">
@@ -259,6 +259,7 @@ export default function ConnectAccountPage() {
         title={provider?.name ?? t('acc.connect')}
         subtitle={t('acc.fillDetails')}
         breadcrumb={breadcrumb}
+        helpTopic="connect"
       />
 
       {/* Provider ke apne steps — App Password kaise banana hai, wo yahin

@@ -188,6 +188,7 @@ export default function BackupPage() {
       <PageHeader
         title={t('bak.title')}
         subtitle={t('bak.subtitle')}
+        helpTopic="backups"
         actions={
           <>
             <input
