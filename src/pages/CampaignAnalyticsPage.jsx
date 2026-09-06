@@ -4,7 +4,7 @@ import { useParams } from 'react-router-dom';
 import PageHeader from '../components/ui/PageHeader';
 import { useDebouncedValue } from '../utils/useDebouncedValue';
 import KpiCard from '../components/ui/KpiCard';
-import { Card, CardBody, CardFoot, CardHead } from '../components/ui/Card';
+import { Card, CardBody, CardHead } from '../components/ui/Card';
 import { Note, SearchInput } from '../components/ui/Controls';
 import FilterSelect, { FilterBar } from '../components/ui/FilterSelect';
 import { useT } from '../i18n/I18nProvider';
@@ -15,7 +15,7 @@ import { downloadCsv, objectsToRows } from '../utils/download';
 import StatusPill from '../components/ui/StatusPill';
 import Sheet from '../components/ui/Sheet';
 import PerformanceChart from '../components/charts/PerformanceChart';
-import { widthClass, formatDateTime, formatNumber, percent, percentValue } from '../utils/format';
+import { widthClass, formatDateTime, formatNumber, getActiveLocale, percent, percentValue } from '../utils/format';
 import { useApi } from '../api/useApi';
 import { ApiError, api } from '../api/client';
 import EmptyState from '../components/ui/EmptyState';
@@ -60,6 +60,8 @@ export default function CampaignAnalyticsPage() {
   const [logFor, setLogFor] = useState(null);
   const [logEvents, setLogEvents] = useState([]);
   const [bulkDone, setBulkDone] = useState('');
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkConfirmKind, setBulkConfirmKind] = useState(null);
 
   // Is page ka saara data ISI campaign ka hai — koi saanjhi list nahi.
   const campaignCall = useApi(`/api/campaigns/${campaignId}`, { deps: [campaignId] });
@@ -180,6 +182,11 @@ export default function CampaignAnalyticsPage() {
         // Unsubscribe alag column hai, status nahi — isliye jab tak yahan na
         // jodein, table/filter me kabhi dikhta hi nahi ki kaun chhod gaya.
         displayStatus: row.unsubscribed ? 'Unsubscribed' : row.status,
+        // API se raw ISO timestamp aata hai — display ke liye alag se format
+        // karte hain, par filtering (neeche) ke liye raw value bhi rakhte hain.
+        firstOpenDisplay: row.firstOpen ? formatDateTime(row.firstOpen) : '—',
+        lastOpenDisplay: row.lastOpen ? formatDateTime(row.lastOpen) : '—',
+        lastActivityDisplay: row.lastActivity ? formatDateTime(row.lastActivity) : '—',
       })),
     [recipientsCall.data]
   );
@@ -190,13 +197,17 @@ export default function CampaignAnalyticsPage() {
     () =>
       (trendCall.data?.trend ?? []).map((point) => ({
         ...point,
-        label: new Date(point.date).toLocaleDateString(undefined, { day: '2-digit', month: 'short' }),
+        label: new Date(point.date).toLocaleDateString(getActiveLocale(), { day: '2-digit', month: 'short' }),
       })),
     [trendCall.data]
   );
 
   const filtered = useMemo(() => {
     const text = search.trim().toLowerCase();
+    const now = Date.now();
+    const rangeMs = { today: 24 * 60 * 60 * 1000, '7d': 7 * 24 * 60 * 60 * 1000, '30d': 30 * 24 * 60 * 60 * 1000 }[
+      dateRange
+    ];
     return rows.filter((row) => {
       if (removedIds.includes(row.id)) return false;
       const statusOk =
@@ -208,9 +219,13 @@ export default function CampaignAnalyticsPage() {
         row.displayStatus === status;
       const freqOk = row.openCount >= Number(frequency);
       const textOk = !text || row.name.toLowerCase().includes(text) || row.email.toLowerCase().includes(text);
-      return statusOk && freqOk && textOk;
+      // "Last activity" is what actually moved most recently for this person
+      // — the same field the table itself shows under that name.
+      const dateOk =
+        !rangeMs || (row.lastActivity && now - new Date(row.lastActivity).getTime() <= rangeMs);
+      return statusOk && freqOk && textOk && dateOk;
     });
-  }, [rows, status, frequency, search, removedIds]);
+  }, [rows, status, frequency, search, removedIds, dateRange]);
 
   const visibleIds = useMemo(() => filtered.map((row) => row.id), [filtered]);
   const bulk = useBulkSelection(visibleIds);
@@ -255,24 +270,49 @@ export default function CampaignAnalyticsPage() {
     bulk.toggleOne(event.currentTarget.dataset.id);
   }
 
-  function handleBulkResend() {
-    bulkRecipientAction('resend', bulk.selectedIds, campaign.name);
-    setBulkDone(t('bulk.doneResend', { count: selectedRows.length }));
-    bulk.clear();
+  async function handleBulkResend() {
+    setBulkBusy(true);
+    const ids = bulk.selectedIds;
+    const count = selectedRows.length;
+    const ok = await bulkRecipientAction('resend', ids, campaign.name);
+    setBulkBusy(false);
+    if (ok) {
+      setBulkDone(t('bulk.doneResend', { count }));
+      bulk.clear();
+    }
   }
 
-  function handleBulkRemove() {
-    setRemovedIds((current) => [...current, ...bulk.selectedIds]);
-    bulkRecipientAction('remove', bulk.selectedIds, campaign.name);
-    setBulkDone(t('bulk.doneRemove', { count: selectedRows.length }));
-    bulk.clear();
+  // Remove/Suppress permanently change standing recipients — ask first,
+  // same as every other destructive action in this app. Rows are only ever
+  // hidden from view AFTER the server confirms the change actually happened,
+  // so a failed request never leaves the list showing something that didn't
+  // really happen.
+  function askBulkRemove() {
+    setBulkConfirmKind('remove');
   }
 
-  function handleBulkSuppress() {
-    setRemovedIds((current) => [...current, ...bulk.selectedIds]);
-    bulkRecipientAction('suppress', bulk.selectedIds, campaign.name);
-    setBulkDone(t('bulk.doneSuppress', { count: selectedRows.length }));
-    bulk.clear();
+  function askBulkSuppress() {
+    setBulkConfirmKind('suppress');
+  }
+
+  function closeBulkConfirm() {
+    setBulkConfirmKind(null);
+  }
+
+  async function confirmBulkAction() {
+    const kind = bulkConfirmKind;
+    if (!kind) return;
+    const ids = bulk.selectedIds;
+    const count = selectedRows.length;
+    setBulkBusy(true);
+    const ok = await bulkRecipientAction(kind, ids, campaign.name);
+    setBulkBusy(false);
+    setBulkConfirmKind(null);
+    if (ok) {
+      setRemovedIds((current) => [...current, ...ids]);
+      setBulkDone(t(kind === 'remove' ? 'bulk.doneRemove' : 'bulk.doneSuppress', { count }));
+      bulk.clear();
+    }
   }
 
   function handleBulkExport() {
@@ -399,15 +439,11 @@ export default function CampaignAnalyticsPage() {
         actions={
           <>
             <span className="mw-fs-12 mw-text-muted mw-hide-mobile me-1 align-self-center">
-              {t('camp.lastUpdated', { time: lastUpdated.toLocaleTimeString() })}
+              {t('camp.lastUpdated', { time: lastUpdated.toLocaleTimeString(getActiveLocale()) })}
             </span>
             <button type="button" className="btn btn-outline-secondary" onClick={refreshAll} disabled={refreshing}>
               <i className={`bi bi-arrow-clockwise me-2 ${refreshing ? 'mw-spin' : ''}`.trim()} />
               {refreshing ? t('camp.refreshing') : t('camp.refresh')}
-            </button>
-            <button type="button" className="btn btn-outline-secondary mw-hide-mobile" disabled={!hasResults}>
-              <i className="bi bi-download me-2" />
-              Export
             </button>
             <button
               type="button"
@@ -421,10 +457,6 @@ export default function CampaignAnalyticsPage() {
             <button type="button" className="btn btn-outline-primary" onClick={openAddRecipients}>
               <i className="bi bi-person-plus me-2" />
               {t('rec.addMore')}
-            </button>
-            <button type="button" className="btn btn-primary mw-btn-block-mobile">
-              <i className="bi bi-diagram-3 me-2" />
-              {t('camp.createSegment')}
             </button>
           </>
         }
@@ -614,25 +646,52 @@ export default function CampaignAnalyticsPage() {
           onClear={bulk.clear}
           actions={
             <>
-              <button type="button" className="btn btn-sm btn-primary" onClick={handleBulkResend}>
+              <button type="button" className="btn btn-sm btn-primary" onClick={handleBulkResend} disabled={bulkBusy}>
                 <i className="bi bi-arrow-repeat me-2" />
                 {t('bulk.resend')}
               </button>
-              <button type="button" className="btn btn-sm btn-outline-secondary" onClick={handleBulkExport}>
+              <button type="button" className="btn btn-sm btn-outline-secondary" onClick={handleBulkExport} disabled={bulkBusy}>
                 <i className="bi bi-download me-2" />
                 {t('bulk.export')}
               </button>
-              <button type="button" className="btn btn-sm btn-outline-warning" onClick={handleBulkSuppress}>
+              <button type="button" className="btn btn-sm btn-outline-warning" onClick={askBulkSuppress} disabled={bulkBusy}>
                 <i className="bi bi-slash-circle me-2" />
                 {t('bulk.suppress')}
               </button>
-              <button type="button" className="btn btn-sm btn-outline-danger" onClick={handleBulkRemove}>
+              <button type="button" className="btn btn-sm btn-outline-danger" onClick={askBulkRemove} disabled={bulkBusy}>
                 <i className="bi bi-trash3 me-2" />
                 {t('bulk.remove')}
               </button>
             </>
           }
         />
+
+        {bulkConfirmKind ? (
+          <Sheet
+            open
+            onClose={closeBulkConfirm}
+            title={t(bulkConfirmKind === 'remove' ? 'bulk.confirmRemoveTitle' : 'bulk.confirmSuppressTitle')}
+          >
+            <p className="mw-fs-14">
+              {t(bulkConfirmKind === 'remove' ? 'bulk.confirmRemoveText' : 'bulk.confirmSuppressText', {
+                count: selectedRows.length,
+              })}
+            </p>
+            <div className="mw-row mw-row--end mt-3">
+              <button type="button" className="btn btn-outline-secondary" onClick={closeBulkConfirm} disabled={bulkBusy}>
+                {t('common.cancel')}
+              </button>
+              <button
+                type="button"
+                className={`btn ${bulkConfirmKind === 'remove' ? 'btn-danger' : 'btn-warning'}`}
+                onClick={confirmBulkAction}
+                disabled={bulkBusy}
+              >
+                {bulkBusy ? t('common.loading') : t(bulkConfirmKind === 'remove' ? 'bulk.remove' : 'bulk.suppress')}
+              </button>
+            </div>
+          </Sheet>
+        ) : null}
 
         <FilterBar onClear={clearFilters} clearLabel={t('common.clear')}>
           <div className="mw-filterbar__search">
@@ -723,11 +782,11 @@ export default function CampaignAnalyticsPage() {
                       <td>{row.sent ? <i className="bi bi-check-lg mw-text-success" /> : <span className="mw-text-muted-2">—</span>}</td>
                       <td>{row.opened ? <i className="bi bi-check-lg mw-text-success" /> : <span className="mw-text-muted-2">No</span>}</td>
                       <td className="mw-table__num">{row.openCount}</td>
-                      <td className="mw-table__muted mw-nowrap">{row.firstOpen}</td>
-                      <td className="mw-table__muted mw-nowrap">{row.lastOpen}</td>
+                      <td className="mw-table__muted mw-nowrap">{row.firstOpenDisplay}</td>
+                      <td className="mw-table__muted mw-nowrap">{row.lastOpenDisplay}</td>
                       <td>{row.clicked ? <i className="bi bi-check-lg mw-text-success" /> : <span className="mw-text-muted-2">No</span>}</td>
                       <td className="mw-table__num">{row.clickCount}</td>
-                      <td className="mw-table__muted mw-nowrap">{row.lastActivity}</td>
+                      <td className="mw-table__muted mw-nowrap">{row.lastActivityDisplay}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -765,11 +824,11 @@ export default function CampaignAnalyticsPage() {
                     </span>
                     <span className="mw-rec__stat">
                       <span className="d-block mw-rec__statlabel">First open</span>
-                      <span className="mw-rec__statvalue mw-fs-12">{row.firstOpen}</span>
+                      <span className="mw-rec__statvalue mw-fs-12">{row.firstOpenDisplay}</span>
                     </span>
                     <span className="mw-rec__stat">
                       <span className="d-block mw-rec__statlabel">Last activity</span>
-                      <span className="mw-rec__statvalue mw-fs-12">{row.lastActivity}</span>
+                      <span className="mw-rec__statvalue mw-fs-12">{row.lastActivityDisplay}</span>
                     </span>
                   </div>
                   <button type="button" className="btn btn-sm btn-outline-secondary mt-3" data-id={row.id} onClick={openLog}>
@@ -782,22 +841,6 @@ export default function CampaignAnalyticsPage() {
           </>
         )}
 
-        <CardFoot>
-          <div className="mw-row mw-row--wrap">
-            <button type="button" className="btn btn-sm btn-outline-secondary">
-              <i className="bi bi-filetype-csv me-2" />
-              Export CSV
-            </button>
-            <button type="button" className="btn btn-sm btn-outline-secondary">
-              <i className="bi bi-file-earmark-excel me-2" />
-              Export Excel
-            </button>
-            <button type="button" className="btn btn-sm btn-outline-primary">
-              <i className="bi bi-diagram-3 me-2" />
-              Save this filter as a segment
-            </button>
-          </div>
-        </CardFoot>
       </Card>
 
       <Sheet open={Boolean(logFor)} title={logFor ? `${logFor.name} — email log` : ''} onClose={closeLog}>

@@ -52,7 +52,7 @@ const perAccountLimiter = rateLimit({
   message: {
     error: {
       code: 'rate_limited',
-      message: 'Is account par bahut baar galat password daala gaya. Kuch minute baad dobara try karo.',
+      message: 'Too many wrong passwords for this account. Please wait 15 minutes and try again.',
     },
   },
 });
@@ -70,7 +70,7 @@ const perIpLimiter = rateLimit({
   message: {
     error: {
       code: 'rate_limited',
-      message: 'Bahut zyada koshish ho rahi hai. Kuch minute baad dobara try karo.',
+      message: 'Too many attempts from this connection. Please wait 15 minutes and try again.',
     },
   },
 });
@@ -518,7 +518,7 @@ router.post(
       stored.new_email,
       stored.user_id,
     ]);
-    if (clash) throw badRequest('Is email se ek aur user pehle se hai');
+    if (clash) throw badRequest('Another user already has this email address');
 
     await query('UPDATE users SET email = $1, updated_at = now() WHERE id = $2', [
       stored.new_email,

@@ -42,7 +42,7 @@ function withinRange(stamp, range) {
 export default function ActivityLogPage() {
   const t = useT();
   const toast = useToast();
-  const { activity, refreshActivity } = useWorkspace();
+  const { activity, refreshActivity, loading } = useWorkspace();
   const [query, setQuery] = useState('');
   // Box me turant dikhta hai, par chhantai 200ms ruk kar — bade data par type
   // karte waqt screen atakti nahi.
@@ -350,7 +350,12 @@ export default function ActivityLogPage() {
           }
         />
 
-        {filtered.length === 0 ? (
+        {loading && activity.length === 0 ? (
+          <div className="p-5 text-center mw-text-muted">
+            <div className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" />
+            {t('common.loading')}
+          </div>
+        ) : filtered.length === 0 ? (
           <EmptyState icon="bi-clock-history" title={t('common.noResults')} text={t('common.noResultsText')} />
         ) : (
           <>

@@ -256,6 +256,13 @@ export default function CampaignWizardPage() {
       return undefined;
     }
 
+    if (draft.recipientSource === 'subscribers') {
+      // Yeh humein pehle se pata hai (checkbox se) — server se dobara poochna
+      // nahi padta, aur isse count hamesha wahi dikhata hai jo tick kiya gaya.
+      setWillReach(draft.subscriberIds.length);
+      return undefined;
+    }
+
     let alive = true;
 
     (async () => {
@@ -297,6 +304,7 @@ export default function CampaignWizardPage() {
     selectedIsSegment,
     segments,
     draft.contactFilter,
+    draft.subscriberIds,
   ]);
 
   /** Screen ka naam server ke naam me badalta hai. */
@@ -429,6 +437,9 @@ export default function CampaignWizardPage() {
       }
       if (draft.recipientSource === 'existing' && draft.groups.length === 0) {
         return t('wiz.needGroupOrSegment');
+      }
+      if (draft.recipientSource === 'subscribers' && draft.subscriberIds.length === 0) {
+        return t('wiz.needRecipients');
       }
       if (draft.recipientSource === 'filter' && willReach === 0) {
         return t('wiz.needRecipients');
@@ -564,7 +575,7 @@ export default function CampaignWizardPage() {
     }
 
     if (draft.recipientSource === 'subscribers') {
-      return { source: 'subscribers' };
+      return { source: 'subscribers', subscriberIds: draft.subscriberIds };
     }
 
     if (draft.recipientSource === 'filter') {

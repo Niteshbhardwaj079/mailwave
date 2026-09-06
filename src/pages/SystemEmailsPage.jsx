@@ -15,7 +15,7 @@ import { EMAIL_GROUPS, fillPreview } from '../data/systemEmails';
 
 export default function SystemEmailsPage() {
   const t = useT();
-  const { systemEmails, updateSystemEmail, resetSystemEmail, toggleSystemEmail, sendTestSystemEmail } =
+  const { systemEmails, updateSystemEmail, resetSystemEmail, toggleSystemEmail, sendTestSystemEmail, loading } =
     useWorkspace();
 
   const [selectedKey, setSelectedKey] = useState(systemEmails[0]?.key || '');
@@ -158,7 +158,12 @@ export default function SystemEmailsPage() {
           <CardHead title={t('sysmail.list')} subtitle={t('sysmail.listSub')} />
 
           <div className="mw-mailist">
-            {visible.length === 0 ? (
+            {loading && systemEmails.length === 0 ? (
+              <div className="p-5 text-center mw-text-muted">
+                <div className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" />
+                {t('common.loading')}
+              </div>
+            ) : visible.length === 0 ? (
               <EmptyState icon="bi-envelope" title={t('common.noResults')} text={t('common.noResultsText')} />
             ) : (
               visible.map((item) => (

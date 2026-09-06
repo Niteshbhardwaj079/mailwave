@@ -16,7 +16,7 @@ import { formatDate } from '../utils/format';
 export default function TemplatesPage() {
   const t = useT();
   const navigate = useNavigate();
-  const { templates, deleteTemplate, duplicateTemplate } = useWorkspace();
+  const { templates, deleteTemplate, duplicateTemplate, loading } = useWorkspace();
   const [category, setCategory] = useState('All');
   const [sort, setSort] = useState('recent');
   const [query, setQuery] = useState('');
@@ -113,7 +113,12 @@ export default function TemplatesPage() {
         </FilterBar>
 
         <div className="mw-card__body">
-          {visible.length === 0 ? (
+          {loading && templates.length === 0 ? (
+            <div className="p-5 text-center mw-text-muted">
+              <div className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" />
+              {t('common.loading')}
+            </div>
+          ) : visible.length === 0 ? (
             <EmptyState
               icon="bi-layout-wtf"
               title={t('tpl.empty')}

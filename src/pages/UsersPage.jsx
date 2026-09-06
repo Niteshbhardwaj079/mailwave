@@ -35,9 +35,11 @@ export default function UsersPage() {
     duplicateRole,
     togglePermission,
     setModulePermissions,
+    loading,
   } = useWorkspace();
 
   const [tab, setTab] = useState('people');
+  const [deactivateFor, setDeactivateFor] = useState(null);
   const [query, setQuery] = useState('');
   // Box me turant dikhta hai, par chhantai 200ms ruk kar — bade data par type
   // karte waqt screen atakti nahi.
@@ -142,7 +144,22 @@ export default function UsersPage() {
   }
 
   function handleToggleStatus(event) {
-    toggleUserStatus(event.currentTarget.dataset.id);
+    const { id } = event.currentTarget.dataset;
+    const user = users.find((item) => item.id === id);
+    if (!user) return;
+    // Turning access back on is safe and reversible — only ask before
+    // taking it away, matching every other destructive action in this app.
+    if (user.status === 'Disabled') {
+      toggleUserStatus(id);
+      return;
+    }
+    setDeactivateFor(user);
+  }
+
+  function confirmDeactivate() {
+    if (!deactivateFor) return;
+    toggleUserStatus(deactivateFor.id);
+    setDeactivateFor(null);
   }
 
   // --- passwords -----------------------------------------------------------
@@ -385,7 +402,12 @@ export default function UsersPage() {
             <PageSizePicker value={pager.limit} onChange={pager.setLimit} />
           </FilterBar>
 
-          {filtered.length === 0 ? (
+          {loading && users.length === 0 ? (
+            <div className="p-5 text-center mw-text-muted">
+              <div className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" />
+              {t('common.loading')}
+            </div>
+          ) : filtered.length === 0 ? (
             <EmptyState icon="bi-people" title={t('common.noResults')} text={t('common.noResultsText')} />
           ) : (
             <>
@@ -1061,6 +1083,24 @@ export default function UsersPage() {
               : t('users.deleteRoleText')}
           </p>
         ) : null}
+      </Sheet>
+
+      <Sheet
+        open={Boolean(deactivateFor)}
+        title={t('users.deactivateConfirmTitle')}
+        onClose={() => setDeactivateFor(null)}
+      >
+        <p className="mw-fs-14 mw-text-muted mb-4">
+          {t('users.deactivateConfirmText', { name: deactivateFor?.name ?? '' })}
+        </p>
+        <div className="d-flex gap-2">
+          <button type="button" className="btn btn-outline-secondary flex-fill" onClick={() => setDeactivateFor(null)}>
+            {t('common.cancel')}
+          </button>
+          <button type="button" className="btn btn-danger flex-fill" onClick={confirmDeactivate}>
+            {t('users.deactivate')}
+          </button>
+        </div>
       </Sheet>
     </div>
   );

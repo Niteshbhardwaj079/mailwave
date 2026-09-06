@@ -163,7 +163,7 @@ router.post(
 
       res.json({
         ok: true,
-        message: `Ho gaya — ${result.tables} tables, ${result.rows} rows wapas aa gaye. Sabko dobara sign in karna hoga.`,
+        message: `Done — ${result.tables} tables, ${result.rows} rows restored. Everyone (including you) will need to sign in again.`,
         restartRequired: false,
       });
       return;
@@ -181,7 +181,7 @@ router.post(
 
     res.json({
       ok: true,
-      message: 'Ho gaya. Ab server ko band karke dobara chalu karo — database is backup se wapas aa jayega.',
+      message: 'Done. Now stop the server and start it again — the database will come back from this backup.',
       restartRequired: true,
     });
   })
@@ -223,7 +223,7 @@ router.post(
         detail: `Upload ki hui backup jaanchi aur list me jodi — ${backup.tableCount} tables, ${backup.rowCount} rows`,
       });
 
-      res.status(201).json({ ok: true, backup, message: 'File jaanch li gayi aur list me aa gayi. Ab isse "Restore" dabao.' });
+      res.status(201).json({ ok: true, backup, message: 'File checked and added to the list. Press "Restore" on it now.' });
       return;
     }
 
@@ -243,7 +243,7 @@ router.post(
 
     res.json({
       ok: true,
-      message: 'File mil gayi. Ab server band karke dobara chalu karo.',
+      message: 'File received. Now stop the server and start it again.',
       restartRequired: true,
     });
   })

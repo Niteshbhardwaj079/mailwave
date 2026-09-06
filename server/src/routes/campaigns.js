@@ -450,17 +450,40 @@ router.post(
       name: z.string().optional().nullable(),
       data: z.record(z.any()).optional(),
     })).optional(),
+    // subscribers source: khaali/undefined ho to sab "Subscribed" log jate
+    // hain; diya ho to sirf yeh chune hue.
+    subscriberIds: z.array(z.string()).optional(),
   })),
   asyncHandler(async (req, res) => {
     const campaign = await one('SELECT id, name, status, pause_reason FROM campaigns WHERE id = $1', [req.params.id]);
     if (!campaign) throw notFound('Yeh campaign nahi mila');
     if (campaign.status === 'Sending') throw badRequest('Campaign chal raha hai — abhi log nahi jod sakte');
 
-    const { source, groupId, filter, people } = req.body;
+    const { source, groupId, filter, people, subscriberIds } = req.body;
     let rows = [];
 
     if (source === 'list') {
       rows = (people ?? []).map((p) => ({ email: p.email, name: p.name ?? null, data: p.data ?? {} }));
+    } else if (source === 'subscribers') {
+      // subscriberIds bheja hi nahi gaya (undefined) to sab "Subscribed" log
+      // jate hain. Bheja gaya hai — chahe khaali array hi ho — to sirf wahi
+      // log jate hain jo usme hain; khaali array ka matlab jaan-boojh kar
+      // koi na chuna, isliye ANY(khaali array) sahi tarike se kisi se nahi
+      // milta.
+      const params = [];
+      let where = `WHERE sb.status = 'Subscribed' AND s.email IS NULL`;
+      if (subscriberIds !== undefined) {
+        params.push(subscriberIds);
+        where += ` AND sb.id = ANY($1)`;
+      }
+      const subs = await many(
+        `SELECT sb.email, sb.name, sb.company, sb.city
+           FROM subscribers sb
+      LEFT JOIN suppression s ON lower(s.email) = lower(sb.email)
+           ${where}`,
+        params
+      );
+      rows = subs.map((s) => ({ email: s.email, name: s.name, data: { company: s.company, city: s.city } }));
     } else if (source === 'filter') {
       const { clause, params: fParams } = buildContactFilterWhere(filter ?? {}, campaign.id);
       const contacts = await many(
@@ -501,16 +524,6 @@ router.post(
         contactId: c.id,
         data: { company: c.company, city: c.city, phone: c.phone },
       }));
-    }
-
-    if (source === 'subscribers') {
-      const subs = await many(
-        `SELECT sb.email, sb.name, sb.company, sb.city
-           FROM subscribers sb
-      LEFT JOIN suppression s ON lower(s.email) = lower(sb.email)
-          WHERE sb.status = 'Subscribed' AND s.email IS NULL`
-      );
-      rows = subs.map((s) => ({ email: s.email, name: s.name, data: { company: s.company, city: s.city } }));
     }
 
     // Batched, not one INSERT per row — "All Contacts" can mean tens of

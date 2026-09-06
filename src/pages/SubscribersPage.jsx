@@ -23,7 +23,7 @@ function noop() {}
 export default function SubscribersPage() {
   const t = useT();
   const navigate = useNavigate();
-  const { subscribers, removeSubscribers } = useWorkspace();
+  const { subscribers, removeSubscribers, loading } = useWorkspace();
 
   const [query, setQuery] = useState('');
   // Box me turant dikhta hai, par chhantai 200ms ruk kar — bade data par type
@@ -206,7 +206,12 @@ export default function SubscribersPage() {
           <PageSizePicker value={pager.limit} onChange={pager.setLimit} />
         </FilterBar>
 
-        {filtered.length === 0 ? (
+        {loading && subscribers.length === 0 ? (
+          <div className="p-5 text-center mw-text-muted">
+            <div className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" />
+            {t('common.loading')}
+          </div>
+        ) : filtered.length === 0 ? (
           <EmptyState
             icon="bi-hand-thumbs-up"
             title={t('sub.empty')}

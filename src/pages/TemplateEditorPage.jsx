@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import PageHeader from '../components/ui/PageHeader';
@@ -29,6 +29,31 @@ export default function TemplateEditorPage() {
   const [savedOpen, setSavedOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const codeRef = useRef(null);
+
+  // Workspace templates load asynchronously after sign-in, so on a direct
+  // page load (a refresh while already on this URL, not a click from inside
+  // the app) `existing` above can be null on the very first render even
+  // though this IS an edit of a real template — useState only reads it once,
+  // at mount, so the form would otherwise stay permanently blank and Save
+  // would create a duplicate template instead of updating this one. Once the
+  // real template shows up, fill the form from it — but only if nothing has
+  // been typed yet, so this can never clobber an edit already in progress.
+  const hydratedRef = useRef(Boolean(existing) || !templateId);
+  useEffect(() => {
+    if (hydratedRef.current || !templateId || !existing) return;
+    const isPristine = !name && !subject && html === BLANK_HTML && savedId === null;
+    if (!isPristine) {
+      hydratedRef.current = true;
+      return;
+    }
+    setName(existing.name || '');
+    setCategory(existing.category || 'Custom');
+    setSubject(existing.subject || '');
+    setHtml(existing.html || BLANK_HTML);
+    setSavedId(existing.id || null);
+    hydratedRef.current = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [existing, templateId]);
 
   const TABS = useMemo(
     () => [

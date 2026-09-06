@@ -299,6 +299,8 @@ export default {
   'users.invite': 'Send invite',
   'users.deactivate': 'Deactivate',
   'users.activate': 'Activate',
+  'users.deactivateConfirmTitle': 'Deactivate this person?',
+  'users.deactivateConfirmText': '{name} will not be able to sign in until someone reactivates their account.',
   'users.searchPlaceholder': 'Search people by name, email or role…',
   'users.permissionsFor': 'Permissions for',
   'users.permissionHelp': 'Tick a box to allow it. Untick to block it. Changes apply the next time that person loads the app.',
@@ -405,6 +407,10 @@ export default {
   'con.groupNameNeeded': 'Give the group a name',
   'con.deleteGroup': 'Delete this group',
   'con.deleteGroupConfirmText': 'The group is removed, but its {count} contacts stay — they just lose this tag:',
+  'con.deleteOneConfirmTitle': 'Delete this contact?',
+  'con.deleteOneConfirmText': 'This removes {name} from your contacts for good — this cannot be undone.',
+  'con.deleteBulkConfirmTitle': 'Delete these contacts?',
+  'con.deleteBulkConfirmText': 'This removes {count} contacts for good — this cannot be undone.',
   'con.tags': 'Tags',
   'con.added': 'Added',
 
@@ -741,6 +747,10 @@ export default {
   'bulk.doneResend': 'The email is queued again for {count} people.',
   'bulk.doneRemove': '{count} rows removed from this list.',
   'bulk.doneSuppress': '{count} addresses added to the never-email list.',
+  'bulk.confirmRemoveTitle': 'Remove these recipients?',
+  'bulk.confirmRemoveText': 'This removes {count} people from this campaign’s list. It does not touch their contact record or send anything.',
+  'bulk.confirmSuppressTitle': 'Never email these people again?',
+  'bulk.confirmSuppressText': 'This adds {count} addresses to the suppression list. Every future campaign will skip them automatically — this cannot be undone from here.',
   'bulk.doneDelete': '{count} contacts deleted.',
 
   // --- Sample import file (Update 5) ---
@@ -1005,7 +1015,7 @@ export default {
   'rev.notSet': 'not set',
   'rev.enabled': 'Enabled',
   'rev.off': 'Off',
-  'rev.testNote': 'Send a test to yourself first if you have not already. It is the fastest way to catch a broken link or a wrong variable.',
+  'rev.testNote': 'Check the preview above carefully — a broken link or a wrong variable is much easier to fix now than after sending.',
 
   // --- Connecting an email account ---
   'acc.connected': 'Account connected',

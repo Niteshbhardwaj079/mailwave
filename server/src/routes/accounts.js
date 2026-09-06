@@ -138,7 +138,7 @@ router.post(
       return;
     }
 
-    res.json({ ok: true, message: 'Connection ban gaya. Ab save kar sakte ho.' });
+    res.json({ ok: true, message: 'Connection works. You can save it now.' });
   })
 );
 

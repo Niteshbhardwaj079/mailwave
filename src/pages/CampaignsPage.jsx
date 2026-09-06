@@ -22,10 +22,8 @@ const STATUSES = ['Sent', 'Sending', 'Scheduled', 'Paused', 'Draft'];
 const ROW_ACTIONS = [
   { key: 'analytics', labelKey: 'camp.viewAnalytics', icon: 'bi-graph-up' },
   { key: 'recipients', labelKey: 'camp.viewRecipients', icon: 'bi-people' },
-  { key: 'duplicate', labelKey: 'common.duplicate', icon: 'bi-files' },
   { key: 'resend', labelKey: 'camp.resendUnopened', icon: 'bi-arrow-repeat' },
   { key: 'failed', labelKey: 'camp.resendFailed', icon: 'bi-arrow-clockwise' },
-  { key: 'export', labelKey: 'camp.exportReport', icon: 'bi-download' },
 ];
 
 const SORTS = [

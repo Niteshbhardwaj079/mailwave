@@ -69,6 +69,11 @@ export default function ContactsPage() {
   const [confirmDeleteGroup, setConfirmDeleteGroup] = useState(false);
   const [deletingGroup, setDeletingGroup] = useState(false);
 
+  // --- contact delete confirmation ----------------------------------------
+  const [deleteContactFor, setDeleteContactFor] = useState(null); // { id, name }
+  const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false);
+  const [deletingContact, setDeletingContact] = useState(false);
+
   // Groups aur tags — filter ke dropdown aur upar wale KPI card ke liye.
   const groupsCall = useApi('/api/contacts/groups/all');
   const tagsCall = useApi('/api/contacts/tags/all');
@@ -190,10 +195,16 @@ export default function ContactsPage() {
     }
   }
 
+  function askBulkDelete() {
+    if (bulk.selectedIds.length === 0) return;
+    setBulkDeleteConfirmOpen(true);
+  }
+
   async function handleBulkDelete() {
     const ids = bulk.selectedIds;
     if (ids.length === 0) return;
 
+    setDeletingContact(true);
     try {
       await api.post('/api/contacts/bulk-delete', { ids });
       bulk.clear();
@@ -201,21 +212,34 @@ export default function ContactsPage() {
       pager.reload();
       groupsCall.reload();
       toast.success(t('bulk.doneDelete', { count: ids.length }));
+      setBulkDeleteConfirmOpen(false);
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : t('toast.networkError'));
+    } finally {
+      setDeletingContact(false);
     }
   }
 
-  async function handleDeleteOne(event) {
+  function askDeleteOne(event) {
     const { id, name } = event.currentTarget.dataset;
+    setDeleteContactFor({ id, name });
+  }
 
+  async function handleDeleteOne() {
+    if (!deleteContactFor) return;
+    const { id, name } = deleteContactFor;
+
+    setDeletingContact(true);
     try {
       await api.delete(`/api/contacts/${id}`);
       pager.reload();
       groupsCall.reload();
       toast.success(t('toast.contactDeleted'), name);
+      setDeleteContactFor(null);
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : t('toast.networkError'));
+    } finally {
+      setDeletingContact(false);
     }
   }
 
@@ -597,7 +621,7 @@ export default function ContactsPage() {
                 <i className="bi bi-download me-2" />
                 {t('bulk.export')}
               </button>
-              <button type="button" className="btn btn-sm btn-outline-danger" onClick={handleBulkDelete}>
+              <button type="button" className="btn btn-sm btn-outline-danger" onClick={askBulkDelete}>
                 <i className="bi bi-trash3 me-2" />
                 {t('bulk.delete')}
               </button>
@@ -735,10 +759,10 @@ export default function ContactsPage() {
                         </button>
                         <button
                           type="button"
-                          className="mw-iconbtn"
+                          className="mw-iconbtn mw-text-danger"
                           data-id={contact.id}
                           data-name={contact.name}
-                          onClick={handleDeleteOne}
+                          onClick={askDeleteOne}
                           aria-label={`${t('common.delete')} ${contact.name}`}
                         >
                           <i className="bi bi-trash3" />
@@ -780,6 +804,16 @@ export default function ContactsPage() {
                       aria-label={`${t('common.edit')} ${contact.name}`}
                     >
                       <i className="bi bi-pencil" />
+                    </button>
+                    <button
+                      type="button"
+                      className="mw-iconbtn mw-text-danger"
+                      data-id={contact.id}
+                      data-name={contact.name}
+                      onClick={askDeleteOne}
+                      aria-label={`${t('common.delete')} ${contact.name}`}
+                    >
+                      <i className="bi bi-trash3" />
                     </button>
                   </div>
                   <div className="mw-row mw-row--wrap mt-2">
@@ -980,6 +1014,62 @@ export default function ContactsPage() {
             </select>
             <div className="form-text">{t('con.consentHelp')}</div>
           </div>
+        </div>
+      </Sheet>
+
+      <Sheet
+        open={Boolean(deleteContactFor)}
+        title={t('con.deleteOneConfirmTitle')}
+        onClose={() => setDeleteContactFor(null)}
+      >
+        <p className="mw-fs-14 mw-text-muted mb-4">
+          {t('con.deleteOneConfirmText', { name: deleteContactFor?.name ?? '' })}
+        </p>
+        <div className="d-flex gap-2">
+          <button
+            type="button"
+            className="btn btn-outline-secondary flex-fill"
+            onClick={() => setDeleteContactFor(null)}
+            disabled={deletingContact}
+          >
+            {t('common.cancel')}
+          </button>
+          <button
+            type="button"
+            className="btn btn-danger flex-fill"
+            onClick={handleDeleteOne}
+            disabled={deletingContact}
+          >
+            {deletingContact ? t('common.loading') : t('common.delete')}
+          </button>
+        </div>
+      </Sheet>
+
+      <Sheet
+        open={bulkDeleteConfirmOpen}
+        title={t('con.deleteBulkConfirmTitle')}
+        onClose={() => setBulkDeleteConfirmOpen(false)}
+      >
+        <p className="mw-fs-14 mw-text-muted mb-4">
+          {t('con.deleteBulkConfirmText', { count: bulk.selectedIds.length })}
+        </p>
+        <div className="d-flex gap-2">
+          <button
+            type="button"
+            className="btn btn-outline-secondary flex-fill"
+            onClick={() => setBulkDeleteConfirmOpen(false)}
+            disabled={deletingContact}
+          >
+            {t('common.cancel')}
+          </button>
+          <button
+            type="button"
+            className="btn btn-danger flex-fill"
+            onClick={handleBulkDelete}
+            disabled={deletingContact}
+          >
+            {deletingContact ? t('common.loading') : t('common.delete')}
+          </button>
         </div>
       </Sheet>
     </div>

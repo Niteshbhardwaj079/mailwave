@@ -25,6 +25,9 @@ dist-ssr
 
 audit-shots
 
+# Session scratch work (temp scripts/data used while working, not part of the app)
+.scratch/
+
 # --- Backend -----------------------------------------------------------------
 # .env me secret keys hoti hain (JWT_SECRET, SMTP password).
 # Ise KABHI git par mat daalo.

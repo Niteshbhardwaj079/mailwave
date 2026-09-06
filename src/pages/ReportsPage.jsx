@@ -13,6 +13,8 @@ import { useApi } from '../api/useApi';
 import { useToast } from '../components/ui/ToastProvider';
 import { downloadCsv, downloadXlsx } from '../utils/download';
 import { reportTypes } from '../data/constants';
+import EmptyState from '../components/ui/EmptyState';
+import { getActiveLocale } from '../utils/format';
 
 const RANGES = [
   { value: '7d', label: '7 days' },
@@ -63,7 +65,7 @@ export default function ReportsPage() {
     () =>
       (trendCall.data?.trend ?? []).map((point) => ({
         ...point,
-        label: new Date(point.date).toLocaleDateString(undefined, { day: '2-digit', month: 'short' }),
+        label: new Date(point.date).toLocaleDateString(getActiveLocale(), { day: '2-digit', month: 'short' }),
       })),
     [trendCall.data]
   );
@@ -134,7 +136,16 @@ export default function ReportsPage() {
 
       <Card flush>
         <CardHead title={t('rep.campaignTitle')} subtitle={t('rep.campaignSub')} />
-        <CampaignTable items={campaigns} />
+        {campaignsCall.loading && campaigns.length === 0 ? (
+          <div className="p-5 text-center mw-text-muted">
+            <div className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" />
+            {t('common.loading')}
+          </div>
+        ) : campaigns.length === 0 ? (
+          <EmptyState icon="bi-megaphone" title={t('common.noResults')} text={t('common.noResultsText')} />
+        ) : (
+          <CampaignTable items={campaigns} />
+        )}
       </Card>
 
       <div className="mw-grid-main-side">

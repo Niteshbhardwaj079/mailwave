@@ -66,10 +66,6 @@ export default function StepReview({ draft, recipientCount = 0, onSend }) {
       </Note>
 
       <div className="mw-row mw-row--wrap">
-        <button type="button" className="btn btn-outline-secondary">
-          <i className="bi bi-envelope-check me-2" />
-          {t('acc.sendTest')}
-        </button>
         <button type="button" className="btn btn-primary btn-lg mw-btn-block-mobile" onClick={onSend}>
           <i className="bi bi-send me-2" />
           {t('wiz.send')}
