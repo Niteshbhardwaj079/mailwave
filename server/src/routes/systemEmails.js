@@ -195,6 +195,60 @@ router.delete(
 );
 
 /**
+ * Ek language ke translation ko wapas uske asli (starting) content par le
+ * aao — jaisa English ka reset karta hai, bas English ke liye nahi, isi
+ * language ke liye. Sirf isी (key, language) row badalta hai — koi doosri
+ * language ya English kabhi touch nahi hoti.
+ */
+router.post(
+  '/:key/translations/:language/reset',
+  requireModule('settings', 'edit'),
+  asyncHandler(async (req, res) => {
+    const { key, language } = req.params;
+    if (language === 'en') {
+      throw badRequest('English ke liye POST /:key/reset use karo, translations wala reset nahi');
+    }
+
+    const { getSeedTranslation } = await import('../../../src/data/systemEmailTranslations.js');
+    const original = getSeedTranslation(key, language);
+    if (!original) {
+      throw notFound('Is language ka koi original (starting) version abhi tak nahi bana hai');
+    }
+
+    const base = await one('SELECT key, enabled FROM system_emails WHERE key = $1', [key]);
+    if (!base) throw notFound('Yeh system email nahi mili');
+
+    await query(
+      `INSERT INTO system_email_translations (key, language, subject, html, updated_at)
+       VALUES ($1,$2,$3,$4, now())
+       ON CONFLICT (key, language) DO UPDATE
+         SET subject = EXCLUDED.subject, html = EXCLUDED.html, updated_at = now()`,
+      [key, language, original.subject, original.html]
+    );
+
+    await logActivity(req, {
+      action: 'updated',
+      module: 'settings',
+      item: `${key} (${language})`,
+      detail: `System email ka ${language} version wapas asli haalat me le aaya gaya`,
+    });
+
+    const row = await one(
+      'SELECT subject, html, updated_at FROM system_email_translations WHERE key = $1 AND language = $2',
+      [key, language]
+    );
+    res.json({
+      systemEmail: toApiForLanguage(
+        base,
+        { subject: row.subject, html: row.html, updated_at: row.updated_at, isFallback: false },
+        language,
+        []
+      ),
+    });
+  })
+);
+
+/**
  * Email ko chalu ya band karo.
  *
  * Kuch email band nahi ki ja saktin — jaise password reset. Agar wo band ho

@@ -21,6 +21,7 @@ export default function SystemEmailsPage() {
     updateSystemEmail,
     loadSystemEmailsForLanguage,
     deleteSystemEmailTranslation,
+    resetSystemEmailTranslation,
     resetSystemEmail,
     toggleSystemEmail,
     sendTestSystemEmail,
@@ -138,6 +139,10 @@ export default function SystemEmailsPage() {
 
   function handleDeleteTranslation() {
     deleteSystemEmailTranslation(selected.key, language);
+  }
+
+  function handleResetTranslation() {
+    resetSystemEmailTranslation(selected.key, language);
   }
 
   function handleReset() {
@@ -353,15 +358,26 @@ export default function SystemEmailsPage() {
                         {t('sysmail.reset')}
                       </button>
                     ) : (
-                      <button
-                        type="button"
-                        className="btn btn-outline-danger btn-sm"
-                        onClick={handleDeleteTranslation}
-                        disabled={selected.isFallback}
-                      >
-                        <i className="bi bi-x-circle me-2" />
-                        {t('sysmail.removeTranslation')}
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          className="btn btn-outline-secondary btn-sm"
+                          onClick={handleResetTranslation}
+                          disabled={selected.isFallback}
+                        >
+                          <i className="bi bi-arrow-counterclockwise me-2" />
+                          {t('sysmail.reset')}
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-outline-danger btn-sm"
+                          onClick={handleDeleteTranslation}
+                          disabled={selected.isFallback}
+                        >
+                          <i className="bi bi-x-circle me-2" />
+                          {t('sysmail.removeTranslation')}
+                        </button>
+                      </>
                     )}
                   </div>
                 </>

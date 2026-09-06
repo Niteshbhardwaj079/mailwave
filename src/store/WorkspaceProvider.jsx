@@ -637,6 +637,27 @@ export function WorkspaceProvider({ children }) {
     [loadSystemEmailsForLanguage, toast, t, fail, refreshActivity]
   );
 
+  /**
+   * Isi language ke translation ko uske asli (starting) content par wapas le
+   * jaata hai — English ka reset jaisa hi, bas is language ke liye. Kisi aur
+   * language ya English ko yeh kabhi nahi chhoota.
+   */
+  const resetSystemEmailTranslation = useCallback(
+    async (key, language) => {
+      try {
+        const data = await api.post(`/api/system-emails/${key}/translations/${language}/reset`);
+        setSystemEmails((current) =>
+          current.map((item) => (item.key === key ? { ...item, ...data.systemEmail } : item))
+        );
+        toast.success(t('toast.systemEmailReset'));
+        refreshActivity();
+      } catch (error) {
+        fail(error);
+      }
+    },
+    [toast, t, fail, refreshActivity]
+  );
+
   const resetSystemEmail = useCallback(
     async (key) => {
       try {
@@ -798,6 +819,7 @@ export function WorkspaceProvider({ children }) {
       updateSystemEmail,
       loadSystemEmailsForLanguage,
       deleteSystemEmailTranslation,
+      resetSystemEmailTranslation,
       resetSystemEmail,
       toggleSystemEmail,
       sendTestSystemEmail,
@@ -838,6 +860,7 @@ export function WorkspaceProvider({ children }) {
       updateSystemEmail,
       loadSystemEmailsForLanguage,
       deleteSystemEmailTranslation,
+      resetSystemEmailTranslation,
       resetSystemEmail,
       toggleSystemEmail,
       sendTestSystemEmail,
