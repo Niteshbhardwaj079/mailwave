@@ -3,6 +3,7 @@ import { useRef, useState } from 'react';
 import PageHeader from '../components/ui/PageHeader';
 import { Card, CardBody, CardHead } from '../components/ui/Card';
 import { Note } from '../components/ui/Controls';
+import StatusPill from '../components/ui/StatusPill';
 import Sheet from '../components/ui/Sheet';
 import EmptyState from '../components/ui/EmptyState';
 import { ApiError, api, getAccessToken } from '../api/client';
@@ -10,6 +11,13 @@ import { useApi } from '../api/useApi';
 import { useToast } from '../components/ui/ToastProvider';
 import { useT } from '../i18n/I18nProvider';
 import { formatDateTime } from '../utils/format';
+
+const STATUS_TONE = {
+  successful: 'success',
+  running: 'warning',
+  pending: 'muted',
+  failed: 'danger',
+};
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
@@ -26,6 +34,9 @@ export default function BackupPage() {
   const [confirmText, setConfirmText] = useState('');
   const [deleteFor, setDeleteFor] = useState(null);
   const [restartNote, setRestartNote] = useState('');
+  // Asli Postgres par restore turant ho jata hai — restart ki zarurat nahi.
+  // PGlite par ab bhi restart chahiye. Banner isi se apna roop badalta hai.
+  const [restartRequired, setRestartRequired] = useState(true);
 
   const fileRef = useRef(null);
 
@@ -33,9 +44,12 @@ export default function BackupPage() {
   async function createBackup() {
     setBusy(true);
     try {
-      await api.post('/api/backups');
+      const data = await api.post('/api/backups');
       call.reload();
-      toast.success(t('bak.created'));
+      toast.success(
+        t('bak.created'),
+        data.backup?.tableCount != null ? t('bak.createdDetail', { tables: data.backup.tableCount, rows: data.backup.rowCount }) : undefined
+      );
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : t('toast.networkError'));
     } finally {
@@ -101,8 +115,9 @@ export default function BackupPage() {
       });
 
       setRestoreFor(null);
+      setRestartRequired(data.restartRequired !== false);
       setRestartNote(data.message ?? t('bak.restartNote'));
-      toast.success(t('bak.restoreMarked'));
+      toast.success(data.restartRequired === false ? t('bak.restoreDone') : t('bak.restoreMarked'));
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : t('toast.networkError'));
     } finally {
@@ -150,7 +165,16 @@ export default function BackupPage() {
       const data = await res.json();
       if (!res.ok) throw new ApiError(res.status, 'upload_failed', data?.error?.message ?? t('bak.uploadFailed'));
 
-      setRestartNote(data.message ?? t('bak.restartNote'));
+      if (data.restartRequired) {
+        // PGlite ka purana raasta — file seedhi restore ke liye nishaan lag
+        // gayi, list me nahi jud sakti (format hi alag hai).
+        setRestartRequired(true);
+        setRestartNote(data.message ?? t('bak.restartNote'));
+      } else {
+        // Asli Postgres: file jaanchi jaa chuki, list me aa gayi hai — restore
+        // abhi nahi hua, admin jab chahe wahan se "Restore" dabayega.
+        call.reload();
+      }
       toast.success(t('bak.uploaded'), file.name);
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : t('toast.networkError'));
@@ -196,17 +220,29 @@ export default function BackupPage() {
         }
       />
 
-      {/* Restore ka nishaan lag gaya — ab server restart karna zaroori hai.
-          Yeh sabse zaroori baat hai, isliye sabse upar. */}
+      {/* Restore ho gaya — asli Postgres par turant, ya PGlite par nishaan
+          lagne ke baad restart ka intezaar. Yeh sabse zaroori baat hai,
+          isliye sabse upar. */}
       {restartNote ? (
-        <Note tone="warning" icon="bi-arrow-clockwise">
-          <strong>{t('bak.restartTitle')}</strong> {restartNote}
+        <Note tone={restartRequired ? 'warning' : 'success'} icon={restartRequired ? 'bi-arrow-clockwise' : 'bi-check-circle'}>
+          <strong>{restartRequired ? t('bak.restartTitle') : t('bak.restoreDoneTitle')}</strong> {restartNote}
         </Note>
       ) : null}
 
       {settings ? (
         <Note tone="info" icon="bi-clock-history">
           {settings.note}
+          {settings.lastSuccessfulAt ? ` ${t('bak.lastSuccessful', { time: formatDateTime(settings.lastSuccessfulAt) })}` : ''}
+        </Note>
+      ) : null}
+
+      {/* Sabse zaroori chetavni: agar backup sirf server ki apni disk par hai
+          (S3-jaisi jagah set nahi hai), to Render jaisi hosting par yeh deploy
+          hote hi mit sakta hai — screen isse chhupati nahi. */}
+      {settings && !settings.storage.durable ? (
+        <Note tone="warning" icon="bi-hdd-network">
+          <strong>{t('bak.storageNotDurableTitle')} </strong>
+          {settings.storage.description}
         </Note>
       ) : null}
 
@@ -236,15 +272,34 @@ export default function BackupPage() {
                 <tr>
                   <th scope="col">{t('bak.file')}</th>
                   <th scope="col">{t('bak.when')}</th>
+                  <th scope="col">{t('common.status')}</th>
                   <th scope="col" className="mw-table__num">{t('bak.size')}</th>
                   <th scope="col" className="text-end">{t('common.actions')}</th>
                 </tr>
               </thead>
               <tbody>
-                {backups.map((backup) => (
+                {backups.map((backup) => {
+                  const usable = backup.status === 'successful';
+                  return (
                   <tr key={backup.name}>
-                    <td className="mw-table__primary mw-mono mw-fs-12">{backup.name}</td>
+                    <td className="mw-table__primary mw-mono mw-fs-12">
+                      {backup.name}
+                      {backup.restoredAt ? (
+                        <span className="d-block mw-fs-11 mw-text-muted">
+                          {t('bak.restoredOn', { time: formatDateTime(backup.restoredAt) })}
+                        </span>
+                      ) : null}
+                    </td>
                     <td className="mw-table__muted mw-nowrap">{formatDateTime(backup.createdAt)}</td>
+                    <td>
+                      <StatusPill
+                        status={t(`bak.status.${backup.status}`)}
+                        tone={STATUS_TONE[backup.status] ?? 'muted'}
+                      />
+                      {backup.error ? (
+                        <span className="d-block mw-fs-11 mw-text-danger mt-1">{backup.error}</span>
+                      ) : null}
+                    </td>
                     <td className="mw-table__num">{backup.sizeText}</td>
                     <td className="text-end mw-nowrap">
                       <button
@@ -252,7 +307,7 @@ export default function BackupPage() {
                         className="btn btn-sm btn-outline-secondary me-2"
                         data-name={backup.name}
                         onClick={download}
-                        disabled={busy}
+                        disabled={busy || !usable}
                       >
                         <i className="bi bi-download me-1" />
                         {t('common.download')}
@@ -262,7 +317,7 @@ export default function BackupPage() {
                         className="btn btn-sm btn-outline-primary me-2"
                         data-name={backup.name}
                         onClick={askRestore}
-                        disabled={busy}
+                        disabled={busy || !usable}
                       >
                         <i className="bi bi-arrow-counterclockwise me-1" />
                         {t('bak.restore')}
@@ -278,7 +333,8 @@ export default function BackupPage() {
                       </button>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

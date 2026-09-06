@@ -324,6 +324,39 @@ CREATE TABLE IF NOT EXISTS activity_log (
 CREATE INDEX IF NOT EXISTS activity_log_at_idx ON activity_log (at DESC);
 CREATE INDEX IF NOT EXISTS activity_log_module_idx ON activity_log (module);
 
+-- --- backups ------------------------------------------------------------
+--
+-- Backup FILE (poora data, gzip-kiya hua JSON) kahin bhi ho sakti hai — disk
+-- par ya S3-jaisi jagah (services/backupStorage.js dekho). Yeh table sirf
+-- ISKI JAANKAARI rakhti hai: kaunsi backup bani, kab, kitni badi, kaam ki hai
+-- ya nahi — taki "GET /api/backups" ko disk padhne ki zarurat na pade, aur
+-- ek adhoori/fail hui backup kabhi "safal" na dikhe.
+CREATE TABLE IF NOT EXISTS backups (
+  id             text PRIMARY KEY,
+  name           text NOT NULL UNIQUE,       -- storage me file/object ka naam
+  -- Yeh sirf FILE ki apni haalat hai (bani/bigdi), restore alag cheez hai —
+  -- warna ek restore attempt fail hone se ek bilkul theek backup bhi
+  -- "kharab" dikhne lagta.
+  status         text NOT NULL DEFAULT 'pending', -- pending|running|successful|failed
+  reason         text NOT NULL DEFAULT 'manual',  -- manual|automatic|startup|upload
+  storage_driver text,                       -- 'local' ya 's3' — us waqt jahan rakhi gayi
+  format_version integer,
+  size_bytes     bigint,
+  table_count    integer,
+  row_count      bigint,
+  checksum       text,
+  error          text,
+  restored_at    timestamptz,                -- aakhri baar isse kab restore kiya gaya
+  restore_error  text,                       -- aakhri restore koshish fail hui to kyun
+  created_by     text REFERENCES users(id) ON DELETE SET NULL,
+  started_at     timestamptz NOT NULL DEFAULT now(),
+  finished_at    timestamptz,
+  created_at     timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS backups_created_at_idx ON backups (created_at DESC);
+CREATE INDEX IF NOT EXISTS backups_status_idx ON backups (status);
+
 -- Applied migrations, so migrate.js is safe to run repeatedly.
 CREATE TABLE IF NOT EXISTS schema_migrations (
   version     integer PRIMARY KEY,

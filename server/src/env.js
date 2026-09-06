@@ -83,6 +83,32 @@ export const env = {
   /** Seed account, only used the first time the database is created. */
   seedEmail: process.env.SEED_EMAIL || 'rohit@gowebkart.com',
   seedPassword: process.env.SEED_PASSWORD || 'mailwave',
+
+  /**
+   * Backup file kahan rakhi jaaye.
+   *
+   * 'local'  — server ke apne disk par. Render jaisi hosting par yeh disk
+   *            deploy/restart ke saath mit sakta hai — isliye sirf
+   *            "abhi ke liye kaam chalane" wala tareeka hai, permanent nahi.
+   * 's3'     — kisi bhi S3-compatible storage par (AWS S3, Cloudflare R2,
+   *            Backblaze B2, DigitalOcean Spaces, MinIO...). `endpoint` badal
+   *            kar koi bhi provider lag sakta hai — code kisी ek company ka
+   *            nahi hai.
+   */
+  backupStorage: {
+    driver: (process.env.BACKUP_STORAGE || 'local').toLowerCase(),
+    s3: {
+      endpoint: process.env.BACKUP_S3_ENDPOINT || '',
+      region: process.env.BACKUP_S3_REGION || 'auto',
+      bucket: process.env.BACKUP_S3_BUCKET || '',
+      accessKeyId: process.env.BACKUP_S3_ACCESS_KEY_ID || '',
+      secretAccessKey: process.env.BACKUP_S3_SECRET_ACCESS_KEY || '',
+      // Zyadatar S3-compatible providers (R2, Spaces, MinIO) ko yeh "true"
+      // chahiye hota hai. Asli AWS S3 dono tarike se chalta hai.
+      forcePathStyle: String(process.env.BACKUP_S3_FORCE_PATH_STYLE ?? 'true').toLowerCase() === 'true',
+      prefix: process.env.BACKUP_S3_PREFIX || 'mailwave-backups/',
+    },
+  },
 };
 
 export const isProduction = env.nodeEnv === 'production';

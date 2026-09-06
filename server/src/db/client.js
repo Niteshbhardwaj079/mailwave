@@ -19,7 +19,14 @@
 // Achhi baat: SQL dono me bilkul ek jaisa hai. Sirf DATABASE_URL bharna hai,
 // baaki code me kuch nahi badalta.
 // ---------------------------------------------------------------------------
+import { createHash } from 'node:crypto';
+import { gunzip as gunzipCb, gzip as gzipCb } from 'node:zlib';
+import { promisify } from 'node:util';
+
 import { env } from '../env.js';
+
+const gzip = promisify(gzipCb);
+const gunzip = promisify(gunzipCb);
 
 let instance = null;
 let driver = null;
@@ -62,6 +69,24 @@ async function connectPostgres() {
       }
     },
     close: () => pool.end(),
+    // BEGIN/COMMIT/ROLLBACK sirf tab kaam karte hain jab teeno EK HI physical
+    // connection par chalein — pool.query() har baar alag connection de sakta
+    // hai. Isliye restore jaisa "sab kuch ek saath ya kuch nahi" kaam ek hi
+    // client pakad kar karte hain.
+    withClient: async (fn) => {
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        const result = await fn(client);
+        await client.query('COMMIT');
+        return result;
+      } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+      } finally {
+        client.release();
+      }
+    },
   };
 }
 
@@ -261,15 +286,306 @@ export async function transaction(fn) {
   }
 }
 
-/** PGlite ka backup. Asli Postgres par pg_dump use hota hai. */
+/** "table" ya "column" naam SQL me surakshit tarike se likhne ke liye. */
+function quoteIdent(name) {
+  return `"${String(name).replace(/"/g, '""')}"`;
+}
+
+/**
+ * Backup format ka version — badlein sirf jab tables/JSON ka dhaancha khud
+ * badle. Restore karte waqt isse jaanch hoti hai ki yeh server is backup ko
+ * samajh sakta hai ya nahi.
+ */
+export const BACKUP_FORMAT_VERSION = 1;
+
+// Yeh do table "app ka data" nahi hain — backup system ki apni bookkeeping
+// hain. Inhe backup ke andar rakhna ulta-seedha ho jata: restore karte hi
+// backup ki apni history bhi purani ho jati, jabki asli files storage me
+// jyon ki tyon padi rehti.
+const EXCLUDED_FROM_BACKUP = new Set(['backups', 'schema_migrations']);
+
+function sha256(input) {
+  return createHash('sha256').update(input).digest('hex');
+}
+
+/**
+ * Har table ka poora data uthata hai aur ek JSON me jod deta hai.
+ *
+ * pg_dump ki tarah SQL-level dump nahi hai — sirf data hai (koi CREATE TABLE
+ * nahi), kyunki structure to migrate() khud, code se, har baar bana deta hai.
+ * Restore karte waqt sirf DATA wapas bharna hai.
+ *
+ * Kaam kisi bhi standard Postgres par chalta hai — sirf information_schema
+ * aur SELECT * istemal karte hain, koi Neon/Render-khaas cheez nahi.
+ */
+async function dumpPostgres() {
+  const conn = await getConnection();
+
+  const { rows: tableRows } = await conn.query(
+    `SELECT table_name FROM information_schema.tables
+      WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
+      ORDER BY table_name`
+  );
+
+  const tables = {};
+  let rowCount = 0;
+  for (const { table_name: name } of tableRows) {
+    if (EXCLUDED_FROM_BACKUP.has(name)) continue;
+    const { rows } = await conn.query(`SELECT * FROM ${quoteIdent(name)}`);
+    tables[name] = rows;
+    rowCount += rows.length;
+  }
+
+  const checksum = `sha256:${sha256(JSON.stringify(tables))}`;
+
+  const payload = JSON.stringify({
+    formatVersion: BACKUP_FORMAT_VERSION,
+    driver: 'postgres',
+    createdAt: new Date().toISOString(),
+    counts: { tables: Object.keys(tables).length, rows: rowCount },
+    checksum,
+    tables,
+  });
+
+  const buffer = await gzip(Buffer.from(payload, 'utf8'));
+  return {
+    buffer,
+    meta: {
+      formatVersion: BACKUP_FORMAT_VERSION,
+      tableCount: Object.keys(tables).length,
+      rowCount,
+      checksum,
+    },
+  };
+}
+
+/**
+ * Backup banata hai — {buffer, meta} lautata hai dono driver ke liye, taki
+ * bulane wale ko andar ka farak jaanne ki zarurat na pade.
+ */
 export async function dumpDatabase() {
-  if (driver !== 'pglite') {
+  if (driver === 'pglite') {
+    const conn = await getConnection();
+    const blob = await conn.raw.dumpDataDir('gzip');
+    const buffer = Buffer.from(await blob.arrayBuffer());
+    return {
+      buffer,
+      // PGlite ka dump poore folder ka snapshot hai, table-by-table JSON
+      // nahi — isliye table/row ginti yahan maloom nahi, checksum phir bhi
+      // kaam ki hai (file kharab hui ya nahi, yeh bata degi).
+      meta: { formatVersion: null, tableCount: null, rowCount: null, checksum: `sha256:${sha256(buffer)}` },
+    };
+  }
+  return dumpPostgres();
+}
+
+/**
+ * Backup file khol kar jaanchta hai — kharab, adhoori ya na-samajh-aane
+ * wali file ko restore shuru hone se PEHLE hi rok deta hai.
+ */
+export async function readAndValidateBackup(buffer) {
+  let payload;
+  try {
+    const json = await gunzip(buffer);
+    payload = JSON.parse(json.toString('utf8'));
+  } catch (error) {
+    throw new Error('Yeh backup file padhi nahi ja saki — kharab ya galat file lagti hai.');
+  }
+
+  if (!payload?.tables || typeof payload.tables !== 'object' || Array.isArray(payload.tables)) {
+    throw new Error('Yeh backup file sahi format me nahi hai.');
+  }
+
+  if (typeof payload.formatVersion !== 'number' || payload.formatVersion > BACKUP_FORMAT_VERSION) {
     throw new Error(
-      'Asli Postgres ka backup pg_dump se lena hota hai. Hosting provider ka automatic backup bhi chalu rakho.'
+      `Yeh backup ek naye format (v${payload.formatVersion}) ki hai jo yeh server (v${BACKUP_FORMAT_VERSION}) nahi samajhta.`
     );
   }
+
+  if (payload.checksum) {
+    const actual = `sha256:${sha256(JSON.stringify(payload.tables))}`;
+    if (actual !== payload.checksum) {
+      throw new Error('Yeh backup file kharab (corrupt) hai — checksum match nahi hua.');
+    }
+  }
+
+  return payload;
+}
+
+/**
+ * Tables ko us order me sajata hai jisme "parent" hamesha apne "child" se
+ * pehle aaye — taki data bharte waqt kisi FK ki galti na aaye.
+ *
+ * information_schema se dekhta hai kaunsi table kisko reference karti hai
+ * (yeh bhi har Postgres par ek jaisa chalta hai, kisi provider ki khaas
+ * cheez nahi). Agar kahin chakkar (cycle) mil jaye — is app ke schema me
+ * abhi nahi hai, par future-proof rehne ke liye — bache hue tables ko bas
+ * kisi bhi order me daal deta hai, crash nahi karta.
+ */
+async function topologicalTableOrder(client, tableNames) {
+  const { rows } = await client.query(`
+    SELECT tc.table_name AS child, ccu.table_name AS parent
+      FROM information_schema.table_constraints tc
+      JOIN information_schema.constraint_column_usage ccu
+        ON tc.constraint_name = ccu.constraint_name
+       AND tc.constraint_schema = ccu.constraint_schema
+     WHERE tc.constraint_type = 'FOREIGN KEY' AND tc.table_schema = 'public'
+  `);
+
+  const tableSet = new Set(tableNames);
+  const dependsOn = new Map(tableNames.map((t) => [t, new Set()]));
+  for (const { child, parent } of rows) {
+    // Apne aap par nirbhar (self-reference) order ke liye maayne nahi rakhta.
+    if (child === parent || !tableSet.has(child) || !tableSet.has(parent)) continue;
+    dependsOn.get(child).add(parent);
+  }
+
+  const ordered = [];
+  const orderedSet = new Set();
+  const remaining = new Set(tableNames);
+
+  while (remaining.size > 0) {
+    let progressed = false;
+    for (const table of remaining) {
+      const deps = dependsOn.get(table);
+      const ready = [...deps].every((dep) => orderedSet.has(dep) || !remaining.has(dep));
+      if (ready) {
+        ordered.push(table);
+        orderedSet.add(table);
+        remaining.delete(table);
+        progressed = true;
+      }
+    }
+    if (!progressed) {
+      ordered.push(...remaining);
+      break;
+    }
+  }
+
+  return ordered;
+}
+
+/**
+ * Backup file se poora database wapas bhar deta hai — ASLI POSTGRES ke liye.
+ * (PGlite ka restore alag hai: dekho db/client.js ka connectPglite/
+ * applyPendingRestore — wahan chalte hue database ko badalna surakshit nahi,
+ * isliye woh "nishaan lagao + restart karo" tarike se hota hai. Asli Postgres
+ * par aisi koi rok nahi — isliye yahan turant, ek hi transaction me hota hai.)
+ *
+ * Kadam:
+ *   1. File khol kar jaanch lo — sahi shape, jaana-pehchana version, checksum
+ *      theek
+ *   2. Saari tables ek saath TRUNCATE ... CASCADE — foreign key ke hisaab se
+ *      order dhoondhne ki zarurat nahi, CASCADE khud sambhal leta hai
+ *   3. Har table ke FK trigger thodi der ke liye band — warna purani (backup
+ *      wali) rows ko dobara daalte waqt "abhi tak parent nahi mila" wali
+ *      galti aa sakti hai, sirf isliye ki hum kis order me table bhar rahe
+ *      hain
+ *   4. Data wapas bharo, phir trigger chalu karo
+ *   5. Jin columns ka apna counter hai (bigserial, jaise tracking_events.id),
+ *      unka counter naye max ID ke hisaab se aage badha do — warna agli baar
+ *      koi naya row banega to purane, restore kiye hue ID se takra sakta hai
+ *   6. Har table ginkar jaanch lo ki jitni rows backup me thin utni hi ab
+ *      maujood hain
+ *
+ * Sab kuch ek hi transaction me, ek hi dedicated connection par — beech me
+ * kuch fail ho to poora wapas, aadha naya-aadha purana database kabhi nahi
+ * banta.
+ */
+export async function restoreDatabase(buffer) {
+  if (driver !== 'postgres') {
+    throw new Error('Yeh turant wala restore sirf asli Postgres ke liye hai.');
+  }
+
+  const payload = await readAndValidateBackup(buffer);
   const conn = await getConnection();
-  return conn.raw.dumpDataDir('gzip');
+
+  // Sirf wahi table bharo jo ABHI is database me bhi maujood hai — purani
+  // backup me koi aisi table ho sakti hai jo ab hata di gayi ho.
+  const { rows: existingRows } = await conn.query(
+    `SELECT table_name FROM information_schema.tables
+      WHERE table_schema = 'public' AND table_type = 'BASE TABLE'`
+  );
+  const existingTables = new Set(existingRows.map((r) => r.table_name));
+  const tableNames = Object.keys(payload.tables).filter(
+    (name) => !EXCLUDED_FROM_BACKUP.has(name) && existingTables.has(name)
+  );
+
+  if (tableNames.length === 0) {
+    throw new Error('Is backup me koi maujooda table nahi mili.');
+  }
+
+  return conn.withClient(async (client) => {
+    const identList = tableNames.map(quoteIdent).join(', ');
+
+    await client.query(`TRUNCATE TABLE ${identList} RESTART IDENTITY CASCADE`);
+
+    // Pehle socha tha ki FK trigger thodi der band kar denge (DISABLE TRIGGER
+    // ALL), taki table kis order me bhari jaye iski fikar na karni pade. Test
+    // karne par pata chala: yeh un "system" trigger ko bhi band karne ki
+    // koshish karta hai jo FK khud lagata hai, aur unhe band karna sirf
+    // superuser kar sakta hai — Neon (aur zyadatar hosted Postgres) apne app
+    // wale role ko itni ijaazat nahi deta. Isliye asli tarika: pehle woh
+    // table bharo jinhe koi aur reference nahi karta, phir unko jo unhi par
+    // nirbhar hain — matlab "parent" table hamesha apne "child" se pehle.
+    const orderedTables = await topologicalTableOrder(client, tableNames);
+
+    let totalRows = 0;
+    for (const name of orderedTables) {
+      const rows = payload.tables[name];
+      if (!Array.isArray(rows) || rows.length === 0) continue;
+
+      const columns = Object.keys(rows[0]);
+      const columnList = columns.map(quoteIdent).join(', ');
+
+      for (const row of rows) {
+        const values = columns.map((col) => row[col]);
+        const placeholders = columns.map((c, i) => `$${i + 1}`).join(', ');
+        await client.query(
+          `INSERT INTO ${quoteIdent(name)} (${columnList}) VALUES (${placeholders})`,
+          values
+        );
+        totalRows += 1;
+      }
+    }
+
+    // bigserial/serial jaisi columns ka counter aage badhao, warna agla naya
+    // row purane restore kiye hue ID se takra sakta hai.
+    const { rows: serialColumns } = await client.query(`
+      SELECT table_name, column_name
+        FROM information_schema.columns
+       WHERE table_schema = 'public'
+         AND column_default LIKE 'nextval(%'
+    `);
+    for (const { table_name: table, column_name: column } of serialColumns) {
+      if (!tableNames.includes(table)) continue;
+      // pg_get_serial_sequence() naam text ke roop me maangta hai (identifier
+      // nahi) — isliye yeh do bind parameter se, baaki jagah quoteIdent() se.
+      await client.query(
+        `SELECT setval(
+           pg_get_serial_sequence($1, $2),
+           COALESCE((SELECT MAX(${quoteIdent(column)}) FROM ${quoteIdent(table)}), 1),
+           (SELECT MAX(${quoteIdent(column)}) FROM ${quoteIdent(table)}) IS NOT NULL
+         )`,
+        [table, column]
+      );
+    }
+
+    // Jaanch: jitni rows backup me thin, utni hi ab is table me hain. Ek bhi
+    // farak matlab kuch adhoora reh gaya — poori transaction wapas (rollback).
+    for (const name of tableNames) {
+      const expected = (payload.tables[name] ?? []).length;
+      const { rows: countRows } = await client.query(`SELECT count(*)::int AS n FROM ${quoteIdent(name)}`);
+      const actual = countRows[0]?.n ?? 0;
+      if (actual !== expected) {
+        throw new Error(
+          `Restore ke baad jaanch fail hui: "${name}" me ${expected} rows honi chahiye thin, ${actual} mili.`
+        );
+      }
+    }
+
+    return { tables: tableNames.length, rows: totalRows };
+  });
 }
 
 export async function closeDb() {
