@@ -292,7 +292,7 @@ export default function CampaignAnalyticsPage() {
 
   const kpis = [
     { id: 'sent', label: t('kpi.sent'), value: campaign.sent, icon: 'bi-send', tone: 'primary' },
-    { id: 'delivered', label: t('kpi.delivered'), value: campaign.delivered, icon: 'bi-check2-circle', tone: 'success' },
+    { id: 'pending', label: t('kpi.pending'), value: campaign.pending, icon: 'bi-hourglass-split', tone: 'muted' },
     { id: 'opened', label: t('kpi.openedEstimate'), value: campaign.opened, icon: 'bi-envelope-open', tone: 'info' },
     { id: 'openRate', label: t('kpi.openRate'), value: percent(campaign.opened, campaign.sent), icon: 'bi-graph-up-arrow', tone: 'info' },
     { id: 'clicked', label: t('kpi.clicked'), value: campaign.clicked, icon: 'bi-cursor', tone: 'success' },
@@ -357,6 +357,10 @@ export default function CampaignAnalyticsPage() {
           <KpiCard key={kpi.id} label={kpi.label} value={kpi.value} icon={kpi.icon} tone={kpi.tone} />
         ))}
       </div>
+
+      <Note tone="info" icon="bi-info-circle">
+        <strong>{t('camp.sentMeaning')}</strong> {t('camp.sentMeaningText')}
+      </Note>
 
       <div className="mw-grid-main-side">
         <Card>
@@ -428,27 +432,33 @@ export default function CampaignAnalyticsPage() {
             <div className="mw-breakdown">
               <div className="mw-breakdown__row">
                 <span className="mw-legend__swatch mw-legend__swatch--sent" aria-hidden="true" />
-                <span className="mw-breakdown__name">{t('kpi.delivered')}</span>
-                <span className="mw-breakdown__value">{formatNumber(campaign.delivered)}</span>
-                <span className="mw-breakdown__pct">{percent(campaign.delivered, campaign.sent)}</span>
+                <span className="mw-breakdown__name">{t('kpi.sent')}</span>
+                <span className="mw-breakdown__value">{formatNumber(campaign.sent)}</span>
+                <span className="mw-breakdown__pct">{percent(campaign.sent, campaign.recipients)}</span>
+              </div>
+              <div className="mw-breakdown__row">
+                <span className="mw-legend__swatch mw-legend__swatch--muted" aria-hidden="true" />
+                <span className="mw-breakdown__name">{t('kpi.pending')}</span>
+                <span className="mw-breakdown__value">{formatNumber(campaign.pending)}</span>
+                <span className="mw-breakdown__pct">{percent(campaign.pending, campaign.recipients)}</span>
               </div>
               <div className="mw-breakdown__row">
                 <span className="mw-legend__swatch mw-legend__swatch--failed" aria-hidden="true" />
                 <span className="mw-breakdown__name">Failed</span>
                 <span className="mw-breakdown__value">{formatNumber(campaign.failed)}</span>
-                <span className="mw-breakdown__pct">{percent(campaign.failed, campaign.sent)}</span>
+                <span className="mw-breakdown__pct">{percent(campaign.failed, campaign.recipients)}</span>
               </div>
               <div className="mw-breakdown__row">
                 <span className="mw-legend__swatch mw-legend__swatch--bounced" aria-hidden="true" />
                 <span className="mw-breakdown__name">Bounced</span>
                 <span className="mw-breakdown__value">{formatNumber(campaign.bounced)}</span>
-                <span className="mw-breakdown__pct">{percent(campaign.bounced, campaign.sent)}</span>
+                <span className="mw-breakdown__pct">{percent(campaign.bounced, campaign.recipients)}</span>
               </div>
               <div className="mw-breakdown__row">
                 <span className="mw-legend__swatch mw-legend__swatch--unsub" aria-hidden="true" />
                 <span className="mw-breakdown__name">{t('kpi.unsubscribed')}</span>
                 <span className="mw-breakdown__value">{formatNumber(campaign.unsubscribed)}</span>
-                <span className="mw-breakdown__pct">{percent(campaign.unsubscribed, campaign.sent)}</span>
+                <span className="mw-breakdown__pct">{percent(campaign.unsubscribed, campaign.recipients)}</span>
               </div>
             </div>
           </CardBody>
@@ -476,7 +486,9 @@ export default function CampaignAnalyticsPage() {
             <div className="mw-kv">
               <span className="mw-kv__key">{hasResults ? 'Sent on' : 'Planned for'}</span>
               <span className="mw-kv__value">
-                {hasResults ? `${campaign.date} at ${campaign.time}` : `${campaign.date} — not sent yet`}
+                {hasResults
+                  ? formatDateTime(campaign.date)
+                  : `${formatDateTime(campaign.date)} — not sent yet`}
               </span>
             </div>
           </CardBody>

@@ -284,17 +284,20 @@ router.get(
   asyncHandler(async (req, res) => {
     const row = await one(`
       SELECT
-        count(*) FILTER (WHERE status IN ('Sent','Delivered'))::int AS delivered,
+        count(*) FILTER (WHERE status = 'Sent')::int AS sent,
         count(*) FILTER (WHERE status = 'Failed')::int AS failed,
         count(*) FILTER (WHERE status = 'Bounced')::int AS bounced,
         count(*) FILTER (WHERE unsubscribed = true)::int AS unsubscribed
       FROM campaign_recipients
     `);
 
-    // Rang yahin se aate hain taki graph aur report dono me ek jaise rahein.
+    // "Sent" hi bolte hain, "Delivered" nahi — hume kabhi pata nahi chalta ki
+    // asal me inbox tak pahuncha ya nahi, sirf itna pata hai ki server ne
+    // le liya. Rang yahin se aate hain taki graph aur report dono me ek jaise
+    // rahein.
     res.json({
       delivery: [
-        { key: 'delivered', name: 'Delivered', value: row?.delivered ?? 0, color: '#4f46e5' },
+        { key: 'sent', name: 'Sent', value: row?.sent ?? 0, color: '#4f46e5' },
         { key: 'failed', name: 'Failed', value: row?.failed ?? 0, color: '#dc2626' },
         { key: 'bounced', name: 'Bounced', value: row?.bounced ?? 0, color: '#d97706' },
         { key: 'unsubscribed', name: 'Unsubscribed', value: row?.unsubscribed ?? 0, color: '#9ca3af' },

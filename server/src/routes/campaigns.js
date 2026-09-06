@@ -64,10 +64,10 @@ function toApi(row) {
     // Ye numbers list screen par dikhte hain.
     recipients: row.recipients ?? 0,
     sent: row.sent ?? 0,
+    pending: row.pending ?? 0,
     failed: row.failed ?? 0,
     opened: row.opened ?? 0,
     clicked: row.clicked ?? 0,
-    delivered: row.delivered ?? 0,
     bounced: row.bounced ?? 0,
     unsubscribed: row.unsubscribed ?? 0,
   };
@@ -79,10 +79,10 @@ const SELECT = `
   SELECT c.*, a.email AS account_email, t.name AS template_name,
          (SELECT count(*)::int FROM campaign_recipients r WHERE r.campaign_id = c.id) AS recipients,
          (SELECT count(*)::int FROM campaign_recipients r WHERE r.campaign_id = c.id AND r.status = 'Sent') AS sent,
+         (SELECT count(*)::int FROM campaign_recipients r WHERE r.campaign_id = c.id AND r.status = 'Pending') AS pending,
          (SELECT count(*)::int FROM campaign_recipients r WHERE r.campaign_id = c.id AND r.status = 'Failed') AS failed,
          (SELECT count(*)::int FROM campaign_recipients r WHERE r.campaign_id = c.id AND r.open_count > 0) AS opened,
          (SELECT count(*)::int FROM campaign_recipients r WHERE r.campaign_id = c.id AND r.click_count > 0) AS clicked,
-         (SELECT count(*)::int FROM campaign_recipients r WHERE r.campaign_id = c.id AND r.status IN ('Sent','Delivered')) AS delivered,
          (SELECT count(*)::int FROM campaign_recipients r WHERE r.campaign_id = c.id AND r.status = 'Bounced') AS bounced,
          (SELECT count(*)::int FROM campaign_recipients r WHERE r.campaign_id = c.id AND r.unsubscribed) AS unsubscribed
     FROM campaigns c

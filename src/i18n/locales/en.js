@@ -162,7 +162,7 @@ export default {
   'camp.activityOverTimeSub': 'Sent, opened and clicked since the campaign started',
   'camp.recipientActivity': 'Recipient activity',
   'camp.settingsUsed': 'Campaign settings used',
-  'camp.afterSendingSub': 'Delivery result for this campaign',
+  'camp.afterSendingSub': 'What happened after sending — not confirmed inbox delivery',
   'camp.settingsUsedSub': 'Exactly how this one was sent',
   'camp.replyNote': 'Replies do not come back into {app}. They land in the normal inbox of the reply-to address above — open Gmail or Outlook to read and answer them.',
   'camp.afterSending': 'What happened after sending',
@@ -1075,6 +1075,8 @@ export default {
   // --- Campaign analytics ---
   'camp.openEstimate': '“Open detected” is an estimate.',
   'camp.openEstimateText': 'It means the tracking image loaded — not that a person definitely read the email. Apple Mail Privacy Protection and similar features load images automatically, and image blocking hides real opens.',
+  'camp.sentMeaning': '“Sent” means handed off successfully.',
+  'camp.sentMeaningText': 'It means your email server accepted the message for delivery — not that it reached the inbox. If someone says they never got it, check their Spam folder first, then your sending domain’s SPF/DKIM setup with your email provider.',
 
   // --- Shared ---
   'common.breadcrumb': 'Breadcrumb',
@@ -1157,7 +1159,7 @@ export default {
   'acc.removeText': 'campaigns already sent stay as they are. New campaigns will need another account.',
   'toast.accountRemoved': 'Account disconnected',
   'rep.breakdownTitle': 'What happened to the mail',
-  'rep.breakdownSub': 'Delivered, failed, bounced and unsubscribed across every campaign.',
+  'rep.breakdownSub': 'Sent, failed, bounced and unsubscribed across every campaign.',
   'rep.formatTitle': 'File format',
   'rep.formatSub': 'Both open in Excel. CSV also opens in Google Sheets and Numbers.',
   'rep.typesTitle': 'Reports you can download',

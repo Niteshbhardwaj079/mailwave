@@ -1537,6 +1537,9 @@
 .mw-legend__swatch--unsub {
   background-color: var(--mw-chart-unsub);
 }
+.mw-legend__swatch--muted {
+  background-color: var(--mw-muted-2);
+}
 
 // ---------------------------------------------------------------------------
 // Responsive component behaviour
