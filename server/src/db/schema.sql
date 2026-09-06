@@ -357,6 +357,29 @@ CREATE TABLE IF NOT EXISTS backups (
 CREATE INDEX IF NOT EXISTS backups_created_at_idx ON backups (created_at DESC);
 CREATE INDEX IF NOT EXISTS backups_status_idx ON backups (status);
 
+-- --- API keys -------------------------------------------------------------
+--
+-- Bahar ka koi program (Zapier, apna script) is app se seedha baat kar sake,
+-- login form ke bina — isi ke liye. Asli key sirf ek baar, banते hi, dikhti
+-- hai; uske baad hamesha sirf uska hash yahan rehta hai (password jaisa hi
+-- tareeka) — database chori ho bhi jaye to keys se koi kaam nahi.
+--
+-- Key jisne banayi, uski hi permissions se kaam karti hai (role wahi). Wo
+-- insaan delete ho jaye to uski keys bhi apne aap CASCADE se chali jaati
+-- hain — kisi "yateem" key ko koi permission na milne se behtar hai ki wo
+-- ho hi na.
+CREATE TABLE IF NOT EXISTS api_keys (
+  id           text PRIMARY KEY,
+  name         text NOT NULL,
+  key_prefix   text NOT NULL,
+  key_hash     text NOT NULL UNIQUE,
+  created_by   text NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  last_used_at timestamptz,
+  created_at   timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS api_keys_hash_idx ON api_keys (key_hash);
+
 -- Applied migrations, so migrate.js is safe to run repeatedly.
 CREATE TABLE IF NOT EXISTS schema_migrations (
   version     integer PRIMARY KEY,

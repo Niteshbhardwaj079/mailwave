@@ -9,11 +9,15 @@ import { appConfig } from '../config/appConfig';
 import { THEME_MODES } from '../config/themeColors';
 import { Card, CardBody, CardFoot, CardHead } from '../components/ui/Card';
 import { Note } from '../components/ui/Controls';
+import Sheet from '../components/ui/Sheet';
+import EmptyState from '../components/ui/EmptyState';
 import { useAuth } from '../store/AuthProvider';
 import { useApi } from '../api/useApi';
 import { ApiError, api } from '../api/client';
 import { useToast } from '../components/ui/ToastProvider';
-import { formatNumber } from '../utils/format';
+import { formatDateTime, formatNumber } from '../utils/format';
+
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
 const SECTIONS = [
   { key: 'profile', labelKey: 'topbar.profile', icon: 'bi-person' },
@@ -159,6 +163,69 @@ export default function SettingsPage() {
       toast.error(error instanceof ApiError ? error.message : t('toast.networkError'));
     } finally {
       setSavingKey('');
+    }
+  }
+
+  // --- API keys ---------------------------------------------------------------
+  const apiKeysCall = useApi('/api/api-keys');
+  const apiKeys = apiKeysCall.data?.keys ?? [];
+
+  const [createKeyOpen, setCreateKeyOpen] = useState(false);
+  const [newKeyName, setNewKeyName] = useState('');
+  const [creatingKey, setCreatingKey] = useState(false);
+  const [createKeyError, setCreateKeyError] = useState('');
+  // Asli key sirf isi state me, sirf banne ke turant baad — kahin save nahi
+  // hoti, page chhodte hi hamesha ke liye chali jati hai.
+  const [revealedKey, setRevealedKey] = useState(null);
+  const [copied, setCopied] = useState(false);
+  const [revokeFor, setRevokeFor] = useState(null);
+
+  function openCreateKey() {
+    setNewKeyName('');
+    setCreateKeyError('');
+    setCreateKeyOpen(true);
+  }
+
+  async function createKey() {
+    if (!newKeyName.trim()) {
+      setCreateKeyError(t('set.apiKeyNameNeeded'));
+      return;
+    }
+    setCreatingKey(true);
+    setCreateKeyError('');
+    try {
+      const data = await api.post('/api/api-keys', { name: newKeyName.trim() });
+      setCreateKeyOpen(false);
+      setRevealedKey(data.key);
+      apiKeysCall.reload();
+    } catch (error) {
+      setCreateKeyError(error instanceof ApiError ? error.message : t('toast.networkError'));
+    } finally {
+      setCreatingKey(false);
+    }
+  }
+
+  function copyRevealedKey() {
+    navigator.clipboard?.writeText(revealedKey.token);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1800);
+  }
+
+  function closeRevealedKey() {
+    setRevealedKey(null);
+    setCopied(false);
+  }
+
+  async function confirmRevokeKey() {
+    const key = revokeFor;
+    setRevokeFor(null);
+    if (!key) return;
+    try {
+      await api.delete(`/api/api-keys/${key.id}`);
+      apiKeysCall.reload();
+      toast.success(t('set.apiKeyRevoked'), key.name);
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : t('toast.networkError'));
     }
   }
 
@@ -742,26 +809,170 @@ export default function SettingsPage() {
           ) : null}
 
           {section === 'api' ? (
-            <Card>
-              <CardHead
-                title={
-                  <span className="mw-row">
-                    {t('set.apiTitle')}
-                    <HelpButton topic="settingsApi" />
-                  </span>
-                }
-                subtitle={t('set.apiSub')}
-              />
-              <CardBody>
-                <Note tone="info" icon="bi-info-circle">
-                  {t('set.apiNotAvailable')}
-                </Note>
-                <p className="mw-fs-13 mw-text-muted mt-3 mb-0">{t('set.apiNotAvailableText')}</p>
-              </CardBody>
-            </Card>
+            <>
+              <Card flush>
+                <CardHead
+                  title={
+                    <span className="mw-row">
+                      {t('set.apiTitle')}
+                      <HelpButton topic="settingsApi" />
+                    </span>
+                  }
+                  subtitle={t('set.apiSub')}
+                  tools={
+                    <button type="button" className="btn btn-primary btn-sm" onClick={openCreateKey}>
+                      <i className="bi bi-plus-lg me-2" />
+                      {t('set.newApiKey')}
+                    </button>
+                  }
+                />
+
+                {apiKeysCall.loading && apiKeys.length === 0 ? (
+                  <div className="p-4 text-center mw-text-muted">
+                    <div className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" />
+                    {t('common.loading')}
+                  </div>
+                ) : apiKeys.length === 0 ? (
+                  <EmptyState
+                    icon="bi-code-slash"
+                    title={t('set.noApiKeys')}
+                    text={t('set.noApiKeysText')}
+                    action={
+                      <button type="button" className="btn btn-primary" onClick={openCreateKey}>
+                        {t('set.newApiKey')}
+                      </button>
+                    }
+                  />
+                ) : (
+                  <div className="mw-tablewrap">
+                    <table className="mw-table">
+                      <thead>
+                        <tr>
+                          <th scope="col">{t('common.name')}</th>
+                          <th scope="col">{t('set.apiKey')}</th>
+                          <th scope="col">{t('set.createdBy')}</th>
+                          <th scope="col">{t('set.lastUsed')}</th>
+                          <th scope="col" className="text-end">{t('common.actions')}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {apiKeys.map((key) => (
+                          <tr key={key.id}>
+                            <td className="mw-table__primary">{key.name}</td>
+                            <td className="mw-mono mw-fs-12 mw-text-muted">{key.prefix}…</td>
+                            <td className="mw-table__muted">{key.createdBy ?? '—'}</td>
+                            <td className="mw-table__muted mw-nowrap">
+                              {key.lastUsedAt ? formatDateTime(key.lastUsedAt) : t('set.neverUsed')}
+                            </td>
+                            <td className="text-end">
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-outline-danger"
+                                onClick={() => setRevokeFor(key)}
+                              >
+                                {t('set.revoke')}
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </Card>
+
+              <Note tone="info" icon="bi-terminal">
+                <strong>{t('set.apiUsageTitle')} </strong>
+                {t('set.apiUsageText')}
+                <pre className="mw-codearea mw-codearea--sm mt-2 mb-0">{`curl ${API_BASE}/api/campaigns \\\n  -H "Authorization: Bearer mw_live_..."`}</pre>
+              </Note>
+            </>
           ) : null}
         </div>
       </div>
+
+      {/* Naya key banao — naam poochte hain, taki list me pehchana ja sake
+          ki kaunsi key kis kaam ke liye hai. */}
+      <Sheet
+        open={createKeyOpen}
+        title={t('set.newApiKey')}
+        onClose={() => setCreateKeyOpen(false)}
+        footer={
+          <>
+            <button type="button" className="btn btn-outline-secondary flex-fill" onClick={() => setCreateKeyOpen(false)}>
+              {t('common.cancel')}
+            </button>
+            <button type="button" className="btn btn-primary flex-fill" onClick={createKey} disabled={creatingKey}>
+              {creatingKey ? t('common.loading') : t('set.createKey')}
+            </button>
+          </>
+        }
+      >
+        {createKeyError ? (
+          <Note tone="warning" icon="bi-exclamation-triangle">
+            {createKeyError}
+          </Note>
+        ) : null}
+        <label className="form-label" htmlFor="new-key-name">{t('set.apiKeyName')}</label>
+        <input
+          id="new-key-name"
+          type="text"
+          className="form-control"
+          placeholder={t('set.apiKeyNamePlaceholder')}
+          value={newKeyName}
+          onChange={(event) => setNewKeyName(event.target.value)}
+        />
+        <div className="form-text">{t('set.apiKeyNameHelp')}</div>
+      </Sheet>
+
+      {/* Asli key — sirf ek baar. Yeh Sheet band hote hi key hamesha ke liye
+          gayab ho jati hai; wapas dekhne ka koi tarika nahi hai. */}
+      <Sheet
+        open={Boolean(revealedKey)}
+        title={t('set.apiKeyCreated')}
+        onClose={closeRevealedKey}
+        footer={
+          <button type="button" className="btn btn-primary flex-fill" onClick={closeRevealedKey}>
+            {t('set.apiKeySaved')}
+          </button>
+        }
+      >
+        <Note tone="warning" icon="bi-exclamation-triangle">
+          {t('set.apiKeyOnceWarning')}
+        </Note>
+        {revealedKey ? (
+          <div className="mw-urlbox mt-3">
+            <span className="mw-urlbox__text mw-mono">{revealedKey.token}</span>
+            <button type="button" className="mw-urlbox__btn" onClick={copyRevealedKey}>
+              {copied ? t('common.copied') : t('common.copy')}
+            </button>
+          </div>
+        ) : null}
+      </Sheet>
+
+      {/* Revoke pakka karo — yeh key istemal karne wala har program turant
+          rukk jayega, dobara chalu nahi ho sakta. */}
+      <Sheet
+        open={Boolean(revokeFor)}
+        title={t('set.revokeKeyTitle')}
+        onClose={() => setRevokeFor(null)}
+        footer={
+          <>
+            <button type="button" className="btn btn-outline-secondary flex-fill" onClick={() => setRevokeFor(null)}>
+              {t('common.cancel')}
+            </button>
+            <button type="button" className="btn btn-danger flex-fill" onClick={confirmRevokeKey}>
+              {t('set.revoke')}
+            </button>
+          </>
+        }
+      >
+        {revokeFor ? (
+          <p className="mw-fs-14 mb-0">
+            <strong>{revokeFor.name}</strong> — {t('set.revokeKeyText')}
+          </p>
+        ) : null}
+      </Sheet>
     </div>
   );
 }
