@@ -17,6 +17,7 @@ import { logActivity } from '../lib/activity.js';
 import { validate } from '../lib/validate.js';
 import { requireModule } from '../middleware/permissions.js';
 import { sendSystemEmail } from '../services/systemMail.js';
+import { DEFAULT_LANGUAGE, isValidLanguage } from '../lib/languages.js';
 
 const router = Router();
 
@@ -30,12 +31,50 @@ function toApi(row) {
   };
 }
 
+/** English base row ke alawa, kisi bhi language ke resolved content ko API shape deta hai. */
+function toApiForLanguage(base, content, language, translations) {
+  return {
+    key: base.key,
+    subject: content.subject,
+    html: content.html,
+    enabled: base.enabled,
+    updated: content.updated_at,
+    language,
+    // true matlab: is language ka kuch saved nahi, English dikha rahe hain.
+    isFallback: content.isFallback,
+    // Kaunsi languages me pehle se content saved hai — editor isse dropdown
+    // par ek chhota badge dikha sakta hai.
+    translations: translations.map((t) => ({ language: t.language, updated: t.updated_at })),
+  };
+}
+
 router.get(
   '/',
   requireModule('settings', 'view'),
   asyncHandler(async (req, res) => {
-    const rows = await many('SELECT * FROM system_emails ORDER BY key');
-    res.json({ systemEmails: rows.map(toApi) });
+    const language = isValidLanguage(req.query.language) ? req.query.language : DEFAULT_LANGUAGE;
+
+    const bases = await many('SELECT * FROM system_emails ORDER BY key');
+    const allTranslations = await many(
+      'SELECT key, language, subject, html, updated_at FROM system_email_translations'
+    );
+
+    const translationsByKey = new Map();
+    for (const t of allTranslations) {
+      if (!translationsByKey.has(t.key)) translationsByKey.set(t.key, []);
+      translationsByKey.get(t.key).push(t);
+    }
+
+    const systemEmails = bases.map((base) => {
+      const keyTranslations = translationsByKey.get(base.key) || [];
+      const match = language !== 'en' ? keyTranslations.find((t) => t.language === language) : null;
+      const content = match
+        ? { subject: match.subject, html: match.html, updated_at: match.updated_at, isFallback: false }
+        : { subject: base.subject, html: base.html, updated_at: base.updated_at, isFallback: language !== 'en' };
+      return toApiForLanguage(base, content, language, keyTranslations);
+    });
+
+    res.json({ systemEmails });
   })
 );
 
@@ -66,6 +105,92 @@ router.put(
 
     const row = await one('SELECT * FROM system_emails WHERE key = $1', [req.params.key]);
     res.json({ systemEmail: toApi(row) });
+  })
+);
+
+/**
+ * Ek non-English language ka independent version save karo.
+ *
+ * English `PUT /:key` se hi badalti hai — yahan se kabhi nahi. Isliye Spanish
+ * save karna English (ya kisi aur language) ko kabhi chhoo nahi sakta.
+ */
+router.put(
+  '/:key/translations/:language',
+  requireModule('settings', 'edit'),
+  validate(
+    z.object({
+      subject: z.string().trim().min(1, 'Subject khali nahi ho sakta').max(300),
+      html: z.string().max(500_000, 'Yeh template bahut bada hai'),
+    })
+  ),
+  asyncHandler(async (req, res) => {
+    const { key, language } = req.params;
+    if (language === 'en') {
+      throw badRequest('English ke liye PUT /:key route use karo, translations ke liye nahi');
+    }
+    if (!isValidLanguage(language)) throw badRequest('Yeh language pehchani nahi gayi');
+
+    const base = await one('SELECT key, enabled FROM system_emails WHERE key = $1', [key]);
+    if (!base) throw notFound('Yeh system email nahi mili');
+
+    await query(
+      `INSERT INTO system_email_translations (key, language, subject, html, updated_at)
+       VALUES ($1,$2,$3,$4, now())
+       ON CONFLICT (key, language) DO UPDATE
+         SET subject = EXCLUDED.subject, html = EXCLUDED.html, updated_at = now()`,
+      [key, language, req.body.subject, req.body.html]
+    );
+
+    await logActivity(req, {
+      action: 'updated',
+      module: 'settings',
+      item: `${key} (${language})`,
+      detail: `System email ka ${language} version save hua`,
+    });
+
+    const row = await one(
+      'SELECT subject, html, updated_at FROM system_email_translations WHERE key = $1 AND language = $2',
+      [key, language]
+    );
+    res.json({
+      systemEmail: toApiForLanguage(
+        base,
+        { subject: row.subject, html: row.html, updated_at: row.updated_at, isFallback: false },
+        language,
+        []
+      ),
+    });
+  })
+);
+
+/**
+ * Ek language ka version hatao — us key ke liye English fallback wapas dikhne
+ * lagega. English ke liye khud yeh route kaam nahi karta (usko delete karne
+ * ka matlab hi nahi, wahi to base hai).
+ */
+router.delete(
+  '/:key/translations/:language',
+  requireModule('settings', 'edit'),
+  asyncHandler(async (req, res) => {
+    const { key, language } = req.params;
+    if (language === 'en') throw badRequest('English translations me nahi, system_emails me hai');
+
+    const existing = await one(
+      'SELECT 1 AS found FROM system_email_translations WHERE key = $1 AND language = $2',
+      [key, language]
+    );
+    if (!existing) throw notFound('Is language ka koi version saved nahi hai');
+
+    await query('DELETE FROM system_email_translations WHERE key = $1 AND language = $2', [key, language]);
+
+    await logActivity(req, {
+      action: 'deleted',
+      module: 'settings',
+      item: `${key} (${language})`,
+      detail: `System email ka ${language} version hataya — ab English dikhega`,
+    });
+
+    res.json({ ok: true });
   })
 );
 
@@ -149,8 +274,9 @@ router.post(
   '/:key/test',
   requireModule('settings', 'edit'),
   asyncHandler(async (req, res) => {
-    const existing = await one('SELECT key FROM system_emails WHERE key = $1', [req.params.key]);
-    if (!existing) throw notFound('Yeh system email nahi mili');
+    // Editor me jo language tab khula hai wahi yahan aata hai — na diya jaye
+    // to English. Isse "Send Test" hamesha wahi dikhata hai jo screen par khula hai.
+    const language = isValidLanguage(req.body?.language) ? req.body.language : DEFAULT_LANGUAGE;
 
     // Saare {{variables}} ki jagah saaf-saaf nakli value, taki dekhne wale ko
     // pata chale ki asli email me wahan kya aayega.
@@ -185,7 +311,7 @@ router.post(
       req.params.key,
       { email: req.user.email, name: req.user.name },
       sample,
-      { force: true }
+      { force: true, language }
     );
 
     if (!sent.ok) {
@@ -197,7 +323,7 @@ router.post(
       throw badRequest(why[sent.reason] ?? 'Test email nahi ja saka');
     }
 
-    res.json({ ok: true, to: req.user.email, previewUrl: sent.previewUrl ?? null });
+    res.json({ ok: true, to: req.user.email, language, previewUrl: sent.previewUrl ?? null });
   })
 );
 

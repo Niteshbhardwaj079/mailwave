@@ -8,7 +8,7 @@ import { hashToken, isApiKeyFormat, verifyAccessToken } from '../lib/tokens.js';
  */
 async function authenticateApiKey(token) {
   const row = await one(
-    `SELECT k.id AS key_id, u.id, u.name, u.email, u.role_key, u.status, u.initials, u.department
+    `SELECT k.id AS key_id, u.id, u.name, u.email, u.role_key, u.status, u.initials, u.department, u.language
        FROM api_keys k
        JOIN users u ON u.id = k.created_by
       WHERE k.key_hash = $1`,
@@ -60,7 +60,7 @@ export const requireAuth = asyncHandler(async (req, res, next) => {
   }
 
   const user = await one(
-    `SELECT id, name, email, role_key, status, initials, department
+    `SELECT id, name, email, role_key, status, initials, department, language
        FROM users WHERE id = $1`,
     [claims.sub]
   );

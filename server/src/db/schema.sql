@@ -49,6 +49,10 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE INDEX IF NOT EXISTS users_role_idx ON users (role_key);
 
+-- Purane database me yeh column nahi hoga — naye deploy par apne aap jud jata hai.
+-- Password reset, invite jaise real system emails isi language me jaate hain.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS language text NOT NULL DEFAULT 'en';
+
 -- Refresh tokens are stored hashed: a leaked database row cannot be replayed.
 CREATE TABLE IF NOT EXISTS refresh_tokens (
   id          text PRIMARY KEY,
@@ -159,6 +163,10 @@ CREATE TABLE IF NOT EXISTS templates (
   updated_at  timestamptz NOT NULL DEFAULT now()
 );
 
+-- Purane database me yeh column nahi hoga — naye deploy par apne aap jud jata hai.
+-- Batata hai template ka content kis language me likha gaya hai.
+ALTER TABLE templates ADD COLUMN IF NOT EXISTS language text NOT NULL DEFAULT 'en';
+
 CREATE TABLE IF NOT EXISTS images (
   id          text PRIMARY KEY,
   name        text NOT NULL,
@@ -219,6 +227,10 @@ CREATE TABLE IF NOT EXISTS campaigns (
 
 -- Purane database me yeh column nahi hoga — naye deploy par apne aap jud jata hai.
 ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS pause_reason text;
+
+-- Content-selection step par chuni gayi template ki language yahan freeze ho jaati
+-- hai, sirf record/badge ke liye — sending already frozen html/subject use karti hai.
+ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS language text NOT NULL DEFAULT 'en';
 
 CREATE INDEX IF NOT EXISTS campaigns_status_idx ON campaigns (status);
 
@@ -297,6 +309,18 @@ CREATE TABLE IF NOT EXISTS system_emails (
   html        text NOT NULL,
   enabled     boolean NOT NULL DEFAULT true,
   updated_at  timestamptz NOT NULL DEFAULT now()
+);
+
+-- Har row ek non-English language version hai. English khud system_emails me hi
+-- rehti hai — yahan kabhi nahi. Isliye ek language edit karna doosri language ko
+-- kabhi touch nahi karta.
+CREATE TABLE IF NOT EXISTS system_email_translations (
+  key         text NOT NULL REFERENCES system_emails(key) ON DELETE CASCADE,
+  language    text NOT NULL,
+  subject     text NOT NULL,
+  html        text NOT NULL,
+  updated_at  timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (key, language)
 );
 
 CREATE TABLE IF NOT EXISTS settings (

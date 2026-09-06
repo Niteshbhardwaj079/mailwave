@@ -252,7 +252,7 @@ router.get(
 
     if (changed) {
       const owner = await one(
-        `SELECT c.name AS campaign_name, u.email AS owner_email, u.name AS owner_name
+        `SELECT c.name AS campaign_name, u.email AS owner_email, u.name AS owner_name, u.language AS owner_language
            FROM campaigns c LEFT JOIN users u ON u.id = c.created_by
           WHERE c.id = $1`,
         [recipient.campaign_id]
@@ -260,7 +260,7 @@ router.get(
       if (owner?.owner_email) {
         await sendSystemEmail(
           'contact.subscribed',
-          { email: owner.owner_email, name: owner.owner_name },
+          { email: owner.owner_email, name: owner.owner_name, language: owner.owner_language },
           {
             name: recipient.name || recipient.email,
             email: recipient.email,

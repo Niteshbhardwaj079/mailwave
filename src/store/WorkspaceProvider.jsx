@@ -164,6 +164,7 @@ export function WorkspaceProvider({ children }) {
         category: template.category ?? 'Custom',
         subject: template.subject ?? '',
         html: template.html ?? '',
+        language: template.language ?? 'en',
       };
 
       try {
@@ -207,6 +208,7 @@ export function WorkspaceProvider({ children }) {
               category: found.category,
               subject: found.subject,
               html: found.html,
+              language: found.language,
             });
             setTemplates((current) => [data.template, ...current]);
             refreshActivity();
@@ -479,6 +481,7 @@ export function WorkspaceProvider({ children }) {
         role: user.role,
         department: user.department ?? '',
         status: user.status ?? (isNew ? 'Invited' : 'Active'),
+        language: user.language ?? 'en',
       };
 
       try {
@@ -575,13 +578,21 @@ export function WorkspaceProvider({ children }) {
   );
 
   // --- system emails -------------------------------------------------------
+  /**
+   * Language 'en' ho to purana route (system_emails ka base), warna us
+   * language ka apna independent version — dono kabhi ek doosre ko chhoote nahi.
+   */
   const updateSystemEmail = useCallback(
-    async (key, patch) => {
+    async (key, patch, language = 'en') => {
       const existing = systemEmails.find((item) => item.key === key);
       if (!existing) return;
 
       try {
-        const data = await api.put(`/api/system-emails/${key}`, {
+        const url =
+          language === 'en'
+            ? `/api/system-emails/${key}`
+            : `/api/system-emails/${key}/translations/${language}`;
+        const data = await api.put(url, {
           subject: patch.subject ?? existing.subject,
           html: patch.html ?? existing.html,
         });
@@ -596,6 +607,34 @@ export function WorkspaceProvider({ children }) {
       }
     },
     [systemEmails, toast, t, fail, refreshActivity]
+  );
+
+  /** List ko dobara load karta hai, kisi ek language ke content ke saath. */
+  const loadSystemEmailsForLanguage = useCallback(
+    async (language) => {
+      try {
+        const data = await api.get(`/api/system-emails?language=${encodeURIComponent(language)}`);
+        setSystemEmails(mergeSystemEmails(data.systemEmails ?? []));
+      } catch (error) {
+        fail(error);
+      }
+    },
+    [fail]
+  );
+
+  /** Ek language ka version hata deta hai — us key ke liye English wapas dikhne lagta hai. */
+  const deleteSystemEmailTranslation = useCallback(
+    async (key, language) => {
+      try {
+        await api.delete(`/api/system-emails/${key}/translations/${language}`);
+        await loadSystemEmailsForLanguage(language);
+        toast.success(t('toast.systemEmailReset'));
+        refreshActivity();
+      } catch (error) {
+        fail(error);
+      }
+    },
+    [loadSystemEmailsForLanguage, toast, t, fail, refreshActivity]
   );
 
   const resetSystemEmail = useCallback(
@@ -642,9 +681,9 @@ export function WorkspaceProvider({ children }) {
    * ho tab bhi yeh test chalta hai, kyunki maksad sirf dekhna hai.
    */
   const sendTestSystemEmail = useCallback(
-    async (key) => {
+    async (key, language = 'en') => {
       try {
-        const data = await api.post(`/api/system-emails/${key}/test`);
+        const data = await api.post(`/api/system-emails/${key}/test`, { language });
         toast.success(t('toast.systemEmailTestSent'), data.to);
         return data;
       } catch (error) {
@@ -757,6 +796,8 @@ export function WorkspaceProvider({ children }) {
       sendPasswordResetLink,
       systemEmails,
       updateSystemEmail,
+      loadSystemEmailsForLanguage,
+      deleteSystemEmailTranslation,
       resetSystemEmail,
       toggleSystemEmail,
       sendTestSystemEmail,
@@ -795,6 +836,8 @@ export function WorkspaceProvider({ children }) {
       sendPasswordResetLink,
       systemEmails,
       updateSystemEmail,
+      loadSystemEmailsForLanguage,
+      deleteSystemEmailTranslation,
       resetSystemEmail,
       toggleSystemEmail,
       sendTestSystemEmail,

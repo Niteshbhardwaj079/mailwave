@@ -11,6 +11,7 @@ import { useT } from '../i18n/I18nProvider';
 import { useWorkspace } from '../store/WorkspaceProvider';
 import { BLANK_HTML, starterTemplates } from '../data/starterHtml';
 import { mergeVariables, templateCategories } from '../data/constants';
+import { LANGUAGES } from '../i18n/languages';
 
 export default function TemplateEditorPage() {
   const t = useT();
@@ -23,6 +24,7 @@ export default function TemplateEditorPage() {
   const [category, setCategory] = useState(existing?.category || 'Custom');
   const [subject, setSubject] = useState(existing?.subject || '');
   const [html, setHtml] = useState(existing?.html || BLANK_HTML);
+  const [language, setLanguage] = useState(existing?.language || 'en');
   const [tab, setTab] = useState('code');
   const [device, setDevice] = useState('desktop');
   const [savedId, setSavedId] = useState(existing?.id || null);
@@ -50,6 +52,7 @@ export default function TemplateEditorPage() {
     setCategory(existing.category || 'Custom');
     setSubject(existing.subject || '');
     setHtml(existing.html || BLANK_HTML);
+    setLanguage(existing.language || 'en');
     setSavedId(existing.id || null);
     hydratedRef.current = true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -82,6 +85,10 @@ export default function TemplateEditorPage() {
 
   function handleSubject(event) {
     setSubject(event.target.value);
+  }
+
+  function handleLanguage(event) {
+    setLanguage(event.target.value);
   }
 
   function handleHtml(event) {
@@ -124,6 +131,7 @@ export default function TemplateEditorPage() {
       category,
       subject,
       html,
+      language,
     });
     if (!record) return;
     setSavedId(record.id);
@@ -209,6 +217,19 @@ export default function TemplateEditorPage() {
                       </option>
                     ))}
                 </select>
+              </div>
+              <div className="col-12 col-md-6">
+                <label className="form-label" htmlFor="tpl-language">
+                  {t('tpl.language')}
+                </label>
+                <select id="tpl-language" className="form-select" value={language} onChange={handleLanguage}>
+                  {LANGUAGES.map((item) => (
+                    <option key={item.code} value={item.code}>
+                      {item.flag} {item.native}
+                    </option>
+                  ))}
+                </select>
+                <p className="form-text mb-0">{t('tpl.languageHelp')}</p>
               </div>
               <div className="col-12">
                 <label className="form-label" htmlFor="tpl-subject">

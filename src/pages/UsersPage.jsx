@@ -16,8 +16,9 @@ import { PERMISSION_ACTIONS, PERMISSION_MODULES, ROLE_ICONS, ROLE_TONES } from '
 import { roleDesc, roleLabel } from '../utils/roles';
 import { formatDateTime, initialsOf } from '../utils/format';
 import { isValidEmail } from '../utils/validation';
+import { LANGUAGES } from '../i18n/languages';
 
-const EMPTY_USER = { name: '', email: '', role: '', department: '', status: 'Invited' };
+const EMPTY_USER = { name: '', email: '', role: '', department: '', status: 'Invited', language: 'en' };
 const EMPTY_ROLE = { name: '', description: '', tone: 'primary', icon: 'bi-person', copyFrom: '' };
 
 export default function UsersPage() {
@@ -825,6 +826,25 @@ export default function UsersPage() {
                 onChange={handleUserField}
                 placeholder={t('users.deptPlaceholder')}
               />
+            </div>
+            <div className="col-12 col-md-6">
+              <label className="form-label" htmlFor="user-language">
+                {t('users.preferredLanguage')}
+              </label>
+              <select
+                id="user-language"
+                name="language"
+                className="form-select"
+                value={editingUser.language || 'en'}
+                onChange={handleUserField}
+              >
+                {LANGUAGES.map((item) => (
+                  <option key={item.code} value={item.code}>
+                    {item.flag} {item.native}
+                  </option>
+                ))}
+              </select>
+              <div className="form-text">{t('users.preferredLanguageHelp')}</div>
             </div>
           </div>
         ) : null}

@@ -19,6 +19,7 @@ import { logActivity } from '../lib/activity.js';
 import { newId } from '../lib/ids.js';
 import { validate } from '../lib/validate.js';
 import { requireModule } from '../middleware/permissions.js';
+import { LANGUAGE_CODES, DEFAULT_LANGUAGE } from '../lib/languages.js';
 
 const router = Router();
 
@@ -29,6 +30,7 @@ const templateInput = z.object({
   category: z.string().trim().max(60).default('Custom'),
   subject: z.string().trim().max(300).default(''),
   html: z.string().max(500_000, 'Yeh template bahut bada hai').default(''),
+  language: z.enum(LANGUAGE_CODES).default(DEFAULT_LANGUAGE),
 });
 
 /** Database ki row ko us shape me badalta hai jo frontend padhta hai. */
@@ -39,6 +41,7 @@ function toApi(row) {
     category: row.category,
     subject: row.subject,
     html: row.html,
+    language: row.language,
     createdBy: row.created_by_name ?? null,
     updated: row.updated_at,
     created: row.created_at,
@@ -46,7 +49,7 @@ function toApi(row) {
 }
 
 const SELECT = `
-  SELECT t.id, t.name, t.category, t.subject, t.html, t.created_at, t.updated_at,
+  SELECT t.id, t.name, t.category, t.subject, t.html, t.language, t.created_at, t.updated_at,
          u.name AS created_by_name
     FROM templates t
     LEFT JOIN users u ON u.id = t.created_by
@@ -89,13 +92,13 @@ router.post(
   requireModule('templates', 'create'),
   validate(templateInput),
   asyncHandler(async (req, res) => {
-    const { name, category, subject, html } = req.body;
+    const { name, category, subject, html, language } = req.body;
     const id = newId('tpl');
 
     await query(
-      `INSERT INTO templates (id, name, category, subject, html, created_by)
-       VALUES ($1,$2,$3,$4,$5,$6)`,
-      [id, name, category, subject, html, req.user.id]
+      `INSERT INTO templates (id, name, category, subject, html, language, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      [id, name, category, subject, html, language, req.user.id]
     );
 
     await logActivity(req, {
@@ -119,13 +122,13 @@ router.put(
     const existing = await one('SELECT id, name FROM templates WHERE id = $1', [req.params.id]);
     if (!existing) throw notFound('Yeh template nahi mila');
 
-    const { name, category, subject, html } = req.body;
+    const { name, category, subject, html, language } = req.body;
 
     await query(
       `UPDATE templates
-          SET name = $1, category = $2, subject = $3, html = $4, updated_at = now()
-        WHERE id = $5`,
-      [name, category, subject, html, req.params.id]
+          SET name = $1, category = $2, subject = $3, html = $4, language = $5, updated_at = now()
+        WHERE id = $6`,
+      [name, category, subject, html, language, req.params.id]
     );
 
     await logActivity(req, {
@@ -154,9 +157,9 @@ router.post(
     const name = `${source.name} (copy)`;
 
     await query(
-      `INSERT INTO templates (id, name, category, subject, html, created_by)
-       VALUES ($1,$2,$3,$4,$5,$6)`,
-      [id, name, source.category, source.subject, source.html, req.user.id]
+      `INSERT INTO templates (id, name, category, subject, html, language, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      [id, name, source.category, source.subject, source.html, source.language, req.user.id]
     );
 
     await logActivity(req, {

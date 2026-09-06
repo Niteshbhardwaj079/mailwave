@@ -13,6 +13,7 @@ import { newId } from '../lib/ids.js';
 import { validate } from '../lib/validate.js';
 import { requireAuth } from '../middleware/auth.js';
 import { permissionsFor } from '../middleware/permissions.js';
+import { LANGUAGE_CODES, DEFAULT_LANGUAGE } from '../lib/languages.js';
 
 const router = Router();
 
@@ -131,6 +132,7 @@ async function sessionPayload(user) {
       department: user.department,
       status: user.status,
       role: user.role_key,
+      language: user.language,
     },
     role: role
       ? {
@@ -192,7 +194,7 @@ router.post(
     const { email, password } = parsed.data;
 
     const user = await one(
-      `SELECT id, name, email, password_hash, role_key, status, initials, department
+      `SELECT id, name, email, password_hash, role_key, status, initials, department, language
          FROM users WHERE lower(email) = lower($1)`,
       [email]
     );
@@ -221,7 +223,7 @@ router.post(
     });
 
     if (newDevice) {
-      await sendSystemEmail('login.newDevice', { email: user.email, name: user.name }, {
+      await sendSystemEmail('login.newDevice', { email: user.email, name: user.name, language: user.language }, {
         device: req.get('user-agent')?.slice(0, 120) || 'unknown device',
         request_ip: clientIp(req),
         // Geo-IP lookup abhi app me nahi hai, isliye shehar ka naam nahi bata
@@ -329,12 +331,13 @@ router.put(
     z.object({
       name: z.string().trim().min(1, 'Naam khali nahi ho sakta').max(120),
       department: z.string().trim().max(120).default(''),
+      language: z.enum(LANGUAGE_CODES).default(DEFAULT_LANGUAGE),
     })
   ),
   asyncHandler(async (req, res) => {
     await query(
-      'UPDATE users SET name = $1, department = $2, initials = $3, updated_at = now() WHERE id = $4',
-      [req.body.name, req.body.department, initialsOf(req.body.name), req.user.id]
+      'UPDATE users SET name = $1, department = $2, initials = $3, language = $4, updated_at = now() WHERE id = $5',
+      [req.body.name, req.body.department, initialsOf(req.body.name), req.body.language, req.user.id]
     );
 
     await logActivity({ ...req, user: { ...req.user, name: req.body.name } }, {
@@ -345,7 +348,7 @@ router.put(
     });
 
     const user = await one(
-      `SELECT id, name, email, role_key, status, initials, department FROM users WHERE id = $1`,
+      `SELECT id, name, email, role_key, status, initials, department, language FROM users WHERE id = $1`,
       [req.user.id]
     );
     res.json(await sessionPayload(user));
@@ -368,7 +371,7 @@ router.post(
       return;
     }
 
-    const user = await one('SELECT id, name FROM users WHERE lower(email) = lower($1)', [email.data]);
+    const user = await one('SELECT id, name, language FROM users WHERE lower(email) = lower($1)', [email.data]);
     if (!user) {
       res.json(answer);
       return;
@@ -392,7 +395,7 @@ router.post(
 
     const sent = await sendSystemEmail(
       'password.reset',
-      { email: email.data, name: user.name },
+      { email: email.data, name: user.name, language: user.language },
       {
         reset_url: resetUrl,
         request_ip: req.ip || '',
@@ -427,7 +430,7 @@ async function notifyPasswordChanged(req, user) {
 
   await sendSystemEmail(
     'password.changed',
-    { email: user.email, name: user.name },
+    { email: user.email, name: user.name, language: user.language },
     {
       change_time: new Date().toUTCString(),
       request_ip: clientIp(req) || '',
@@ -474,7 +477,7 @@ router.post(
       [stored.user_id]
     );
 
-    const user = await one('SELECT id, name, email FROM users WHERE id = $1', [stored.user_id]);
+    const user = await one('SELECT id, name, email, language FROM users WHERE id = $1', [stored.user_id]);
     await logActivity({ ...req, user }, {
       action: 'updated',
       module: 'users',

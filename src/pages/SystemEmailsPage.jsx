@@ -12,11 +12,20 @@ import ImageLibrary from '../components/templates/ImageLibrary';
 import { useT } from '../i18n/I18nProvider';
 import { useWorkspace } from '../store/WorkspaceProvider';
 import { EMAIL_GROUPS, fillPreview } from '../data/systemEmails';
+import { LANGUAGES, findLanguage } from '../i18n/languages';
 
 export default function SystemEmailsPage() {
   const t = useT();
-  const { systemEmails, updateSystemEmail, resetSystemEmail, toggleSystemEmail, sendTestSystemEmail, loading } =
-    useWorkspace();
+  const {
+    systemEmails,
+    updateSystemEmail,
+    loadSystemEmailsForLanguage,
+    deleteSystemEmailTranslation,
+    resetSystemEmail,
+    toggleSystemEmail,
+    sendTestSystemEmail,
+    loading,
+  } = useWorkspace();
 
   const [selectedKey, setSelectedKey] = useState(systemEmails[0]?.key || '');
   const [group, setGroup] = useState('all');
@@ -26,6 +35,21 @@ export default function SystemEmailsPage() {
   const [tab, setTab] = useState('preview');
   const [testSending, setTestSending] = useState(false);
   const [testSentTo, setTestSentTo] = useState('');
+
+  // Editor me kaunsi language khuli hai — English hi is page ka default hai.
+  // Badalte hi poori list us language ke content ke saath dobara aati hai.
+  // Pehli baar English hi chahiye, jo workspace load par already aa chuki
+  // hai — isliye pehla render skip karte hain, koi extra request nahi.
+  const [language, setLanguage] = useState('en');
+  const skippedFirstLoad = useRef(false);
+  useEffect(() => {
+    if (!skippedFirstLoad.current) {
+      skippedFirstLoad.current = true;
+      return;
+    }
+    loadSystemEmailsForLanguage(language);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [language]);
 
   // Har keystroke par server ko bachana galat tha — type karte waqt screen
   // atakti thi aur do jaldi-jaldi save ek dusre ko overwrite kar sakte the.
@@ -59,6 +83,10 @@ export default function SystemEmailsPage() {
   }, [selected?.key, selected?.subject, selected?.html]);
 
   const dirty = Boolean(selected) && (draftSubject !== selected.subject || draftHtml !== selected.html);
+  // Jab is language ka kuch saved nahi (English dikh rahi hai), tab bhi Save
+  // dabaya ja sake — bina kuch badle bhi, taaki English content isi language
+  // ke starting point ki tarah lock ho sake.
+  const canSave = dirty || Boolean(selected?.isFallback);
 
   function pick(event) {
     setSelectedKey(event.currentTarget.dataset.key);
@@ -68,7 +96,7 @@ export default function SystemEmailsPage() {
   async function handleSendTest() {
     setTestSending(true);
     setTestSentTo('');
-    const data = await sendTestSystemEmail(selected.key);
+    const data = await sendTestSystemEmail(selected.key, language);
     if (data) setTestSentTo(data.to);
     setTestSending(false);
   }
@@ -100,12 +128,16 @@ export default function SystemEmailsPage() {
 
   async function handleSave() {
     setSaving(true);
-    await updateSystemEmail(selected.key, { subject: draftSubject, html: draftHtml });
+    await updateSystemEmail(selected.key, { subject: draftSubject, html: draftHtml }, language);
     setSaving(false);
   }
 
   function handleToggle() {
     toggleSystemEmail(selected.key);
+  }
+
+  function handleDeleteTranslation() {
+    deleteSystemEmailTranslation(selected.key, language);
   }
 
   function handleReset() {
@@ -142,6 +174,14 @@ export default function SystemEmailsPage() {
               { value: 'all', label: t('common.all') },
               ...EMAIL_GROUPS.map((item) => ({ value: item.key, label: t(item.labelKey) })),
             ]}
+          />
+          <FilterSelect
+            id="sysmail-language"
+            label={t('sysmail.language')}
+            icon="bi-translate"
+            value={language}
+            onChange={setLanguage}
+            options={LANGUAGES.map((item) => ({ value: item.code, label: `${item.flag} ${item.native}` }))}
           />
         </FilterBar>
 
@@ -255,6 +295,12 @@ export default function SystemEmailsPage() {
 
               {tab === 'edit' ? (
                 <>
+                  {selected.isFallback ? (
+                    <Note tone="info" icon="bi-translate">
+                      {t('sysmail.fallbackNote', { language: findLanguage(language).native })}
+                    </Note>
+                  ) : null}
+
                   <div className="mb-3">
                     <label className="form-label" htmlFor="sysmail-subject">
                       {t('tpl.subject')}
@@ -296,15 +342,27 @@ export default function SystemEmailsPage() {
                       type="button"
                       className="btn btn-primary btn-sm"
                       onClick={handleSave}
-                      disabled={!dirty || saving}
+                      disabled={!canSave || saving}
                     >
                       <i className="bi bi-save me-2" />
                       {saving ? t('common.loading') : t('common.save')}
                     </button>
-                    <button type="button" className="btn btn-outline-secondary btn-sm" onClick={handleReset}>
-                      <i className="bi bi-arrow-counterclockwise me-2" />
-                      {t('sysmail.reset')}
-                    </button>
+                    {language === 'en' ? (
+                      <button type="button" className="btn btn-outline-secondary btn-sm" onClick={handleReset}>
+                        <i className="bi bi-arrow-counterclockwise me-2" />
+                        {t('sysmail.reset')}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn btn-outline-danger btn-sm"
+                        onClick={handleDeleteTranslation}
+                        disabled={selected.isFallback}
+                      >
+                        <i className="bi bi-x-circle me-2" />
+                        {t('sysmail.removeTranslation')}
+                      </button>
+                    )}
                   </div>
                 </>
               ) : null}

@@ -41,22 +41,62 @@ async function pickAccount() {
 }
 
 /**
+ * Ek system email key ka content us language me nikalta hai — agar us language
+ * ka translation saved hai to wo, warna English (base row) fallback ki tarah.
+ * English khud kabhi kisi "translation" row se nahi aati — system_emails hi
+ * uska ghar hai, isliye ek language edit karna doosri ko kabhi chhoo nahi sakta.
+ *
+ * @returns {null | { key, subject, html, enabled, updated_at, language, isFallback }}
+ */
+export async function resolveSystemEmail(key, language = 'en') {
+  const base = await one('SELECT * FROM system_emails WHERE key = $1', [key]);
+  if (!base) return null;
+
+  if (!language || language === 'en') {
+    return { ...base, language: 'en', isFallback: false };
+  }
+
+  const translation = await one(
+    'SELECT * FROM system_email_translations WHERE key = $1 AND language = $2',
+    [key, language]
+  );
+  if (translation) {
+    return {
+      key: base.key,
+      subject: translation.subject,
+      html: translation.html,
+      enabled: base.enabled,
+      updated_at: translation.updated_at,
+      language,
+      isFallback: false,
+    };
+  }
+
+  // Is language me abhi kuch save nahi hua — English dikhao, par saaf batao
+  // ki yeh fallback hai, real content nahi.
+  return { ...base, language: 'en', isFallback: true };
+}
+
+/**
  * Ek system email bhejta hai.
  *
  * @param {string} key   system_emails table ki key, jaise 'password.reset'
- * @param {object} to    { email, name }
+ * @param {object} to    { email, name, language? } — language na ho to English.
  * @param {object} vars  template ke {{variables}} ki value
  * @param {object} [options]
  * @param {boolean} [options.force] "Send test" isse true bhejta hai — Admin
  *   yeh dekhna chahta hai template kaisi dikhti hai, chahe uska automatic
  *   trigger abhi band ho. Asli event (naya user, campaign khatam waghairah)
  *   isse kabhi true nahi bhejta — wahan "band" ka matlab sach me nahi bhejna hai.
+ * @param {string} [options.language] Force karta hai kis language me bheje —
+ *   "Send test" page par jo language tab khula hai wahi yahan aata hai. Na diya
+ *   jaaye to `to.language` (recipient ki preference) use hoti hai.
  * @returns {{ ok: boolean, reason?: string, previewUrl?: string|null }}
  */
-export async function sendSystemEmail(key, to, vars = {}, { force = false } = {}) {
+export async function sendSystemEmail(key, to, vars = {}, { force = false, language } = {}) {
   if (!to?.email) return { ok: false, reason: 'no-recipient' };
 
-  const template = await one('SELECT * FROM system_emails WHERE key = $1', [key]);
+  const template = await resolveSystemEmail(key, language || to.language || 'en');
   if (!template) {
     console.warn(`[system-mail] "${key}" naam ka koi template nahi mila.`);
     return { ok: false, reason: 'no-template' };
@@ -120,11 +160,11 @@ export async function sendSystemEmail(key, to, vars = {}, { force = false } = {}
  */
 export async function notifySuperAdmins(key, vars = {}, { excludeEmail } = {}) {
   const admins = await many(
-    `SELECT name, email FROM users WHERE role_key = 'super_admin' AND status = 'Active'`
+    `SELECT name, email, language FROM users WHERE role_key = 'super_admin' AND status = 'Active'`
   );
 
   for (const admin of admins) {
     if (excludeEmail && admin.email.toLowerCase() === excludeEmail.toLowerCase()) continue;
-    await sendSystemEmail(key, { email: admin.email, name: admin.name }, vars);
+    await sendSystemEmail(key, { email: admin.email, name: admin.name, language: admin.language }, vars);
   }
 }

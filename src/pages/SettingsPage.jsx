@@ -17,6 +17,7 @@ import { useApi } from '../api/useApi';
 import { ApiError, api, apiBase } from '../api/client';
 import { useToast } from '../components/ui/ToastProvider';
 import { formatDateTime, formatNumber } from '../utils/format';
+import { LANGUAGES } from '../i18n/languages';
 
 const SECTIONS = [
   { key: 'profile', labelKey: 'topbar.profile', icon: 'bi-person' },
@@ -73,6 +74,7 @@ export default function SettingsPage() {
   // --- profile ---------------------------------------------------------------
   const [profileName, setProfileName] = useState(user?.name ?? '');
   const [profileDepartment, setProfileDepartment] = useState(user?.department ?? '');
+  const [profileLanguage, setProfileLanguage] = useState(user?.language ?? 'en');
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileError, setProfileError] = useState('');
 
@@ -81,7 +83,8 @@ export default function SettingsPage() {
   useEffect(() => {
     setProfileName(user?.name ?? '');
     setProfileDepartment(user?.department ?? '');
-  }, [user?.name, user?.department]);
+    setProfileLanguage(user?.language ?? 'en');
+  }, [user?.name, user?.department, user?.language]);
 
   async function saveProfile() {
     if (!profileName.trim()) {
@@ -91,7 +94,11 @@ export default function SettingsPage() {
     setProfileSaving(true);
     setProfileError('');
     try {
-      await api.put('/api/auth/me', { name: profileName.trim(), department: profileDepartment.trim() });
+      await api.put('/api/auth/me', {
+        name: profileName.trim(),
+        department: profileDepartment.trim(),
+        language: profileLanguage,
+      });
       await reloadSession();
       toast.success(t('set.profileSaved'));
     } catch (error) {
@@ -387,6 +394,22 @@ export default function SettingsPage() {
                       value={profileDepartment}
                       onChange={(event) => setProfileDepartment(event.target.value)}
                     />
+                  </div>
+                  <div className="col-12 col-md-6">
+                    <label className="form-label" htmlFor="p-email-language">{t('set.emailLanguage')}</label>
+                    <select
+                      id="p-email-language"
+                      className="form-select"
+                      value={profileLanguage}
+                      onChange={(event) => setProfileLanguage(event.target.value)}
+                    >
+                      {LANGUAGES.map((item) => (
+                        <option key={item.code} value={item.code}>
+                          {item.flag} {item.native}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="form-text">{t('set.emailLanguageHelp')}</div>
                   </div>
                 </div>
               </CardBody>

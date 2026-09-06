@@ -23,6 +23,7 @@ import { notifySuperAdmins, sendSystemEmail } from '../services/systemMail.js';
 import { hashPassword } from '../lib/password.js';
 import { newRefreshToken } from '../lib/tokens.js';
 import { env } from '../env.js';
+import { LANGUAGE_CODES, DEFAULT_LANGUAGE } from '../lib/languages.js';
 
 const router = Router();
 
@@ -32,6 +33,10 @@ const userInput = z.object({
   role: z.string().trim().min(1, 'Role chuno'),
   department: z.string().trim().max(120).default(''),
   status: z.enum(['Active', 'Invited', 'Disabled']).default('Invited'),
+  // Yeh person ke real system emails (invite, password reset, waghairah) isi
+  // language me jaate hain. Campaigns se alag hai — wo har baar manually
+  // choose ki jaati hain.
+  language: z.enum(LANGUAGE_CODES).default(DEFAULT_LANGUAGE),
 });
 
 /** Naam se initials — "Rohit Sharma" se "RS". */
@@ -54,6 +59,7 @@ function userToApi(row) {
     status: row.status,
     initials: row.initials,
     lastActive: row.last_active,
+    language: row.language,
     // Batata hai ki user ne apna password set kiya hai ya nahi. Password khud
     // kabhi nahi bhejte.
     hasPassword: Boolean(row.password_hash),
@@ -61,7 +67,7 @@ function userToApi(row) {
 }
 
 const USER_SELECT = `
-  SELECT id, name, email, role_key, status, department, initials, last_active, password_hash
+  SELECT id, name, email, role_key, status, department, initials, last_active, password_hash, language
     FROM users
 `;
 
@@ -91,7 +97,7 @@ router.post(
   requireModule('users', 'create'),
   validate(userInput),
   asyncHandler(async (req, res) => {
-    const { name, email, role, department, status } = req.body;
+    const { name, email, role, department, status, language } = req.body;
 
     const roleRow = await one('SELECT key FROM roles WHERE key = $1', [role]);
     if (!roleRow) throw badRequest('Yeh role hai hi nahi');
@@ -104,9 +110,9 @@ router.post(
     // Naye user ka password hum nahi banate. Wo khud email ke link se banata
     // hai — isse password kabhi kisi teesre ke haath nahi lagta.
     await query(
-      `INSERT INTO users (id, name, email, password_hash, role_key, status, department, initials)
-       VALUES ($1,$2,$3,NULL,$4,$5,$6,$7)`,
-      [id, name, email, role, status, department, initialsOf(name)]
+      `INSERT INTO users (id, name, email, password_hash, role_key, status, department, initials, language)
+       VALUES ($1,$2,$3,NULL,$4,$5,$6,$7,$8)`,
+      [id, name, email, role, status, department, initialsOf(name), language]
     );
 
     await logActivity(req, {
@@ -116,7 +122,7 @@ router.post(
       detail: `Naya user bana. Role: ${role}`,
     });
 
-    await sendInvite(req, { id, name, email, role });
+    await sendInvite(req, { id, name, email, role, language });
 
     // "admin.userCreated" ka wada hai "har naya user banne par Super Admin ko
     // ek copy" — pehle yeh kabhi bulaya hi nahi jata tha, isliye System Emails
@@ -144,7 +150,7 @@ router.put(
     const existing = await one(`${USER_SELECT} WHERE id = $1`, [req.params.id]);
     if (!existing) throw notFound('Yeh user nahi mila');
 
-    const { name, email, role, department, status } = req.body;
+    const { name, email, role, department, status, language } = req.body;
 
     const roleRow = await one('SELECT key FROM roles WHERE key = $1', [role]);
     if (!roleRow) throw badRequest('Yeh role hai hi nahi');
@@ -176,9 +182,9 @@ router.put(
     await query(
       `UPDATE users
           SET name = $1, role_key = $2, department = $3, status = $4,
-              initials = $5, updated_at = now()
-        WHERE id = $6`,
-      [name, role, department, status, initialsOf(name), req.params.id]
+              initials = $5, language = $6, updated_at = now()
+        WHERE id = $7`,
+      [name, role, department, status, initialsOf(name), language, req.params.id]
     );
 
     if (emailChanged) {
@@ -213,7 +219,7 @@ router.put(
     if (existing.role_key !== role) {
       await sendSystemEmail(
         'user.roleChanged',
-        { email: existing.email, name },
+        { email: existing.email, name, language },
         {
           old_role: existing.role_key,
           new_role: role,
@@ -226,7 +232,7 @@ router.put(
     if (existing.status !== 'Disabled' && status === 'Disabled') {
       await sendSystemEmail(
         'user.disabled',
-        { email: existing.email, name },
+        { email: existing.email, name, language },
         { changed_by: req.user.name, change_time: new Date().toUTCString() }
       );
     }
@@ -265,7 +271,7 @@ router.post(
   '/:id/reset-link',
   requireModule('users', 'edit'),
   asyncHandler(async (req, res) => {
-    const user = await one('SELECT id, name, email FROM users WHERE id = $1', [req.params.id]);
+    const user = await one('SELECT id, name, email, language FROM users WHERE id = $1', [req.params.id]);
     if (!user) throw notFound('Yeh user nahi mila');
 
     await sendInvite(req, { ...user, role: null });
@@ -300,7 +306,7 @@ router.post(
     })
   ),
   asyncHandler(async (req, res) => {
-    const user = await one('SELECT id, name, email FROM users WHERE id = $1', [req.params.id]);
+    const user = await one('SELECT id, name, email, language FROM users WHERE id = $1', [req.params.id]);
     if (!user) throw notFound('Yeh user nahi mila');
 
     await query(
@@ -322,7 +328,7 @@ router.post(
     if (req.body.notify) {
       await sendSystemEmail(
         'password.setByAdmin',
-        { email: user.email, name: user.name },
+        { email: user.email, name: user.name, language: user.language },
         {
           changed_by: req.user.name,
           change_time: new Date().toUTCString(),
@@ -370,7 +376,7 @@ async function sendInvite(req, user) {
 
   const sent = await sendSystemEmail(
     'user.invited',
-    { email: user.email, name: user.name },
+    { email: user.email, name: user.name, language: user.language },
     {
       // Naam bilkul wahi hona chahiye jo template me likha hai. Pehle yahan
       // `invite_url` bheja jata tha jabki template `set_password_url` maangta
@@ -410,7 +416,7 @@ async function sendEmailChangeConfirm(req, existing, newEmail) {
 
   const sent = await sendSystemEmail(
     'user.emailChangeConfirm',
-    { email: newEmail, name: existing.name },
+    { email: newEmail, name: existing.name, language: existing.language },
     { new_email: newEmail, confirm_url: confirmUrl, changed_by: req.user.name }
   );
 

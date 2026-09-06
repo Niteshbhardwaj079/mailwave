@@ -12,6 +12,7 @@ import { useT } from '../i18n/I18nProvider';
 import { useWorkspace } from '../store/WorkspaceProvider';
 import { templateCategories } from '../data/constants';
 import { formatDate } from '../utils/format';
+import { findLanguage } from '../i18n/languages';
 
 export default function TemplatesPage() {
   const t = useT();
@@ -151,7 +152,9 @@ export default function TemplatesPage() {
                   <div className="mw-tpl__body">
                     <h3 className="mw-tpl__name">{template.name}</h3>
                     <p className="mw-tpl__meta mb-0">
-                      {template.category} · {t('common.updated')} {formatDate(template.updated)}
+                      {template.category} · {findLanguage(template.language).flag}{' '}
+                      {findLanguage(template.language).native} · {t('common.updated')}{' '}
+                      {formatDate(template.updated)}
                     </p>
                   </div>
 

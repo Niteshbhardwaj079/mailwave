@@ -3,6 +3,7 @@ import StatusPill from '../ui/StatusPill';
 import HtmlPreview from '../templates/HtmlPreview';
 import { useT } from '../../i18n/I18nProvider';
 import { formatNumber } from '../../utils/format';
+import { findLanguage } from '../../i18n/languages';
 
 export default function StepReview({ draft, recipientCount = 0, onSend }) {
   const t = useT();
@@ -42,6 +43,9 @@ export default function StepReview({ draft, recipientCount = 0, onSend }) {
             <KeyValue label={t('tpl.subject')}>{draft.subject}</KeyValue>
             <KeyValue label={t('camp.recipients')}>{formatNumber(recipientCount)}</KeyValue>
             <KeyValue label={t('camp.template')}>{draft.templateName}</KeyValue>
+            <KeyValue label={t('rev.language')}>
+              {findLanguage(draft.language).flag} {findLanguage(draft.language).native}
+            </KeyValue>
             <KeyValue label={t('rev.batchSize')}>{batchSummary}</KeyValue>
             <KeyValue label={t('rev.batchWait')}>{t('rev.minutes', { count: draft.batchDelay })}</KeyValue>
             <KeyValue label={t('send.openTracking')}>{onOff(draft.openTracking)}</KeyValue>

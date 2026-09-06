@@ -15,6 +15,7 @@ import { pauseCampaign, startCampaign } from '../services/sender.js';
 import { runDueCampaigns } from '../services/scheduler.js';
 import { sendMail } from '../services/mailer.js';
 import { buildEmail } from '../services/render.js';
+import { LANGUAGE_CODES, DEFAULT_LANGUAGE } from '../lib/languages.js';
 
 const router = Router();
 
@@ -87,6 +88,9 @@ const campaignInput = z.object({
   preheader: z.string().trim().max(300).optional().nullable(),
   templateId: z.string().trim().optional().nullable(),
   html: z.string().max(500_000).default(''),
+  // Content-selection step par chuni gayi template se aata hai — sirf record/
+  // badge ke liye, sending "html" already-frozen use karti hai.
+  language: z.enum(LANGUAGE_CODES).default(DEFAULT_LANGUAGE),
   batchSize: z.number().int().min(0).max(10000).default(100),
   batchDelay: z.number().int().min(0).max(180).default(2),
   openTracking: z.boolean().default(true),
@@ -108,6 +112,7 @@ function toApi(row) {
     templateId: row.template_id,
     template: row.template_name ?? null,
     html: row.html,
+    language: row.language,
     batchSize: row.batch_size,
     batchDelay: row.batch_delay,
     openTracking: row.open_tracking,
@@ -365,12 +370,12 @@ router.post(
 
     await query(
       `INSERT INTO campaigns
-         (id, name, account_id, sender_name, reply_to, subject, preheader, template_id, html,
+         (id, name, account_id, sender_name, reply_to, subject, preheader, template_id, html, language,
           batch_size, batch_delay, open_tracking, click_tracking, subscribe_button,
           status, scheduled_at, created_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
       [id, b.name, b.accountId, b.senderName ?? null, b.replyTo ?? null, b.subject,
-       b.preheader ?? null, b.templateId || null, b.html, b.batchSize, b.batchDelay,
+       b.preheader ?? null, b.templateId || null, b.html, b.language, b.batchSize, b.batchDelay,
        b.openTracking, b.clickTracking, b.subscribeButton,
        b.scheduledAt ? 'Scheduled' : 'Draft', b.scheduledAt ?? null, req.user.id]
     );
@@ -407,12 +412,12 @@ router.put(
     await query(
       `UPDATE campaigns
           SET name = $1, account_id = $2, sender_name = $3, reply_to = $4, subject = $5,
-              preheader = $6, template_id = $7, html = $8, batch_size = $9, batch_delay = $10,
-              open_tracking = $11, click_tracking = $12, subscribe_button = $13,
-              status = $14, scheduled_at = $15, updated_at = now()
-        WHERE id = $16`,
+              preheader = $6, template_id = $7, html = $8, language = $9, batch_size = $10, batch_delay = $11,
+              open_tracking = $12, click_tracking = $13, subscribe_button = $14,
+              status = $15, scheduled_at = $16, updated_at = now()
+        WHERE id = $17`,
       [b.name, b.accountId, b.senderName ?? null, b.replyTo ?? null, b.subject,
-       b.preheader ?? null, b.templateId || null, b.html, b.batchSize, b.batchDelay,
+       b.preheader ?? null, b.templateId || null, b.html, b.language, b.batchSize, b.batchDelay,
        b.openTracking, b.clickTracking, b.subscribeButton,
        b.scheduledAt ? 'Scheduled' : 'Draft', b.scheduledAt ?? null, req.params.id]
     );
