@@ -192,17 +192,41 @@ export default function SystemEmailsPage() {
               title={selected.name}
               subtitle={selected.event}
               tools={
-                <Segmented
-                  items={[
-                    { value: 'preview', label: t('common.preview') },
-                    { value: 'edit', label: t('common.edit') },
-                    { value: 'images', label: t('img.title') },
-                    { value: 'info', label: t('sysmail.details') },
-                  ]}
-                  value={tab}
-                  onChange={setTab}
-                  ariaLabel={t('common.preview')}
-                />
+                <>
+                  {/* Yahin sabse upar bhi — sirf "Details" tab me chhupa hota to
+                      log dhoondh nahi paate ki band/chalu kahan se karein. */}
+                  <div className="mw-row mw-row--wrap align-items-center">
+                    <StatusPill
+                      status={selected.enabled ? t('sysmail.statusOn') : t('sysmail.statusOff')}
+                      tone={selected.enabled ? 'success' : 'muted'}
+                    />
+                    <div className="form-check form-switch mb-0">
+                      <input
+                        className="form-check-input"
+                        type="checkbox"
+                        role="switch"
+                        id="sysmail-enabled-header"
+                        checked={selected.enabled}
+                        disabled={selected.critical}
+                        onChange={handleToggle}
+                      />
+                      <label className="form-check-label visually-hidden" htmlFor="sysmail-enabled-header">
+                        {t('sysmail.enabled')}
+                      </label>
+                    </div>
+                  </div>
+                  <Segmented
+                    items={[
+                      { value: 'preview', label: t('common.preview') },
+                      { value: 'edit', label: t('common.edit') },
+                      { value: 'images', label: t('img.title') },
+                      { value: 'info', label: t('sysmail.details') },
+                    ]}
+                    value={tab}
+                    onChange={setTab}
+                    ariaLabel={t('common.preview')}
+                  />
+                </>
               }
             />
 
