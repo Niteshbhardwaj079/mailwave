@@ -10,6 +10,7 @@ import { clientIp, logActivity } from '../lib/activity.js';
 import { hashPassword, verifyPassword } from '../lib/password.js';
 import { hashToken, newRefreshToken, refreshExpiry, signAccessToken } from '../lib/tokens.js';
 import { newId } from '../lib/ids.js';
+import { validate } from '../lib/validate.js';
 import { requireAuth } from '../middleware/auth.js';
 import { permissionsFor } from '../middleware/permissions.js';
 
@@ -301,6 +302,53 @@ router.get(
   requireAuth,
   asyncHandler(async (req, res) => {
     res.json(await sessionPayload(req.user));
+  })
+);
+
+/** Naam se initials — "Rohit Sharma" se "RS". */
+function initialsOf(name) {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0].toUpperCase())
+    .join('');
+}
+
+/**
+ * Apni khud ki profile badalna — naam aur department. Email yahan se nahi
+ * badalta: wo Users page se hota hai, jahan naye address par ek confirm-link
+ * jaata hai (isliye ki galti se type kiya hua email account lock na kar de).
+ * Yeh kisi permission ke peeche nahi hai — apna naam badalna sabka haq hai,
+ * role kuch bhi ho.
+ */
+router.put(
+  '/me',
+  requireAuth,
+  validate(
+    z.object({
+      name: z.string().trim().min(1, 'Naam khali nahi ho sakta').max(120),
+      department: z.string().trim().max(120).default(''),
+    })
+  ),
+  asyncHandler(async (req, res) => {
+    await query(
+      'UPDATE users SET name = $1, department = $2, initials = $3, updated_at = now() WHERE id = $4',
+      [req.body.name, req.body.department, initialsOf(req.body.name), req.user.id]
+    );
+
+    await logActivity({ ...req, user: { ...req.user, name: req.body.name } }, {
+      action: 'updated',
+      module: 'users',
+      item: req.body.name,
+      detail: 'Apni profile badli',
+    });
+
+    const user = await one(
+      `SELECT id, name, email, role_key, status, initials, department FROM users WHERE id = $1`,
+      [req.user.id]
+    );
+    res.json(await sessionPayload(user));
   })
 );
 

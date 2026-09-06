@@ -23,6 +23,7 @@ import systemEmailRoutes from './routes/systemEmails.js';
 import segmentRoutes from './routes/segments.js';
 import imageRoutes from './routes/images.js';
 import backupRoutes from './routes/backup.js';
+import settingsRoutes from './routes/settings.js';
 
 export function createApp() {
   const app = express();
@@ -87,6 +88,7 @@ export function createApp() {
   app.use('/api/system-emails', requireAuth, systemEmailRoutes);
   app.use('/api/segments', requireAuth, segmentRoutes);
   app.use('/api/images', requireAuth, imageRoutes);
+  app.use('/api/settings', requireAuth, settingsRoutes);
 
   // Backup upload me poori file body me aati hai, JSON nahi — isliye express
   // ke JSON parser se pehle raw stream chahiye. Route khud stream padhta hai.

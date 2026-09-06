@@ -99,6 +99,11 @@ export default function CampaignWizardPage() {
   const accountsCall = useApi('/api/accounts');
   const accounts = useMemo(() => accountsCall.data?.accounts ?? [], [accountsCall.data]);
 
+  // Settings page ke "Sending"/"Tracking" defaults yahin lagte hain — naya
+  // campaign inhi se shuru hota hai, taki Settings me chuna hua batch size ya
+  // tracking default sach me kaam kare, na ki sirf ek table me pada rahe.
+  const workspaceSettingsCall = useApi('/api/settings');
+
   // "Existing contacts" step ke Groups/Segments dono asli data se aate hain.
   const contactGroupsCall = useApi('/api/contacts/groups/all');
   const contactGroups = useMemo(() => contactGroupsCall.data?.groups ?? [], [contactGroupsCall.data]);
@@ -111,6 +116,28 @@ export default function CampaignWizardPage() {
       ? { ...INITIAL_DRAFT, recipientSource: 'existing', groups: [preselectedSegment] }
       : INITIAL_DRAFT
   );
+
+  // Ek hi baar, jab Settings load ho jayein — naya campaign inhi defaults se
+  // shuru hota hai. Edit mode me nahi (wahan asli campaign ki apni values
+  // aati hain), aur ek baar lagne ke baad dobara nahi (warna user ka khud
+  // badla hua batch size wapas purane default par chala jata).
+  const appliedWorkspaceDefaults = useRef(false);
+  useEffect(() => {
+    if (isEditing || appliedWorkspaceDefaults.current) return;
+    const sending = workspaceSettingsCall.data?.settings?.sending;
+    const tracking = workspaceSettingsCall.data?.settings?.tracking;
+    if (!sending && !tracking) return;
+
+    appliedWorkspaceDefaults.current = true;
+    setDraft((current) => ({
+      ...current,
+      batchSize: sending?.defaultBatchSize ?? current.batchSize,
+      batchDelay: sending?.batchDelayMinutes ?? current.batchDelay,
+      openTracking: tracking?.openByDefault ?? current.openTracking,
+      clickTracking: tracking?.clickByDefault ?? current.clickTracking,
+    }));
+  }, [isEditing, workspaceSettingsCall.data]);
+
   const [category, setCategory] = useState('All');
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [error, setError] = useState('');

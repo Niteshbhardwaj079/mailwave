@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import PageHeader from '../components/ui/PageHeader';
+import HelpButton from '../components/ui/HelpButton';
 import { useI18n } from '../i18n/I18nProvider';
 import { useTheme } from '../theme/ThemeProvider';
 import { appConfig } from '../config/appConfig';
@@ -9,6 +10,9 @@ import { THEME_MODES } from '../config/themeColors';
 import { Card, CardBody, CardFoot, CardHead } from '../components/ui/Card';
 import { Note } from '../components/ui/Controls';
 import { useAuth } from '../store/AuthProvider';
+import { useApi } from '../api/useApi';
+import { ApiError, api } from '../api/client';
+import { useToast } from '../components/ui/ToastProvider';
 import { formatNumber } from '../utils/format';
 
 const SECTIONS = [
@@ -24,7 +28,7 @@ const SECTIONS = [
   { key: 'api', labelKey: 'set.api', icon: 'bi-code-slash' },
 ];
 
-function SwitchRow({ id, title, desc, defaultChecked }) {
+function SwitchRow({ id, title, desc, checked, onChange, disabled }) {
   return (
     <div className="mw-switchrow">
       <div className="mw-switchrow__body">
@@ -32,7 +36,15 @@ function SwitchRow({ id, title, desc, defaultChecked }) {
         <p className="mw-switchrow__desc mb-0">{desc}</p>
       </div>
       <div className="form-check form-switch">
-        <input className="form-check-input" type="checkbox" role="switch" id={id} defaultChecked={defaultChecked} />
+        <input
+          className="form-check-input"
+          type="checkbox"
+          role="switch"
+          id={id}
+          checked={checked}
+          onChange={onChange}
+          disabled={disabled}
+        />
         <label className="form-check-label visually-hidden" htmlFor={id}>
           {title}
         </label>
@@ -44,20 +56,111 @@ function SwitchRow({ id, title, desc, defaultChecked }) {
 export default function SettingsPage() {
   const { t, language, languages, setLanguage } = useI18n();
   const { mode, setMode, accent, setAccent, accents } = useTheme();
+  const toast = useToast();
   const [section, setSection] = useState('profile');
   const [showCurrentPass, setShowCurrentPass] = useState(false);
   const [showNewPass, setShowNewPass] = useState(false);
-  const [showApiKey, setShowApiKey] = useState(false);
 
-  // Jo abhi sign in hai uski apni detail. Pehle yahan ek nakli user ki detail
-  // dikhti thi — chahe koi bhi sign in ho.
-  const { user } = useAuth();
-  const currentUser = {
-    name: user?.name ?? '',
-    email: user?.email ?? '',
-    initials: user?.initials ?? '',
-    company: user?.department ?? '',
-  };
+  // Jo abhi sign in hai uski apni detail — profile isi ko badalti hai.
+  const { user, reloadSession } = useAuth();
+
+  // --- profile ---------------------------------------------------------------
+  const [profileName, setProfileName] = useState(user?.name ?? '');
+  const [profileDepartment, setProfileDepartment] = useState(user?.department ?? '');
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileError, setProfileError] = useState('');
+
+  // user context load hone ke baad (ya kisi aur tab me badalne ke baad) box
+  // usi se bhar jaaye.
+  useEffect(() => {
+    setProfileName(user?.name ?? '');
+    setProfileDepartment(user?.department ?? '');
+  }, [user?.name, user?.department]);
+
+  async function saveProfile() {
+    if (!profileName.trim()) {
+      setProfileError(t('set.nameNeeded'));
+      return;
+    }
+    setProfileSaving(true);
+    setProfileError('');
+    try {
+      await api.put('/api/auth/me', { name: profileName.trim(), department: profileDepartment.trim() });
+      await reloadSession();
+      toast.success(t('set.profileSaved'));
+    } catch (error) {
+      setProfileError(error instanceof ApiError ? error.message : t('toast.networkError'));
+    } finally {
+      setProfileSaving(false);
+    }
+  }
+
+  // --- security / password ----------------------------------------------------
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [securitySaving, setSecuritySaving] = useState(false);
+  const [securityError, setSecurityError] = useState('');
+  const [securityDone, setSecurityDone] = useState('');
+
+  async function changePassword() {
+    setSecurityError('');
+    setSecurityDone('');
+    if (!currentPassword) {
+      setSecurityError(t('set.needCurrentPassword'));
+      return;
+    }
+    if (newPassword.length < 8) {
+      setSecurityError(t('auth.errShort'));
+      return;
+    }
+
+    setSecuritySaving(true);
+    try {
+      await api.post('/api/auth/change-password', { currentPassword, newPassword });
+      setCurrentPassword('');
+      setNewPassword('');
+      setSecurityDone(t('set.passwordChanged'));
+      toast.success(t('set.passwordChanged'));
+    } catch (error) {
+      setSecurityError(error instanceof ApiError ? error.message : t('toast.networkError'));
+    } finally {
+      setSecuritySaving(false);
+    }
+  }
+
+  // --- workspace settings (sending/tracking/contacts/unsubscribe) ------------
+  //
+  // Chaaron ek hi table se aate hain (settings, key se). Load ek hi baar hoti
+  // hai; har card apna khud ka draft rakhta hai taaki ek card badalne se
+  // doosre ka "unsaved" nishaan na lag jaye.
+  const settingsCall = useApi('/api/settings');
+  const serverSettings = settingsCall.data?.settings ?? {};
+
+  const [sendingDraft, setSendingDraft] = useState(null);
+  const [trackingDraft, setTrackingDraft] = useState(null);
+  const [contactsDraft, setContactsDraft] = useState(null);
+  const [unsubDraft, setUnsubDraft] = useState(null);
+  const [savingKey, setSavingKey] = useState('');
+
+  useEffect(() => {
+    if (serverSettings.sending && !sendingDraft) setSendingDraft(serverSettings.sending);
+    if (serverSettings.tracking && !trackingDraft) setTrackingDraft(serverSettings.tracking);
+    if (serverSettings.contacts && !contactsDraft) setContactsDraft(serverSettings.contacts);
+    if (serverSettings.unsubscribe && !unsubDraft) setUnsubDraft(serverSettings.unsubscribe);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serverSettings]);
+
+  async function saveWorkspaceSetting(key, value) {
+    setSavingKey(key);
+    try {
+      await api.put(`/api/settings/${key}`, value);
+      toast.success(t('toast.settingsSaved'));
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : t('toast.networkError'));
+    } finally {
+      setSavingKey('');
+    }
+  }
 
   function handleSection(event) {
     setSection(event.currentTarget.dataset.key);
@@ -102,43 +205,52 @@ export default function SettingsPage() {
             <Card>
               <CardHead title={t('set.profileTitle')} subtitle={t('set.profileSub', { app: appConfig.name })} />
               <CardBody>
+                {profileError ? (
+                  <Note tone="warning" icon="bi-exclamation-triangle">
+                    {profileError}
+                  </Note>
+                ) : null}
+
                 <div className="mw-row mb-4">
-                  <span className="mw-avatar mw-avatar--lg">{currentUser.initials}</span>
+                  <span className="mw-avatar mw-avatar--lg">{user?.initials ?? ''}</span>
                   <div>
-                    <div className="mw-fs-16 mw-fw-700">{currentUser.name}</div>
-                    <div className="mw-fs-13 mw-text-muted">{currentUser.email}</div>
-                    <button type="button" className="btn btn-sm btn-outline-secondary mt-2">
-                      {t('set.changePhoto')}
-                    </button>
+                    <div className="mw-fs-16 mw-fw-700">{user?.name ?? ''}</div>
+                    <div className="mw-fs-13 mw-text-muted">{user?.email ?? ''}</div>
                   </div>
                 </div>
 
                 <div className="row g-3">
                   <div className="col-12 col-md-6">
                     <label className="form-label" htmlFor="p-name">{t('set.fullName')}</label>
-                    <input id="p-name" type="text" className="form-control" defaultValue={currentUser.name} />
+                    <input
+                      id="p-name"
+                      type="text"
+                      className="form-control"
+                      value={profileName}
+                      onChange={(event) => setProfileName(event.target.value)}
+                    />
                   </div>
                   <div className="col-12 col-md-6">
                     <label className="form-label" htmlFor="p-email">{t('set.loginEmail')}</label>
-                    <input id="p-email" type="email" className="form-control" defaultValue={currentUser.email} />
+                    <input id="p-email" type="email" className="form-control" value={user?.email ?? ''} readOnly disabled />
+                    <div className="form-text">{t('set.emailChangeNote')}</div>
                   </div>
                   <div className="col-12 col-md-6">
                     <label className="form-label" htmlFor="p-company">{t('common.company')}</label>
-                    <input id="p-company" type="text" className="form-control" defaultValue={currentUser.company} />
-                  </div>
-                  <div className="col-12 col-md-6">
-                    <label className="form-label" htmlFor="p-timezone">{t('set.timezone')}</label>
-                    <select id="p-timezone" className="form-select" defaultValue="Asia/Kolkata">
-                      <option>Asia/Kolkata</option>
-                      <option>Asia/Dubai</option>
-                      <option>Europe/London</option>
-                      <option>America/New_York</option>
-                    </select>
+                    <input
+                      id="p-company"
+                      type="text"
+                      className="form-control"
+                      value={profileDepartment}
+                      onChange={(event) => setProfileDepartment(event.target.value)}
+                    />
                   </div>
                 </div>
               </CardBody>
               <CardFoot>
-                <button type="button" className="btn btn-primary">{t('common.saveChanges')}</button>
+                <button type="button" className="btn btn-primary" onClick={saveProfile} disabled={profileSaving}>
+                  {profileSaving ? t('common.loading') : t('common.saveChanges')}
+                </button>
               </CardFoot>
             </Card>
           ) : null}
@@ -286,35 +398,77 @@ export default function SettingsPage() {
             <Card>
               <CardHead title={t('set.sendingTitle')} subtitle={t('set.sendingSub')} />
               <CardBody>
-                <div className="row g-3 mb-3">
-                  <div className="col-12 col-md-6">
-                    <label className="form-label" htmlFor="s-batch">{t('set.defaultBatch')}</label>
-                    <select id="s-batch" className="form-select" defaultValue="100">
-                      <option value="0">{t('send.batchAll')}</option>
-                      <option value="100">{t('send.batchPer', { size: formatNumber(100) })}</option>
-                      <option value="200">{t('send.batchPer', { size: formatNumber(200) })}</option>
-                      <option value="500">{t('send.batchPer', { size: formatNumber(500) })}</option>
-                    </select>
+                {!sendingDraft ? (
+                  <div className="p-3 text-center mw-text-muted">
+                    <div className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" />
+                    {t('common.loading')}
                   </div>
-                  <div className="col-12 col-md-6">
-                    <label className="form-label" htmlFor="s-delay">{t('set.minutesBetween')}</label>
-                    <input id="s-delay" type="number" className="form-control" defaultValue={2} min={0} max={60} />
-                  </div>
-                </div>
+                ) : (
+                  <>
+                    <div className="row g-3 mb-3">
+                      <div className="col-12 col-md-6">
+                        <label className="form-label" htmlFor="s-batch">{t('set.defaultBatch')}</label>
+                        <select
+                          id="s-batch"
+                          className="form-select"
+                          value={sendingDraft.defaultBatchSize}
+                          onChange={(event) =>
+                            setSendingDraft((current) => ({ ...current, defaultBatchSize: Number(event.target.value) }))
+                          }
+                        >
+                          <option value="0">{t('send.batchAll')}</option>
+                          <option value="100">{t('send.batchPer', { size: formatNumber(100) })}</option>
+                          <option value="200">{t('send.batchPer', { size: formatNumber(200) })}</option>
+                          <option value="500">{t('send.batchPer', { size: formatNumber(500) })}</option>
+                        </select>
+                      </div>
+                      <div className="col-12 col-md-6">
+                        <label className="form-label" htmlFor="s-delay">{t('set.minutesBetween')}</label>
+                        <input
+                          id="s-delay"
+                          type="number"
+                          className="form-control"
+                          value={sendingDraft.batchDelayMinutes}
+                          min={0}
+                          max={1440}
+                          onChange={(event) =>
+                            setSendingDraft((current) => ({ ...current, batchDelayMinutes: Number(event.target.value) || 0 }))
+                          }
+                        />
+                      </div>
+                    </div>
 
-                <SwitchRow
-                  id="s-retry"
-                  title={t('set.retryTitle')}
-                  desc={t('set.retryDesc')}
-                  defaultChecked
-                />
-                <SwitchRow
-                  id="s-quiet"
-                  title={t('set.quietTitle')}
-                  desc={t('set.quietDesc')}
-                  defaultChecked={false}
-                />
+                    <SwitchRow
+                      id="s-retry"
+                      title={t('set.retryTitle')}
+                      desc={t('set.retryDesc')}
+                      checked={sendingDraft.retryOnce}
+                      onChange={(event) => setSendingDraft((current) => ({ ...current, retryOnce: event.target.checked }))}
+                    />
+                    <SwitchRow
+                      id="s-quiet"
+                      title={t('set.quietTitle')}
+                      desc={t('set.quietDesc')}
+                      checked={sendingDraft.quietHours}
+                      onChange={(event) => setSendingDraft((current) => ({ ...current, quietHours: event.target.checked }))}
+                    />
+
+                    <Note tone="info" icon="bi-info-circle">
+                      {t('set.sendingNote')}
+                    </Note>
+                  </>
+                )}
               </CardBody>
+              <CardFoot>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => saveWorkspaceSetting('sending', sendingDraft)}
+                  disabled={!sendingDraft || savingKey === 'sending'}
+                >
+                  {savingKey === 'sending' ? t('common.loading') : t('common.saveChanges')}
+                </button>
+              </CardFoot>
             </Card>
           ) : null}
 
@@ -322,35 +476,61 @@ export default function SettingsPage() {
             <Card>
               <CardHead title={t('set.trackingTitle')} subtitle={t('set.trackingSub')} />
               <CardBody>
-                <SwitchRow
-                  id="t-open"
-                  title={t('set.openDefaultTitle')}
-                  desc={t('set.openDefaultDesc')}
-                  defaultChecked
-                />
-                <SwitchRow
-                  id="t-click"
-                  title={t('set.clickDefaultTitle')}
-                  desc={t('set.clickDefaultDesc')}
-                  defaultChecked={false}
-                />
-                <SwitchRow
-                  id="t-device"
-                  title={t('set.deviceTitle')}
-                  desc={t('set.deviceDesc')}
-                  defaultChecked
-                />
-                <SwitchRow
-                  id="t-location"
-                  title={t('set.locationTitle')}
-                  desc={t('set.locationDesc')}
-                  defaultChecked={false}
-                />
+                {!trackingDraft ? (
+                  <div className="p-3 text-center mw-text-muted">
+                    <div className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" />
+                    {t('common.loading')}
+                  </div>
+                ) : (
+                  <>
+                    <SwitchRow
+                      id="t-open"
+                      title={t('set.openDefaultTitle')}
+                      desc={t('set.openDefaultDesc')}
+                      checked={trackingDraft.openByDefault}
+                      onChange={(event) => setTrackingDraft((current) => ({ ...current, openByDefault: event.target.checked }))}
+                    />
+                    <SwitchRow
+                      id="t-click"
+                      title={t('set.clickDefaultTitle')}
+                      desc={t('set.clickDefaultDesc')}
+                      checked={trackingDraft.clickByDefault}
+                      onChange={(event) => setTrackingDraft((current) => ({ ...current, clickByDefault: event.target.checked }))}
+                    />
+                    <SwitchRow
+                      id="t-device"
+                      title={t('set.deviceTitle')}
+                      desc={t('set.deviceDesc')}
+                      checked={trackingDraft.recordDevice}
+                      onChange={(event) => setTrackingDraft((current) => ({ ...current, recordDevice: event.target.checked }))}
+                    />
+                    <SwitchRow
+                      id="t-location"
+                      title={t('set.locationTitle')}
+                      desc={t('set.locationDesc')}
+                      checked={trackingDraft.recordLocation}
+                      onChange={(event) => setTrackingDraft((current) => ({ ...current, recordLocation: event.target.checked }))}
+                    />
 
-                <Note tone="warning" icon="bi-exclamation-circle">
-                  {t('set.openEstimateNote')}
-                </Note>
+                    <Note tone="warning" icon="bi-exclamation-circle">
+                      {t('set.openEstimateNote')}
+                    </Note>
+                    <Note tone="info" icon="bi-info-circle">
+                      {t('set.trackingNote')}
+                    </Note>
+                  </>
+                )}
               </CardBody>
+              <CardFoot>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => saveWorkspaceSetting('tracking', trackingDraft)}
+                  disabled={!trackingDraft || savingKey === 'tracking'}
+                >
+                  {savingKey === 'tracking' ? t('common.loading') : t('common.saveChanges')}
+                </button>
+              </CardFoot>
             </Card>
           ) : null}
 
@@ -358,24 +538,60 @@ export default function SettingsPage() {
             <Card>
               <CardHead title={t('set.contactsTitle')} subtitle={t('set.contactsSub')} />
               <CardBody>
-                <SwitchRow
-                  id="c-dedupe"
-                  title={t('set.dedupeTitle')}
-                  desc={t('set.dedupeDesc')}
-                  defaultChecked
-                />
-                <SwitchRow
-                  id="c-consent"
-                  title={t('set.consentTitle')}
-                  desc={t('set.consentDesc')}
-                  defaultChecked
-                />
-                <div className="mt-4">
-                  <label className="form-label" htmlFor="c-fields">{t('set.customFields')}</label>
-                  <input id="c-fields" type="text" className="form-control" defaultValue="city, area, plan" />
-                  <div className="form-text">{t('set.customFieldsHelp')}</div>
-                </div>
+                {!contactsDraft ? (
+                  <div className="p-3 text-center mw-text-muted">
+                    <div className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" />
+                    {t('common.loading')}
+                  </div>
+                ) : (
+                  <>
+                    <SwitchRow
+                      id="c-dedupe"
+                      title={t('set.dedupeTitle')}
+                      desc={t('set.dedupeDesc')}
+                      checked={contactsDraft.dedupeOnImport}
+                      onChange={(event) => setContactsDraft((current) => ({ ...current, dedupeOnImport: event.target.checked }))}
+                    />
+                    <SwitchRow
+                      id="c-consent"
+                      title={t('set.consentTitle')}
+                      desc={t('set.consentDesc')}
+                      checked={contactsDraft.requireConsent}
+                      onChange={(event) => setContactsDraft((current) => ({ ...current, requireConsent: event.target.checked }))}
+                    />
+                    <div className="mt-4">
+                      <label className="form-label" htmlFor="c-fields">{t('set.customFields')}</label>
+                      <input
+                        id="c-fields"
+                        type="text"
+                        className="form-control"
+                        value={contactsDraft.customFields.join(', ')}
+                        onChange={(event) =>
+                          setContactsDraft((current) => ({
+                            ...current,
+                            customFields: event.target.value.split(',').map((f) => f.trim()).filter(Boolean),
+                          }))
+                        }
+                      />
+                      <div className="form-text">{t('set.customFieldsHelp')}</div>
+                    </div>
+
+                    <Note tone="info" icon="bi-info-circle">
+                      {t('set.contactsNote')}
+                    </Note>
+                  </>
+                )}
               </CardBody>
+              <CardFoot>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => saveWorkspaceSetting('contacts', contactsDraft)}
+                  disabled={!contactsDraft || savingKey === 'contacts'}
+                >
+                  {savingKey === 'contacts' ? t('common.loading') : t('common.saveChanges')}
+                </button>
+              </CardFoot>
             </Card>
           ) : null}
 
@@ -383,29 +599,56 @@ export default function SettingsPage() {
             <Card>
               <CardHead title={t('set.unsubTitle')} subtitle={t('set.unsubSub')} />
               <CardBody>
-                <div className="mb-3">
-                  <label className="form-label" htmlFor="u-text">{t('set.unsubLinkText')}</label>
-                  <input id="u-text" type="text" className="form-control" defaultValue="Unsubscribe from these emails" />
-                </div>
-                <div className="mb-3">
-                  <label className="form-label" htmlFor="u-page">{t('set.unsubMessage')}</label>
-                  <textarea
-                    id="u-page"
-                    className="form-control"
-                    rows={3}
-                    defaultValue="You have been removed from our mailing list. Sorry to see you go!"
-                  />
-                </div>
-                <SwitchRow
-                  id="u-onelick"
-                  title={t('set.oneClickTitle')}
-                  desc={t('set.oneClickDesc')}
-                  defaultChecked
-                />
-                <Note tone="success" icon="bi-shield-check">
-                  {t('set.unsubNote')}
-                </Note>
+                {!unsubDraft ? (
+                  <div className="p-3 text-center mw-text-muted">
+                    <div className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" />
+                    {t('common.loading')}
+                  </div>
+                ) : (
+                  <>
+                    <div className="mb-3">
+                      <label className="form-label" htmlFor="u-text">{t('set.unsubLinkText')}</label>
+                      <input
+                        id="u-text"
+                        type="text"
+                        className="form-control"
+                        value={unsubDraft.linkText}
+                        onChange={(event) => setUnsubDraft((current) => ({ ...current, linkText: event.target.value }))}
+                      />
+                    </div>
+                    <div className="mb-3">
+                      <label className="form-label" htmlFor="u-page">{t('set.unsubMessage')}</label>
+                      <textarea
+                        id="u-page"
+                        className="form-control"
+                        rows={3}
+                        value={unsubDraft.confirmation}
+                        onChange={(event) => setUnsubDraft((current) => ({ ...current, confirmation: event.target.value }))}
+                      />
+                    </div>
+                    <SwitchRow
+                      id="u-onelick"
+                      title={t('set.oneClickTitle')}
+                      desc={t('set.oneClickDesc')}
+                      checked={unsubDraft.oneClickHeader}
+                      onChange={(event) => setUnsubDraft((current) => ({ ...current, oneClickHeader: event.target.checked }))}
+                    />
+                    <Note tone="success" icon="bi-shield-check">
+                      {t('set.unsubNote')}
+                    </Note>
+                  </>
+                )}
               </CardBody>
+              <CardFoot>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => saveWorkspaceSetting('unsubscribe', unsubDraft)}
+                  disabled={!unsubDraft || savingKey === 'unsubscribe'}
+                >
+                  {savingKey === 'unsubscribe' ? t('common.loading') : t('common.saveChanges')}
+                </button>
+              </CardFoot>
             </Card>
           ) : null}
 
@@ -413,6 +656,17 @@ export default function SettingsPage() {
             <Card>
               <CardHead title={t('topbar.security')} subtitle={t('set.securitySub')} />
               <CardBody>
+                {securityError ? (
+                  <Note tone="warning" icon="bi-exclamation-triangle">
+                    {securityError}
+                  </Note>
+                ) : null}
+                {securityDone ? (
+                  <Note tone="success" icon="bi-check-circle">
+                    {securityDone}
+                  </Note>
+                ) : null}
+
                 <div className="row g-3 mb-3">
                   <div className="col-12 col-md-6">
                     <label className="form-label" htmlFor="sec-current">{t('set.currentPassword')}</label>
@@ -422,6 +676,9 @@ export default function SettingsPage() {
                         type={showCurrentPass ? 'text' : 'password'}
                         className="form-control"
                         placeholder="••••••••"
+                        value={currentPassword}
+                        onChange={(event) => setCurrentPassword(event.target.value)}
+                        autoComplete="current-password"
                       />
                       <button
                         type="button"
@@ -441,6 +698,9 @@ export default function SettingsPage() {
                         type={showNewPass ? 'text' : 'password'}
                         className="form-control"
                         placeholder="••••••••"
+                        value={newPassword}
+                        onChange={(event) => setNewPassword(event.target.value)}
+                        autoComplete="new-password"
                       />
                       <button
                         type="button"
@@ -454,66 +714,49 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
-                <SwitchRow
-                  id="sec-2fa"
-                  title={t('set.twoStepTitle')}
-                  desc={t('set.twoStepDesc')}
-                  defaultChecked
-                />
-                <SwitchRow
-                  id="sec-audit"
-                  title={t('set.auditTitle')}
-                  desc={t('set.auditDesc')}
-                  defaultChecked
-                />
+                <Note tone="info" icon="bi-shield-lock">
+                  {t('set.passwordChangeNote')}
+                </Note>
 
                 <hr className="my-4" />
 
-                <h3 className="mw-fs-14 mw-fw-700 mw-text-danger mb-2">{t('set.dangerZone')}</h3>
-                <p className="mw-fs-13 mw-text-muted">{t('set.dangerText')}</p>
-                <button type="button" className="btn btn-outline-danger">
-                  {t('set.deleteData')}
-                </button>
+                {/* Yeh switch nahi hai — audit log kabhi band nahi hoti, isliye
+                    ek jhoothi toggle dikhane ki bajaye seedha bata dete hain
+                    ki yeh pehle se chalu hai aur kahan dekhi ja sakti hai. */}
+                <div className="mw-switchrow">
+                  <div className="mw-switchrow__body">
+                    <div className="mw-switchrow__title">{t('set.auditTitle')}</div>
+                    <p className="mw-switchrow__desc mb-0">{t('set.auditDesc')}</p>
+                  </div>
+                  <Link to="/activity" className="btn btn-sm btn-outline-secondary">
+                    {t('set.viewAuditLog')}
+                  </Link>
+                </div>
               </CardBody>
+              <CardFoot>
+                <button type="button" className="btn btn-primary" onClick={changePassword} disabled={securitySaving}>
+                  {securitySaving ? t('common.loading') : t('set.changePassword')}
+                </button>
+              </CardFoot>
             </Card>
           ) : null}
 
           {section === 'api' ? (
             <Card>
-              <CardHead title={t('set.apiTitle')} subtitle={t('set.apiSub')} />
+              <CardHead
+                title={
+                  <span className="mw-row">
+                    {t('set.apiTitle')}
+                    <HelpButton topic="settingsApi" />
+                  </span>
+                }
+                subtitle={t('set.apiSub')}
+              />
               <CardBody>
-                <label className="form-label" htmlFor="api-key">{t('set.apiKey')}</label>
-                <div className="input-group">
-                  <input
-                    id="api-key"
-                    type={showApiKey ? 'text' : 'password'}
-                    className="form-control mw-mono"
-                    defaultValue="mw_live_8fj2••••••••"
-                    readOnly
-                  />
-                  <button
-                    type="button"
-                    className="btn btn-outline-secondary"
-                    onClick={() => setShowApiKey((current) => !current)}
-                    aria-label={showApiKey ? t('auth.hidePassword') : t('auth.showPassword')}
-                  >
-                    <i className={`bi ${showApiKey ? 'bi-eye-slash' : 'bi-eye'}`} />
-                  </button>
-                  <button type="button" className="btn btn-outline-secondary">
-                    <i className="bi bi-clipboard" />
-                  </button>
-                </div>
-                <div className="form-text mb-4">{t('set.apiKeyHelp')}</div>
-
-                <div className="mb-3">
-                  <label className="form-label" htmlFor="api-webhook">{t('set.webhookUrl')}</label>
-                  <input id="api-webhook" type="url" className="form-control" placeholder="https://yourapp.com/webhooks/mailwave" />
-                  <div className="form-text">{t('set.webhookHelp')}</div>
-                </div>
-
-                <Note tone="info" icon="bi-file-code">
-                  {t('set.apiDocsNote')}
+                <Note tone="info" icon="bi-info-circle">
+                  {t('set.apiNotAvailable')}
                 </Note>
+                <p className="mw-fs-13 mw-text-muted mt-3 mb-0">{t('set.apiNotAvailableText')}</p>
               </CardBody>
             </Card>
           ) : null}
