@@ -13,10 +13,12 @@
 import { Router } from 'express';
 
 import { one, query } from '../db/client.js';
+import { env } from '../env.js';
 import { asyncHandler } from '../lib/http.js';
 import { clientIp } from '../lib/activity.js';
 import { newId } from '../lib/ids.js';
 import { escapeHtml } from '../services/render.js';
+import { sendSystemEmail } from '../services/systemMail.js';
 
 const router = Router();
 
@@ -189,11 +191,18 @@ router.get(
     // ON CONFLICT DO NOTHING hota to jo pehle unsubscribe kar chuka hai, wo
     // dobara "Subscribe" dabane par bhi hamesha 'Left later' hi rehta —
     // screen "Thank you for subscribing" bolti, par kuch badalta hi nahi tha.
-    await query(
+    //
+    // WHERE guard: agar yeh insaan pehle se hi 'Subscribed' hai (jaise usne
+    // yeh confirmation page dobara refresh kar diya), to koi row update nahi
+    // hoti aur RETURNING khaali aata — isse campaign owner ko wahi subscribe
+    // ke liye do baar email nahi jaati.
+    const changed = await one(
       `INSERT INTO subscribers (id, name, email, company, city, campaign_id, status)
        VALUES ($1,$2,$3,$4,$5,$6,'Subscribed')
        ON CONFLICT (lower(email)) DO UPDATE
-         SET status = 'Subscribed', campaign_id = EXCLUDED.campaign_id`,
+         SET status = 'Subscribed', campaign_id = EXCLUDED.campaign_id
+         WHERE subscribers.status IS DISTINCT FROM 'Subscribed'
+       RETURNING id`,
       [
         newId('sub'),
         recipient.name,
@@ -204,6 +213,28 @@ router.get(
       ]
     );
     await recordEvent(recipient.campaign_id, recipient.id, 'subscribe', req);
+
+    if (changed) {
+      const owner = await one(
+        `SELECT c.name AS campaign_name, u.email AS owner_email, u.name AS owner_name
+           FROM campaigns c LEFT JOIN users u ON u.id = c.created_by
+          WHERE c.id = $1`,
+        [recipient.campaign_id]
+      );
+      if (owner?.owner_email) {
+        await sendSystemEmail(
+          'contact.subscribed',
+          { email: owner.owner_email, name: owner.owner_name },
+          {
+            name: recipient.name || recipient.email,
+            email: recipient.email,
+            campaign_name: owner.campaign_name,
+            change_time: new Date().toUTCString(),
+            subscribers_url: `${env.appUrl}/subscribers`,
+          }
+        );
+      }
+    }
 
     res.type('html').send(
       page('Thank you for subscribing', 'You are on the list. We will keep you posted.')

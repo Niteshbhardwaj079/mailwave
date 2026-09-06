@@ -279,6 +279,9 @@ ${button('Open the activity log', 'activity_url', '#d97706')}`,
     event: 'A campaign finishes sending',
     to: 'The person who sent it',
     critical: false,
+    // Naya event hai — pehle koi bhejta hi nahi tha. Chalu-ba-chalu sabko
+    // achanak email milne lage, isliye default band rakha hai.
+    defaultEnabled: false,
     subject: '“{{campaign_name}}” has finished sending',
     variables: ['name', 'campaign_name', 'total_sent', 'total_failed', 'report_url', 'app_name', 'company', 'support_email'],
     html: shell(
@@ -301,6 +304,7 @@ ${button('See the report', 'report_url', '#16a34a')}`,
     event: 'Sending stops because the provider refused or the account broke',
     to: 'The sender and all Super Admins',
     critical: false,
+    defaultEnabled: false,
     subject: 'Sending stopped: {{campaign_name}}',
     variables: ['name', 'campaign_name', 'reason', 'sent_so_far', 'campaign_url', 'app_name', 'company', 'support_email'],
     html: shell(
@@ -337,6 +341,7 @@ ${button('See email accounts', 'accounts_url')}`
     event: 'A contact import finishes',
     to: 'The person who imported',
     critical: false,
+    defaultEnabled: false,
     subject: 'Import finished — {{valid_count}} contacts added',
     variables: ['name', 'file_name', 'valid_count', 'invalid_count', 'duplicate_count', 'contacts_url', 'app_name', 'company', 'support_email'],
     html: shell(
@@ -358,6 +363,7 @@ ${button('See contacts', 'contacts_url', '#16a34a')}`,
     event: 'A reader presses the Subscribe button inside a campaign email',
     to: 'The campaign owner (and the new subscriber gets a thank-you)',
     critical: false,
+    defaultEnabled: false,
     subject: '{{name}} subscribed from “{{campaign_name}}”',
     variables: ['name', 'email', 'campaign_name', 'change_time', 'subscribers_url', 'app_name', 'company', 'support_email'],
     html: shell(
@@ -380,6 +386,7 @@ ${button('See subscribers', 'subscribers_url', '#16a34a')}`,
     event: 'A large export finishes being prepared',
     to: 'The person who asked for it',
     critical: false,
+    defaultEnabled: false,
     subject: 'Your {{report_name}} export is ready',
     variables: ['name', 'report_name', 'row_count', 'download_url', 'app_name', 'company', 'support_email'],
     html: shell(

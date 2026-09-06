@@ -10,11 +10,13 @@ import { Router } from 'express';
 import { z } from 'zod';
 
 import { many, one, query } from '../db/client.js';
+import { env } from '../env.js';
 import { asyncHandler, conflict, notFound, paginated, pagination } from '../lib/http.js';
 import { logActivity } from '../lib/activity.js';
 import { newId } from '../lib/ids.js';
 import { validate } from '../lib/validate.js';
 import { requireModule } from '../middleware/permissions.js';
+import { sendSystemEmail } from '../services/systemMail.js';
 
 const router = Router();
 
@@ -496,9 +498,10 @@ router.post(
     groupId: z.string().trim().optional().nullable(),
     // false rakho to sirf report milegi, kuch save nahi hoga (preview ke liye).
     commit: z.boolean().default(true),
+    fileName: z.string().trim().max(200).optional().nullable(),
   })),
   asyncHandler(async (req, res) => {
-    const { rows, groupId, commit } = req.body;
+    const { rows, groupId, commit, fileName } = req.body;
 
     // Ek hi baar database se sab uthate hain — har row par query karna 5000
     // contacts par bahut slow ho jata.
@@ -595,6 +598,18 @@ router.post(
           `Import: ${report.imported} jude, ${report.duplicateInDatabase} pehle se the, ` +
           `${report.duplicateInFile} file me dobara the, ${report.invalid} galat the`,
       });
+
+      await sendSystemEmail(
+        'contacts.imported',
+        { email: req.user.email, name: req.user.name },
+        {
+          file_name: fileName || 'your file',
+          valid_count: String(report.imported),
+          invalid_count: String(report.invalid),
+          duplicate_count: String(report.duplicateInDatabase + report.duplicateInFile),
+          contacts_url: `${env.appUrl}/contacts`,
+        }
+      );
     }
 
     res.json({ ok: true, committed: commit, report });

@@ -11,8 +11,15 @@
 import { Router } from 'express';
 
 import { many, one } from '../db/client.js';
+import { env } from '../env.js';
 import { asyncHandler } from '../lib/http.js';
 import { requireModule } from '../middleware/permissions.js';
+import { sendSystemEmail } from '../services/systemMail.js';
+
+// "report.ready" chhote export par bhejna bekaar hai — wo to turant download
+// ho jate hain, kisi email ka intezaar hi nahi hota. Sirf bade export ke liye
+// (jaha kaam ki cheez hai) email jaati hai.
+const LARGE_REPORT_ROWS = 500;
 
 const router = Router();
 
@@ -437,6 +444,26 @@ router.get(
       // data chhoot jata hai aur ginti kam dikhti hai.
       to ? `${to}T23:59:59.999Z` : '',
     ]);
+
+    if (rows.length >= LARGE_REPORT_ROWS) {
+      const REPORT_NAMES = {
+        campaign: 'Campaign report',
+        activity: 'Activity log',
+        opened: 'Opened',
+        unopened: 'Unopened',
+        clicked: 'Clicked',
+        failed: 'Failed',
+      };
+      await sendSystemEmail(
+        'report.ready',
+        { email: req.user.email, name: req.user.name },
+        {
+          report_name: REPORT_NAMES[type] ?? type,
+          row_count: String(rows.length),
+          download_url: `${env.appUrl}/reports`,
+        }
+      );
+    }
 
     res.json({ type, columns: report.columns, rows, total: rows.length });
   })

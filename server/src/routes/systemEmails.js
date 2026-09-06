@@ -177,12 +177,20 @@ router.post(
       report_url: 'https://example.com/reports',
     };
 
-    const sent = await sendSystemEmail(req.params.key, { email: req.user.email, name: req.user.name }, sample);
+    // force:true — "Send test" ka matlab sirf itna hai ki template kaisi
+    // dikhti hai yeh dekhna hai. Isse yeh nahi khulta ki asli event (naya
+    // user, campaign khatam waghairah) par bhi ab email jaane lagegi — wo
+    // toggle jaisa hai waisa hi rehta hai.
+    const sent = await sendSystemEmail(
+      req.params.key,
+      { email: req.user.email, name: req.user.name },
+      sample,
+      { force: true }
+    );
 
     if (!sent.ok) {
       const why = {
         'no-account': 'Abhi tak koi email account juda nahi hai. Settings > Email accounts me ek jodo.',
-        disabled: 'Yeh email band hai. Pehle ise chalu karo.',
         'send-failed': 'Email bhejte waqt dikkat aayi. Server ka console dekho.',
         'no-template': 'Yeh template nahi mili.',
       };

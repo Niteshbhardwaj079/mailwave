@@ -19,6 +19,7 @@ import { validate } from '../lib/validate.js';
 import { requireModule } from '../middleware/permissions.js';
 import { explainSmtpError, providerList, providerPreset } from '../services/providers.js';
 import { sendMail } from '../services/mailer.js';
+import { notifySuperAdmins } from '../services/systemMail.js';
 
 const router = Router();
 
@@ -185,6 +186,14 @@ router.post(
       module: 'accounts',
       item: body.email,
       detail: `${preset.name} account juda`,
+    });
+
+    await notifySuperAdmins('account.connected', {
+      account_email: body.email,
+      provider: preset.name,
+      changed_by: req.user.name,
+      change_time: new Date().toUTCString(),
+      accounts_url: `${env.appUrl}/accounts`,
     });
 
     const row = await one('SELECT * FROM email_accounts WHERE id = $1', [id]);

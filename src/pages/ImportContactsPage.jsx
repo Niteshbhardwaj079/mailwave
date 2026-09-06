@@ -318,6 +318,7 @@ export default function ImportContactsPage() {
         rows: workingMapped,
         groupId: groupId || null,
         commit: true,
+        fileName: file?.name || null,
       });
 
       const result = data.report ?? data;

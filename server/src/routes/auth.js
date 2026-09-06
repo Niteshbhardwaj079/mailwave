@@ -200,6 +200,17 @@ router.post(
     if (!user || !ok) throw unauthorized('That email and password do not match');
     if (user.status === 'Disabled') throw unauthorized('That account has been turned off');
 
+    // Pehli baar is IP se login — permanent record hai, session/refresh_token
+    // ki tarah expire ya revoke nahi hota. UNIQUE constraint khud dedup kar
+    // deta hai, isliye ek hi jagah se do login request ek saath aayein to bhi
+    // email sirf ek hi jaati hai.
+    const newDevice = await one(
+      `INSERT INTO known_devices (user_id, ip) VALUES ($1, $2)
+       ON CONFLICT (user_id, ip) DO NOTHING
+       RETURNING user_id`,
+      [user.id, clientIp(req)]
+    );
+
     const payload = await issueSession(req, res, user);
     await logActivity({ ...req, user }, {
       action: 'signedIn',
@@ -207,6 +218,17 @@ router.post(
       item: user.name,
       detail: 'Signed in',
     });
+
+    if (newDevice) {
+      await sendSystemEmail('login.newDevice', { email: user.email, name: user.name }, {
+        device: req.get('user-agent')?.slice(0, 120) || 'unknown device',
+        request_ip: clientIp(req),
+        // Geo-IP lookup abhi app me nahi hai, isliye shehar ka naam nahi bata
+        // sakte — jhooth batane se behtar hai saaf "Unknown" likhna.
+        location: 'Unknown',
+        change_time: new Date().toUTCString(),
+      });
+    }
 
     res.json(payload);
   })

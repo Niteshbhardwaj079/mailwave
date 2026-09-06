@@ -15,6 +15,7 @@ import { env } from '../env.js';
 import { newId } from '../lib/ids.js';
 import { buildEmail } from './render.js';
 import { sendMail } from './mailer.js';
+import { notifySuperAdmins, sendSystemEmail } from './systemMail.js';
 
 // Kaun se campaign abhi chal rahe hain. Server restart hone par khali ho jata
 // hai — isliye status database me bhi likha jata hai, sirf yahan nahi.
@@ -85,6 +86,58 @@ async function workspaceSetting(key, fallback) {
   return row?.value ?? fallback;
 }
 
+/** Campaign poori ho gayi — jisne bheji thi usko bata dete hain. */
+async function notifyCampaignFinished(campaignId) {
+  const row = await one(
+    `SELECT c.name,
+            u.email AS creator_email, u.name AS creator_name,
+            (SELECT count(*)::int FROM campaign_recipients r WHERE r.campaign_id = c.id AND r.status = 'Sent') AS sent,
+            (SELECT count(*)::int FROM campaign_recipients r WHERE r.campaign_id = c.id AND r.status = 'Failed') AS failed
+       FROM campaigns c
+       LEFT JOIN users u ON u.id = c.created_by
+      WHERE c.id = $1`,
+    [campaignId]
+  );
+  // created_by khaali ho sakta hai (jisne banayi thi wo user delete ho chuka) —
+  // tab kise bhejein pata nahi, isliye chup-chap chhod dete hain.
+  if (!row?.creator_email) return;
+
+  await sendSystemEmail('campaign.finished', { email: row.creator_email, name: row.creator_name }, {
+    campaign_name: row.name,
+    total_sent: String(row.sent ?? 0),
+    total_failed: String(row.failed ?? 0),
+    report_url: `${env.appUrl}/campaigns/${campaignId}`,
+  });
+}
+
+/** Campaign beech me atak gayi (crash) — bhejne wale aur Super Admins ko batao. */
+async function notifyCampaignFailed(campaignId, error) {
+  const row = await one(
+    `SELECT c.name,
+            u.email AS creator_email, u.name AS creator_name,
+            (SELECT count(*)::int FROM campaign_recipients r WHERE r.campaign_id = c.id AND r.status = 'Sent') AS sent
+       FROM campaigns c
+       LEFT JOIN users u ON u.id = c.created_by
+      WHERE c.id = $1`,
+    [campaignId]
+  );
+  if (!row) return;
+
+  const vars = {
+    campaign_name: row.name,
+    reason: String(error?.message || error || '').slice(0, 200),
+    sent_so_far: String(row.sent ?? 0),
+    campaign_url: `${env.appUrl}/campaigns/${campaignId}`,
+  };
+
+  if (row.creator_email) {
+    await sendSystemEmail('campaign.failed', { email: row.creator_email, name: row.creator_name }, vars);
+  }
+  // creator khud Super Admin ho sakta hai — usse dobara na bheje, warna
+  // usi ek hadse ke liye do email mil jatin.
+  await notifySuperAdmins('campaign.failed', vars, { excludeEmail: row.creator_email });
+}
+
 /**
  * Ek campaign bhejta hai. Background me chalta hai — HTTP request iska
  * intezaar nahi karti, warna browser timeout ho jayega.
@@ -114,6 +167,7 @@ export async function startCampaign(campaignId, { company = env.brand.company } 
     console.error('[sender] campaign fail hui', campaignId, error);
     await query(`UPDATE campaigns SET status = 'Failed', updated_at = now() WHERE id = $1`, [campaignId]);
     running.delete(campaignId);
+    await notifyCampaignFailed(campaignId, error);
   });
 
   return { started: true };
@@ -191,6 +245,7 @@ async function run(campaign, account, controller, company) {
       );
       running.delete(campaign.id);
       console.log(`[sender] ${campaign.id}: poora ho gaya`);
+      await notifyCampaignFinished(campaign.id);
       return;
     }
 

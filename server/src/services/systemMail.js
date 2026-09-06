@@ -46,9 +46,14 @@ async function pickAccount() {
  * @param {string} key   system_emails table ki key, jaise 'password.reset'
  * @param {object} to    { email, name }
  * @param {object} vars  template ke {{variables}} ki value
+ * @param {object} [options]
+ * @param {boolean} [options.force] "Send test" isse true bhejta hai — Admin
+ *   yeh dekhna chahta hai template kaisi dikhti hai, chahe uska automatic
+ *   trigger abhi band ho. Asli event (naya user, campaign khatam waghairah)
+ *   isse kabhi true nahi bhejta — wahan "band" ka matlab sach me nahi bhejna hai.
  * @returns {{ ok: boolean, reason?: string, previewUrl?: string|null }}
  */
-export async function sendSystemEmail(key, to, vars = {}) {
+export async function sendSystemEmail(key, to, vars = {}, { force = false } = {}) {
   if (!to?.email) return { ok: false, reason: 'no-recipient' };
 
   const template = await one('SELECT * FROM system_emails WHERE key = $1', [key]);
@@ -57,8 +62,9 @@ export async function sendSystemEmail(key, to, vars = {}) {
     return { ok: false, reason: 'no-template' };
   }
 
-  // Admin ne is email ko band kar rakha hai. Yeh galti nahi hai.
-  if (!template.enabled) return { ok: false, reason: 'disabled' };
+  // Admin ne is email ko band kar rakha hai. Yeh galti nahi hai — "Send test"
+  // (force:true) ke alawa har jagah isi WAJAH se ruk jaana chahiye.
+  if (!template.enabled && !force) return { ok: false, reason: 'disabled' };
 
   const account = await pickAccount();
   if (!account) {
@@ -108,13 +114,17 @@ export async function sendSystemEmail(key, to, vars = {}) {
  * Kuch system email "copy to every Super Admin" hoti hain — jaise naya user
  * banna ya kisi role ki permissions badalna. Har ACTIVE Super Admin ko
  * ek-ek karke bhejta hai.
+ *
+ * `excludeEmail`: jise pehle hi alag se ek email ja chuki hai (jaise campaign
+ * ka sender, agar wo khud Super Admin nikla) — usse dobara nahi bhejte.
  */
-export async function notifySuperAdmins(key, vars = {}) {
+export async function notifySuperAdmins(key, vars = {}, { excludeEmail } = {}) {
   const admins = await many(
     `SELECT name, email FROM users WHERE role_key = 'super_admin' AND status = 'Active'`
   );
 
   for (const admin of admins) {
+    if (excludeEmail && admin.email.toLowerCase() === excludeEmail.toLowerCase()) continue;
     await sendSystemEmail(key, { email: admin.email, name: admin.name }, vars);
   }
 }

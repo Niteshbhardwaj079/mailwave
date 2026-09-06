@@ -63,6 +63,18 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
 
 CREATE INDEX IF NOT EXISTS refresh_tokens_user_idx ON refresh_tokens (user_id);
 
+-- Har user ne pehle kis IP se login kiya hai — "naye device se sign-in" email
+-- isi se decide hoti hai. refresh_tokens is kaam ke liye theek nahi thi:
+-- token revoke/expire hote rehte hain, jabki yeh record hamesha ke liye
+-- rehna chahiye. UNIQUE (user_id, ip) khud hi ek insaan ko ek hi IP ke liye
+-- do baar email jaane se rokta hai, chahe do login request ek saath aa jayein.
+CREATE TABLE IF NOT EXISTS known_devices (
+  user_id       text NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  ip            text NOT NULL,
+  first_seen_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, ip)
+);
+
 -- Single-use tokens for "set your password" and "forgot password".
 CREATE TABLE IF NOT EXISTS password_tokens (
   id          text PRIMARY KEY,

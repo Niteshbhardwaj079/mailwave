@@ -636,6 +636,24 @@ export function WorkspaceProvider({ children }) {
     [systemEmails, fail, refreshActivity]
   );
 
+  /**
+   * Apne hi email par ek sample bhejta hai — template kaisi dikhti hai yeh
+   * dekhne ke liye. Yeh email chalu/band hone se bilkul alag hai: email band
+   * ho tab bhi yeh test chalta hai, kyunki maksad sirf dekhna hai.
+   */
+  const sendTestSystemEmail = useCallback(
+    async (key) => {
+      try {
+        const data = await api.post(`/api/system-emails/${key}/test`);
+        toast.success(t('toast.systemEmailTestSent'), data.to);
+        return data;
+      } catch (error) {
+        return fail(error);
+      }
+    },
+    [toast, t, fail]
+  );
+
   // --- subscribers ---------------------------------------------------------
   const removeSubscribers = useCallback(
     async (ids) => {
@@ -741,6 +759,7 @@ export function WorkspaceProvider({ children }) {
       updateSystemEmail,
       resetSystemEmail,
       toggleSystemEmail,
+      sendTestSystemEmail,
       subscribers,
       removeSubscribers,
       bulkRecipientAction,
@@ -778,6 +797,7 @@ export function WorkspaceProvider({ children }) {
       updateSystemEmail,
       resetSystemEmail,
       toggleSystemEmail,
+      sendTestSystemEmail,
       subscribers,
       removeSubscribers,
       bulkRecipientAction,

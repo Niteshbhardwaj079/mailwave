@@ -295,9 +295,9 @@ async function seedSubscribers() {
 async function seedSystemEmails() {
   for (const template of systemEmailTemplates) {
     await query(
-      `INSERT INTO system_emails (key, subject, html, enabled) VALUES ($1,$2,$3,true)
+      `INSERT INTO system_emails (key, subject, html, enabled) VALUES ($1,$2,$3,$4)
        ON CONFLICT (key) DO NOTHING`,
-      [template.key, template.subject, template.html]
+      [template.key, template.subject, template.html, template.defaultEnabled !== false]
     );
   }
 }

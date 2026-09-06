@@ -15,7 +15,8 @@ import { EMAIL_GROUPS, fillPreview } from '../data/systemEmails';
 
 export default function SystemEmailsPage() {
   const t = useT();
-  const { systemEmails, updateSystemEmail, resetSystemEmail, toggleSystemEmail } = useWorkspace();
+  const { systemEmails, updateSystemEmail, resetSystemEmail, toggleSystemEmail, sendTestSystemEmail } =
+    useWorkspace();
 
   const [selectedKey, setSelectedKey] = useState(systemEmails[0]?.key || '');
   const [group, setGroup] = useState('all');
@@ -23,6 +24,8 @@ export default function SystemEmailsPage() {
   // Box me turant, chhantai 200ms ruk kar — type karte waqt atakta nahi.
   const search = useDebouncedValue(query, 200);
   const [tab, setTab] = useState('preview');
+  const [testSending, setTestSending] = useState(false);
+  const [testSentTo, setTestSentTo] = useState('');
 
   // Har keystroke par server ko bachana galat tha — type karte waqt screen
   // atakti thi aur do jaldi-jaldi save ek dusre ko overwrite kar sakte the.
@@ -59,6 +62,15 @@ export default function SystemEmailsPage() {
 
   function pick(event) {
     setSelectedKey(event.currentTarget.dataset.key);
+    setTestSentTo('');
+  }
+
+  async function handleSendTest() {
+    setTestSending(true);
+    setTestSentTo('');
+    const data = await sendTestSystemEmail(selected.key);
+    if (data) setTestSentTo(data.to);
+    setTestSending(false);
   }
 
   function handleSubject(event) {
@@ -293,7 +305,13 @@ export default function SystemEmailsPage() {
 
                   <div className="mw-switchrow mt-3">
                     <div className="mw-switchrow__body">
-                      <div className="mw-switchrow__title">{t('sysmail.enabled')}</div>
+                      <div className="mw-row mw-row--wrap mb-1">
+                        <span className="mw-switchrow__title mb-0">{t('sysmail.enabled')}</span>
+                        <StatusPill
+                          status={selected.enabled ? t('sysmail.statusOn') : t('sysmail.statusOff')}
+                          tone={selected.enabled ? 'success' : 'muted'}
+                        />
+                      </div>
                       <p className="mw-switchrow__desc mb-0">
                         {selected.critical ? t('sysmail.criticalNote') : t('sysmail.optionalNote')}
                       </p>
@@ -312,6 +330,28 @@ export default function SystemEmailsPage() {
                         {t('sysmail.enabled')}
                       </label>
                     </div>
+                  </div>
+
+                  <div className="mw-switchrow mt-2">
+                    <div className="mw-switchrow__body">
+                      <div className="mw-switchrow__title">{t('sysmail.sendTest')}</div>
+                      <p className="mw-switchrow__desc mb-0">{t('sysmail.testNote')}</p>
+                      {testSentTo ? (
+                        <p className="mw-fs-12 mw-text-success mt-1 mb-0">
+                          <i className="bi bi-check-circle me-1" />
+                          {t('sysmail.testSentTo', { email: testSentTo })}
+                        </p>
+                      ) : null}
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-outline-secondary btn-sm"
+                      onClick={handleSendTest}
+                      disabled={testSending}
+                    >
+                      <i className="bi bi-envelope-check me-2" />
+                      {testSending ? t('common.loading') : t('sysmail.sendTest')}
+                    </button>
                   </div>
 
                   <h3 className="mw-fs-14 mw-fw-700 mt-4 mb-2">{t('sysmail.forDevs')}</h3>

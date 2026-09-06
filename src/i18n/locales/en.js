@@ -493,6 +493,11 @@ export default {
   'sysmail.optionalNote': 'You can turn this one off if it is too much email for your team.',
   'sysmail.forDevs': 'How the backend sends it',
   'sysmail.adminOnly': 'Only a Super Admin can open this page.',
+  'sysmail.statusOn': 'Enabled',
+  'sysmail.statusOff': 'Disabled',
+  'sysmail.sendTest': 'Send test',
+  'sysmail.testNote': 'Sends a sample to your own email so you can see how it looks — this works even while the switch above is off, and does not turn automatic sending on.',
+  'sysmail.testSentTo': 'Test sent to {email}',
 
   'help.sysmail.1': 'Every email the app sends by itself is listed here, with the event that fires it.',
   'help.sysmail.2': 'Edit the subject and HTML like any template. Password emails cannot be switched off.',
@@ -1137,6 +1142,7 @@ export default {
   'toast.resetLinkSent': 'Password link emailed',
   'toast.systemEmailSaved': 'System email saved',
   'toast.systemEmailReset': 'System email put back to the original',
+  'toast.systemEmailTestSent': 'Test email sent',
 
 
   // --- Pagination ---
