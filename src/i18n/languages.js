@@ -17,6 +17,7 @@ import en from './locales/en';
 // ---------------------------------------------------------------------------
 const loaders = {
   hi: () => import('./locales/hi'),
+  'hi-Latn': () => import('./locales/hi-Latn'),
   gu: () => import('./locales/gu'),
   mr: () => import('./locales/mr'),
   bn: () => import('./locales/bn'),
@@ -36,6 +37,7 @@ const loaders = {
 export const LANGUAGES = [
   { code: 'en', native: 'English', english: 'English', flag: '🇬🇧', locale: 'en-IN', dir: 'ltr' },
   { code: 'hi', native: 'हिन्दी', english: 'Hindi', flag: '🇮🇳', locale: 'hi-IN', dir: 'ltr' },
+  { code: 'hi-Latn', native: 'Hinglish', english: 'Hinglish (Romanized Hindi)', flag: '🇮🇳', locale: 'en-IN', dir: 'ltr' },
   { code: 'gu', native: 'ગુજરાતી', english: 'Gujarati', flag: '🇮🇳', locale: 'gu-IN', dir: 'ltr' },
   { code: 'mr', native: 'मराठी', english: 'Marathi', flag: '🇮🇳', locale: 'mr-IN', dir: 'ltr' },
   { code: 'bn', native: 'বাংলা', english: 'Bengali', flag: '🇧🇩', locale: 'bn-IN', dir: 'ltr' },
