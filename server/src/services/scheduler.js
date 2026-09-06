@@ -74,6 +74,33 @@ export async function runDueCampaigns() {
     );
   }
 
+  // --- kal ki limit khatam hone se ruki hui campaigns ---------------------
+  //
+  // Insaan ne khud "Pause" nahi dabaya tha — aaj ki bhejne ki limit khatam ho
+  // gayi thi. Aisi campaign ko yahan dobara try karte hain; agar quota sach
+  // me abhi bhi khatam hai (raat abhi nahi badli) to startCampaign khud hi
+  // usko turant wapas 'quota' pause me daal dega — koi nuksaan nahi.
+  //
+  // Jo campaign insaan ne khud roki thi (pause_reason = 'manual'), use haath
+  // nahi lagate — wo jab tak khud "Resume" na dabaye, ruki hi rahegi.
+  let quotaPaused = [];
+  try {
+    quotaPaused = await many(
+      `SELECT id, name FROM campaigns WHERE status = 'Paused' AND pause_reason = 'quota'`
+    );
+  } catch (error) {
+    console.error('[scheduler] Quota se ruki campaigns padhi nahi ja saki:', error.message);
+    return started;
+  }
+
+  for (const campaign of quotaPaused) {
+    const result = await startCampaign(campaign.id, { company: env.brand.company });
+    if (result.started) {
+      console.log(`[scheduler] "${campaign.name}" — aaj ki limit dobara mil gayi, wapas bhejna shuru.`);
+      started.push(campaign.id);
+    }
+  }
+
   return started;
 }
 

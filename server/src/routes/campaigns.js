@@ -18,6 +18,66 @@ import { buildEmail } from '../services/render.js';
 
 const router = Router();
 
+/**
+ * "All Contacts" recipient source — filter se (shehar, tag, group, search)
+ * chuno, aur chaho to jinhe pehle kabhi email ja chuki hai unhe apne aap
+ * chhod do. Ek hi jagah se banaya hai taki count-preview aur asli add,
+ * dono EK JAISA result dein — warna wizard me jo number dikhta wo asli me
+ * judne wali ginti se alag ho sakta tha.
+ */
+function buildContactFilterWhere(filter = {}, excludeCampaignId = null) {
+  const where = [`c.status = 'Subscribed'`, `s.email IS NULL`];
+  const params = [];
+
+  const search = String(filter.search ?? '').trim();
+  const city = String(filter.city ?? '').trim();
+  const tag = String(filter.tag ?? '').trim();
+  const groupId = String(filter.groupId ?? '').trim();
+
+  if (search) {
+    params.push(`%${search.toLowerCase()}%`);
+    where.push(`(lower(c.name) LIKE $${params.length}
+              OR lower(c.email) LIKE $${params.length}
+              OR lower(c.company) LIKE $${params.length})`);
+  }
+
+  if (city) {
+    params.push(city);
+    where.push(`c.city = $${params.length}`);
+  }
+
+  if (tag) {
+    params.push(tag);
+    where.push(`$${params.length} = ANY(c.tags)`);
+  }
+
+  if (groupId) {
+    params.push(groupId);
+    where.push(`c.group_id = $${params.length}`);
+  }
+
+  // "Jo pehle kabhi email ja chuki hai, dubara mat dikhao" — kisi bhi campaign
+  // me agar successfully bheja ja chuka hai, to yahan se hata dete hain.
+  if (filter.excludeAlreadyEmailed) {
+    where.push(`NOT EXISTS (
+      SELECT 1 FROM campaign_recipients r
+       WHERE lower(r.email) = lower(c.email) AND r.status = 'Sent'
+    )`);
+  }
+
+  // Isi campaign me pehle se joda hua ho to dubara mat gino — warna "kitne
+  // jayenge" ka number jhootha lagega (asal me to wo already jud chuka hai).
+  if (excludeCampaignId) {
+    params.push(excludeCampaignId);
+    where.push(`NOT EXISTS (
+      SELECT 1 FROM campaign_recipients r2
+       WHERE r2.campaign_id = $${params.length} AND lower(r2.email) = lower(c.email)
+    )`);
+  }
+
+  return { clause: `WHERE ${where.join(' AND ')}`, params };
+}
+
 const campaignInput = z.object({
   name: z.string().trim().min(1, 'Campaign ko naam do').max(150),
   accountId: z.string().trim().min(1, 'Kis account se bhejna hai, wo chuno'),
@@ -177,6 +237,24 @@ router.get(
      LEFT JOIN suppression s ON lower(s.email) = lower(sb.email)
          WHERE sb.status = 'Subscribed' AND s.email IS NULL
       `);
+      res.json({ count: row?.n ?? 0 });
+      return;
+    }
+
+    if (source === 'filter') {
+      const filter = {
+        search: req.query.search,
+        city: req.query.city,
+        tag: req.query.tag,
+        groupId: req.query.filterGroupId,
+        excludeAlreadyEmailed: req.query.excludeAlreadyEmailed === 'true',
+      };
+      const excludeCampaignId = req.query.excludeCampaignId ? String(req.query.excludeCampaignId) : null;
+      const { clause, params: fParams } = buildContactFilterWhere(filter, excludeCampaignId);
+      const row = await one(
+        `SELECT count(*)::int AS n FROM contacts c LEFT JOIN suppression s ON lower(s.email) = lower(c.email) ${clause}`,
+        fParams
+      );
       res.json({ count: row?.n ?? 0 });
       return;
     }
@@ -352,13 +430,21 @@ router.put(
 );
 
 // --- recipients jodo --------------------------------------------------------
-// Teen tarike: seedhi list, ek group, ya subscribers.
+// Paanch tarike: seedhi list, ek group, subscribers, saare (all), ya
+// "All Contacts" filter (shehar/tag/group/search + already-emailed hatao).
 router.post(
   '/:id/recipients',
   requireModule('campaigns', 'edit'),
   validate(z.object({
-    source: z.enum(['list', 'group', 'subscribers', 'all']).default('list'),
+    source: z.enum(['list', 'group', 'subscribers', 'all', 'filter']).default('list'),
     groupId: z.string().trim().optional(),
+    filter: z.object({
+      search: z.string().trim().optional(),
+      city: z.string().trim().optional(),
+      tag: z.string().trim().optional(),
+      groupId: z.string().trim().optional(),
+      excludeAlreadyEmailed: z.boolean().optional(),
+    }).optional(),
     people: z.array(z.object({
       email: z.string().email(),
       name: z.string().optional().nullable(),
@@ -366,15 +452,30 @@ router.post(
     })).optional(),
   })),
   asyncHandler(async (req, res) => {
-    const campaign = await one('SELECT id, name, status FROM campaigns WHERE id = $1', [req.params.id]);
+    const campaign = await one('SELECT id, name, status, pause_reason FROM campaigns WHERE id = $1', [req.params.id]);
     if (!campaign) throw notFound('Yeh campaign nahi mila');
     if (campaign.status === 'Sending') throw badRequest('Campaign chal raha hai — abhi log nahi jod sakte');
 
-    const { source, groupId, people } = req.body;
+    const { source, groupId, filter, people } = req.body;
     let rows = [];
 
     if (source === 'list') {
       rows = (people ?? []).map((p) => ({ email: p.email, name: p.name ?? null, data: p.data ?? {} }));
+    } else if (source === 'filter') {
+      const { clause, params: fParams } = buildContactFilterWhere(filter ?? {}, campaign.id);
+      const contacts = await many(
+        `SELECT c.id, c.email, c.name, c.company, c.city, c.phone
+           FROM contacts c
+      LEFT JOIN suppression s ON lower(s.email) = lower(c.email)
+           ${clause}`,
+        fParams
+      );
+      rows = contacts.map((c) => ({
+        email: c.email,
+        name: c.name,
+        contactId: c.id,
+        data: { company: c.company, city: c.city, phone: c.phone },
+      }));
     } else {
       // Database se contacts uthao. Suppression wale apne aap chhoot jate hain.
       const params = [];
@@ -428,6 +529,17 @@ router.post(
       'SELECT count(*)::int AS n FROM campaign_recipients WHERE campaign_id = $1',
       [campaign.id]
     );
+
+    // Campaign ka pehla safar khatam ho chuka tha (Sent/Failed, ya quota
+    // khatam hone se Paused) aur ab naye log jode hain — unhe Pending chhod
+    // kar baithe rehna galat hai, turant bhejna shuru kar dete hain.
+    // Draft/Scheduled ko haath nahi lagate (apna waqt hai), aur jise insaan ne
+    // KHUD roka tha (pause_reason 'manual') use bhi chhed nahi te — warna
+    // unka jaan-boojh kar roka hua kaam apne aap phir chalu ho jayega.
+    const manuallyPaused = campaign.status === 'Paused' && campaign.pause_reason === 'manual';
+    if (added > 0 && !manuallyPaused && !['Draft', 'Scheduled', 'Sending'].includes(campaign.status)) {
+      await startCampaign(campaign.id, { company: env.brand.company });
+    }
 
     await logActivity(req, {
       action: 'updated',

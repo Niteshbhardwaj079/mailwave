@@ -68,6 +68,7 @@ function buildFilter(req) {
   const status = String(req.query.status ?? '').trim();
   const groupId = String(req.query.groupId ?? '').trim();
   const tag = String(req.query.tag ?? '').trim();
+  const city = String(req.query.city ?? '').trim();
 
   const where = [];
   const params = [];
@@ -93,6 +94,11 @@ function buildFilter(req) {
     // tags ek list hai, isliye "is list me yeh tag hai kya" wala sawaal.
     params.push(tag);
     where.push(`$${params.length} = ANY(c.tags)`);
+  }
+
+  if (city) {
+    params.push(city);
+    where.push(`c.city = $${params.length}`);
   }
 
   return { clause: where.length ? `WHERE ${where.join(' AND ')}` : '', params };
@@ -429,6 +435,21 @@ router.get(
        ORDER BY tag
     `);
     res.json({ tags: rows.map((row) => row.tag).filter(Boolean) });
+  })
+);
+
+/** Same idea as /tags/all, but for the city filter dropdown. */
+router.get(
+  '/cities/all',
+  requireModule('contacts', 'view'),
+  asyncHandler(async (req, res) => {
+    const rows = await many(`
+      SELECT DISTINCT city
+        FROM contacts
+       WHERE city IS NOT NULL AND city <> ''
+       ORDER BY city
+    `);
+    res.json({ cities: rows.map((row) => row.city) });
   })
 );
 

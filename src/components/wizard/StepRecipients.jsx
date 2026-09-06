@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 
 import { Note } from '../ui/Controls';
+import ContactFilterFields from '../contacts/ContactFilterFields';
 import { useT } from '../../i18n/I18nProvider';
 import { useWorkspace } from '../../store/WorkspaceProvider';
 import { formatDate, formatNumber } from '../../utils/format';
@@ -15,6 +16,7 @@ const SOURCES = [
     descKey: 'rec.src.subscribersDesc',
     icon: 'bi-hand-thumbs-up',
   },
+  { key: 'filter', titleKey: 'rec.src.filter', descKey: 'rec.src.filterDesc', icon: 'bi-funnel' },
 ];
 
 /**
@@ -22,7 +24,15 @@ const SOURCES = [
  * prefix alag hota hai (g_ / seg_), isliye alag se "kaunsa chuna" yaad
  * rakhne ki zarurat nahi.
  */
-export default function StepRecipients({ draft, onChange, contactGroups, segments, showErrors = false }) {
+export default function StepRecipients({
+  draft,
+  onChange,
+  contactGroups,
+  segments,
+  showErrors = false,
+  recipientCount = 0,
+  countingRecipients = false,
+}) {
   const t = useT();
   const navigate = useNavigate();
   const { subscribers } = useWorkspace();
@@ -68,6 +78,10 @@ export default function StepRecipients({ draft, onChange, contactGroups, segment
   function handleGroupToggle(event) {
     const { id } = event.currentTarget.dataset;
     onChange({ groups: draft.groups[0] === id ? [] : [id] });
+  }
+
+  function handleContactFilterChange(patch) {
+    onChange({ contactFilter: { ...draft.contactFilter, ...patch } });
   }
 
   return (
@@ -244,6 +258,16 @@ export default function StepRecipients({ draft, onChange, contactGroups, segment
             {t('rec.cleanNote')}
           </Note>
         </div>
+      ) : null}
+
+      {draft.recipientSource === 'filter' ? (
+        <ContactFilterFields
+          value={draft.contactFilter}
+          onChange={handleContactFilterChange}
+          groups={contactGroups}
+          count={recipientCount}
+          counting={countingRecipients}
+        />
       ) : null}
     </div>
   );

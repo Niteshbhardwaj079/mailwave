@@ -34,6 +34,7 @@ const INITIAL_DRAFT = {
   manualList: '',
   groups: [],
   subscriberIds: [],
+  contactFilter: { search: '', city: '', tag: '', groupId: '', excludeAlreadyEmailed: false },
   templateId: '',
   templateName: '',
   templateHtml: '',
@@ -196,6 +197,7 @@ export default function CampaignWizardPage() {
    * lagegi — jo unsubscribe kar chuke hain wo yahan bhi nahi gine jate.
    */
   const [willReach, setWillReach] = useState(0);
+  const [countingRecipients, setCountingRecipients] = useState(false);
 
   // Group id aur segment id alag prefix se bante hain (g_ aur seg_) — isi se
   // pata chal jata hai "existing" step me kya chuna gaya hai, alag se yaad
@@ -225,11 +227,25 @@ export default function CampaignWizardPage() {
         if (draft.recipientSource === 'existing' && selectedExistingId) {
           params.set('groupId', selectedExistingId);
         }
+        if (draft.recipientSource === 'filter') {
+          const f = draft.contactFilter;
+          if (f.search) params.set('search', f.search);
+          if (f.city) params.set('city', f.city);
+          if (f.tag) params.set('tag', f.tag);
+          if (f.groupId) params.set('filterGroupId', f.groupId);
+          if (f.excludeAlreadyEmailed) params.set('excludeAlreadyEmailed', 'true');
+          // Draft edit kar rahe ho to isi campaign me pehle se jude logon ko
+          // ginti me dobara mat gino.
+          if (editId) params.set('excludeCampaignId', editId);
+        }
 
+        setCountingRecipients(true);
         const data = await api.get(`/api/campaigns/recipient-count?${params}`);
         if (alive) setWillReach(data.count ?? 0);
       } catch (err) {
         if (alive) setWillReach(0);
+      } finally {
+        if (alive) setCountingRecipients(false);
       }
     })();
 
@@ -237,12 +253,20 @@ export default function CampaignWizardPage() {
       alive = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draft.recipientSource, draft.manualList, selectedExistingId, selectedIsSegment, segments]);
+  }, [
+    draft.recipientSource,
+    draft.manualList,
+    selectedExistingId,
+    selectedIsSegment,
+    segments,
+    draft.contactFilter,
+  ]);
 
   /** Screen ka naam server ke naam me badalta hai. */
   function recipientSourceKey() {
     if (draft.recipientSource === 'existing' && !selectedIsSegment) return 'group';
     if (draft.recipientSource === 'subscribers') return 'subscribers';
+    if (draft.recipientSource === 'filter') return 'filter';
     return 'all';
   }
 
@@ -368,6 +392,9 @@ export default function CampaignWizardPage() {
       }
       if (draft.recipientSource === 'existing' && draft.groups.length === 0) {
         return t('wiz.needGroupOrSegment');
+      }
+      if (draft.recipientSource === 'filter' && willReach === 0) {
+        return t('wiz.needRecipients');
       }
       return '';
     }
@@ -502,6 +529,11 @@ export default function CampaignWizardPage() {
     if (draft.recipientSource === 'subscribers') {
       return { source: 'subscribers' };
     }
+
+    if (draft.recipientSource === 'filter') {
+      return { source: 'filter', filter: draft.contactFilter };
+    }
+
     return { source: 'all' };
   }
 
@@ -769,6 +801,7 @@ export default function CampaignWizardPage() {
               draft={draft}
               onChange={updateDraft}
               recipientCount={willReach}
+              countingRecipients={countingRecipients}
               contactGroups={contactGroups}
               segments={segments}
               showErrors={showErrors}

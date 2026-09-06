@@ -100,7 +100,8 @@ export async function startCampaign(campaignId, { company = env.brand.company } 
   if (!account) return { started: false, reason: 'no_account' };
 
   await query(
-    `UPDATE campaigns SET status = 'Sending', started_at = COALESCE(started_at, now()), updated_at = now()
+    `UPDATE campaigns
+        SET status = 'Sending', pause_reason = NULL, started_at = COALESCE(started_at, now()), updated_at = now()
       WHERE id = $1`,
     [campaignId]
   );
@@ -122,7 +123,12 @@ export async function pauseCampaign(campaignId) {
   const controller = running.get(campaignId);
   if (controller) controller.stop = true;
 
-  await query(`UPDATE campaigns SET status = 'Paused', updated_at = now() WHERE id = $1`, [campaignId]);
+  // 'manual' — insaan ne roka, isliye scheduler ise kal khud chalu nahi
+  // karega. Sirf quota khatam hone wala pause apne aap resume hota hai.
+  await query(
+    `UPDATE campaigns SET status = 'Paused', pause_reason = 'manual', updated_at = now() WHERE id = $1`,
+    [campaignId]
+  );
   running.delete(campaignId);
   return { ok: true };
 }
@@ -151,10 +157,11 @@ async function run(campaign, account, controller, company) {
     const remainingToday = Math.max(0, (fresh?.daily_limit ?? 0) - (fresh?.sent_today ?? 0));
 
     if (remainingToday <= 0) {
-      // Limit khatam. Campaign ko Paused chhod dete hain — kal insaan ya
-      // scheduler dobara chalu kar dega.
+      // Limit khatam. 'quota' se maarka lagate hain, taaki scheduler kal
+      // subah quota reset hote hi ise khud chalu kar de — insaan ko roz
+      // yaad rakhkar dobara "Resume" dabana na pade.
       await query(
-        `UPDATE campaigns SET status = 'Paused', updated_at = now() WHERE id = $1`,
+        `UPDATE campaigns SET status = 'Paused', pause_reason = 'quota', updated_at = now() WHERE id = $1`,
         [campaign.id]
       );
       running.delete(campaign.id);

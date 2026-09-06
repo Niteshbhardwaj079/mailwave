@@ -17,8 +17,9 @@ import Sheet from '../components/ui/Sheet';
 import PerformanceChart from '../components/charts/PerformanceChart';
 import { widthClass, formatDateTime, formatNumber, percent, percentValue } from '../utils/format';
 import { useApi } from '../api/useApi';
-import { api } from '../api/client';
+import { ApiError, api } from '../api/client';
 import EmptyState from '../components/ui/EmptyState';
+import ContactFilterFields from '../components/contacts/ContactFilterFields';
 
 /** The click handler does the work; React just needs an onChange to be happy. */
 function noop() {}
@@ -67,9 +68,81 @@ export default function CampaignAnalyticsPage() {
   });
   const trendCall = useApi(`/api/campaigns/${campaignId}/trend`, { deps: [campaignId] });
   const linksCall = useApi(`/api/campaigns/${campaignId}/links`, { deps: [campaignId] });
+  const groupsCall = useApi('/api/contacts/groups/all');
+  const contactGroups = useMemo(() => groupsCall.data?.groups ?? [], [groupsCall.data]);
 
   const [lastUpdated, setLastUpdated] = useState(new Date());
   const [refreshing, setRefreshing] = useState(false);
+
+  // --- naye recipients jodna ------------------------------------------------
+  const [addOpen, setAddOpen] = useState(false);
+  const [addFilter, setAddFilter] = useState({
+    search: '',
+    city: '',
+    tag: '',
+    groupId: '',
+    excludeAlreadyEmailed: true,
+  });
+  const [addCount, setAddCount] = useState(0);
+  const [addCounting, setAddCounting] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [addError, setAddError] = useState('');
+
+  useEffect(() => {
+    if (!addOpen) return undefined;
+    let alive = true;
+
+    (async () => {
+      setAddCounting(true);
+      try {
+        const params = new URLSearchParams({ source: 'filter', excludeCampaignId: campaignId });
+        if (addFilter.search) params.set('search', addFilter.search);
+        if (addFilter.city) params.set('city', addFilter.city);
+        if (addFilter.tag) params.set('tag', addFilter.tag);
+        if (addFilter.groupId) params.set('filterGroupId', addFilter.groupId);
+        if (addFilter.excludeAlreadyEmailed) params.set('excludeAlreadyEmailed', 'true');
+        const data = await api.get(`/api/campaigns/recipient-count?${params}`);
+        if (alive) setAddCount(data.count ?? 0);
+      } catch (error) {
+        if (alive) setAddCount(0);
+      } finally {
+        if (alive) setAddCounting(false);
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [addOpen, addFilter, campaignId]);
+
+  function openAddRecipients() {
+    setAddFilter({ search: '', city: '', tag: '', groupId: '', excludeAlreadyEmailed: true });
+    setAddError('');
+    setAddOpen(true);
+  }
+
+  function closeAddRecipients() {
+    setAddOpen(false);
+  }
+
+  async function confirmAddRecipients() {
+    setAdding(true);
+    setAddError('');
+    try {
+      const data = await api.post(`/api/campaigns/${campaignId}/recipients`, {
+        source: 'filter',
+        filter: addFilter,
+      });
+      setBulkDone(t('rec.addedToast', { count: data.added ?? 0 }));
+      setAddOpen(false);
+      recipientsCall.reload();
+      campaignCall.reload();
+    } catch (error) {
+      setAddError(error instanceof ApiError ? error.message : t('toast.networkError'));
+    } finally {
+      setAdding(false);
+    }
+  }
 
   // Chaaron calls apna-apna data ek hi hamare server se laate hain — koi
   // per-hit paid API nahi, isliye baar-baar mangwana bhi free hai.
@@ -343,6 +416,10 @@ export default function CampaignAnalyticsPage() {
             >
               <i className={`bi bi-arrow-repeat me-2 ${resendingTop ? 'mw-spin' : ''}`.trim()} />
               {resendingTop ? t('camp.refreshing') : t('camp.resendUnopened')}
+            </button>
+            <button type="button" className="btn btn-outline-primary" onClick={openAddRecipients}>
+              <i className="bi bi-person-plus me-2" />
+              {t('rec.addMore')}
             </button>
             <button type="button" className="btn btn-primary mw-btn-block-mobile">
               <i className="bi bi-diagram-3 me-2" />
@@ -767,6 +844,41 @@ export default function CampaignAnalyticsPage() {
             </div>
           </>
         ) : null}
+      </Sheet>
+
+      <Sheet
+        open={addOpen}
+        title={t('rec.addMore')}
+        onClose={closeAddRecipients}
+        footer={
+          <>
+            <button type="button" className="btn btn-outline-secondary flex-fill" onClick={closeAddRecipients}>
+              {t('common.cancel')}
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary flex-fill"
+              onClick={confirmAddRecipients}
+              disabled={adding || addCounting || addCount === 0}
+            >
+              {adding ? t('common.loading') : t('rec.addMoreConfirm', { count: formatNumber(addCount) })}
+            </button>
+          </>
+        }
+      >
+        <p className="mw-fs-13 mw-text-muted mb-3">{t('rec.addMoreHelp')}</p>
+        {addError ? (
+          <Note tone="warning" icon="bi-exclamation-triangle">
+            {addError}
+          </Note>
+        ) : null}
+        <ContactFilterFields
+          value={addFilter}
+          onChange={(patch) => setAddFilter((current) => ({ ...current, ...patch }))}
+          groups={contactGroups}
+          count={addCount}
+          counting={addCounting}
+        />
       </Sheet>
     </div>
   );

@@ -194,6 +194,9 @@ CREATE TABLE IF NOT EXISTS campaigns (
   click_tracking    boolean NOT NULL DEFAULT false,
   subscribe_button  boolean NOT NULL DEFAULT false,
   status            text NOT NULL DEFAULT 'Draft',   -- Draft|Scheduled|Sending|Paused|Sent|Failed
+  -- 'quota' — apne aap ruki (aaj ki limit khatam); 'manual' — insaan ne roka.
+  -- Isi se pata chalta hai kal khud-ba-khud chalu karni hai ya nahi.
+  pause_reason      text,
   scheduled_at      timestamptz,
   started_at        timestamptz,
   finished_at       timestamptz,
@@ -201,6 +204,9 @@ CREATE TABLE IF NOT EXISTS campaigns (
   created_at        timestamptz NOT NULL DEFAULT now(),
   updated_at        timestamptz NOT NULL DEFAULT now()
 );
+
+-- Purane database me yeh column nahi hoga — naye deploy par apne aap jud jata hai.
+ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS pause_reason text;
 
 CREATE INDEX IF NOT EXISTS campaigns_status_idx ON campaigns (status);
 
