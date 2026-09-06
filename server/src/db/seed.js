@@ -14,6 +14,7 @@ import {
 } from './demoData.js';
 import { starterTemplates } from '../../../src/data/starterHtml.js';
 import { systemEmailTemplates } from '../../../src/data/systemEmails.js';
+import { allSeedTranslations } from '../../../src/data/systemEmailTranslations.js';
 
 import { closeDb, many, one, query, transaction } from './client.js';
 import { env } from '../env.js';
@@ -300,6 +301,19 @@ async function seedSystemEmails() {
       `INSERT INTO system_emails (key, subject, html, enabled) VALUES ($1,$2,$3,$4)
        ON CONFLICT (key) DO NOTHING`,
       [template.key, template.subject, template.html, template.defaultEnabled !== false]
+    );
+  }
+
+  // English ke alawa har language ka ek shuruaati (starting) translation —
+  // taaki naya workspace kisi bhi language me khaali-English-fallback nahi
+  // dikhata. Super Admin isse System Emails page se kabhi bhi edit kar sakta
+  // hai — DO NOTHING isliye ki dobara seed chalne se unka kiya hua edit kabhi
+  // overwrite na ho.
+  for (const t of allSeedTranslations()) {
+    await query(
+      `INSERT INTO system_email_translations (key, language, subject, html) VALUES ($1,$2,$3,$4)
+       ON CONFLICT (key, language) DO NOTHING`,
+      [t.key, t.language, t.subject, t.html]
     );
   }
 }
