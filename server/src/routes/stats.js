@@ -201,7 +201,8 @@ router.get(
                             AND r.sent_at >= now() - ($2 || ' days')::interval
                             AND r.sent_at <  now() - ($1 || ' days')::interval)::int AS clicked_before,
          count(*) FILTER (WHERE r.status IN ('Failed','Bounced'))::int AS failed,
-         count(*) FILTER (WHERE r.status = 'Pending')::int AS pending
+         count(*) FILTER (WHERE r.status = 'Pending')::int AS pending,
+         count(*) FILTER (WHERE r.unsubscribed = true)::int AS unsubscribed
        FROM campaign_recipients r`,
       [String(days), String(days * 2)]
     );
@@ -230,6 +231,7 @@ router.get(
         { id: 'clickRate', value: rate(t.clicked ?? 0, t.sent ?? 0), delta: '', trend: 'flat' },
         { id: 'failed', value: t.failed ?? 0, delta: '', trend: 'flat' },
         { id: 'pending', value: t.pending ?? 0, delta: '', trend: 'flat' },
+        { id: 'unsubscribed', value: t.unsubscribed ?? 0, delta: '', trend: 'flat' },
         { id: 'scheduled', value: campaignRow?.scheduled ?? 0, delta: '', trend: 'flat' },
       ],
     });

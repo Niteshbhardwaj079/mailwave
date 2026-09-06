@@ -35,6 +35,7 @@ const KPI_META = {
   clickRate: { labelKey: 'kpi.clickRate', icon: 'bi-bar-chart', tone: 'info' },
   failed: { labelKey: 'kpi.failed', icon: 'bi-exclamation-octagon', tone: 'danger' },
   pending: { labelKey: 'kpi.pending', icon: 'bi-hourglass-split', tone: 'warning' },
+  unsubscribed: { labelKey: 'kpi.unsubscribed', icon: 'bi-person-dash', tone: 'muted' },
   scheduled: { labelKey: 'kpi.scheduled', icon: 'bi-calendar-event', tone: 'muted' },
 };
 

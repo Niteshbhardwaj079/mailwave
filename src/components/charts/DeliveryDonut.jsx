@@ -8,7 +8,7 @@ import { useT } from '../../i18n/I18nProvider';
 export default function DeliveryDonut({ data: raw }) {
   const t = useT();
   const { accentHex } = useTheme();
-  const data = raw.map((item) => (item.key === 'delivered' ? { ...item, color: accentHex } : item));
+  const data = raw.map((item) => (item.key === 'sent' ? { ...item, color: accentHex } : item));
   const total = data.reduce((sum, item) => sum + item.value, 0);
 
   return (
@@ -42,7 +42,7 @@ export default function DeliveryDonut({ data: raw }) {
       <div className="mw-breakdown">
         {data.map((item) => (
           <div key={item.key} className="mw-breakdown__row">
-            <span className={`mw-legend__swatch mw-legend__swatch--${item.key === 'delivered' ? 'sent' : item.key === 'unsubscribed' ? 'unsub' : item.key}`} aria-hidden="true" />
+            <span className={`mw-legend__swatch mw-legend__swatch--${item.key === 'unsubscribed' ? 'unsub' : item.key}`} aria-hidden="true" />
             <span className="mw-breakdown__name">{item.name}</span>
             <span className="mw-breakdown__value">{formatNumber(item.value)}</span>
             <span className="mw-breakdown__pct">{percent(item.value, total)}</span>
