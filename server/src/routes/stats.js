@@ -379,10 +379,12 @@ const REPORTS = {
              module AS "Module", item AS "Item", detail AS "Detail"
         FROM activity_log
        -- Activity log kisi campaign se juda nahi hota (users, contacts,
-       -- templates sab yahan aate hain), isliye $1 (campaignId) yahan
-       -- istemal nahi hota — screen bhi is report ke liye campaign dropdown
-       -- nahi dikhati.
-       WHERE ($2 = '' OR at >= $2::timestamptz)
+       -- templates sab yahan aate hain), isliye $1 (campaignId) se filter
+       -- nahi karte — screen bhi is report ke liye campaign dropdown nahi
+       -- dikhati. $1::text ka istemal sirf Postgres ko iska type batane ke
+       -- liye hai (varna "har $ ka type maloom hona chahiye" error aata hai).
+       WHERE ($1::text = $1 OR true)
+         AND ($2 = '' OR at >= $2::timestamptz)
          AND ($3 = '' OR at <= $3::timestamptz)
        ORDER BY at DESC`,
   },
