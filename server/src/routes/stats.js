@@ -201,8 +201,7 @@ router.get(
                             AND r.sent_at >= now() - ($2 || ' days')::interval
                             AND r.sent_at <  now() - ($1 || ' days')::interval)::int AS clicked_before,
          count(*) FILTER (WHERE r.status IN ('Failed','Bounced'))::int AS failed,
-         count(*) FILTER (WHERE r.status = 'Pending')::int AS pending,
-         count(*) FILTER (WHERE r.unsubscribed = true)::int AS unsubscribed
+         count(*) FILTER (WHERE r.status = 'Pending')::int AS pending
        FROM campaign_recipients r`,
       [String(days), String(days * 2)]
     );
@@ -212,6 +211,12 @@ router.get(
              count(*) FILTER (WHERE status = 'Scheduled')::int AS scheduled
         FROM campaigns
     `);
+
+    // Unsubscribe ka pakka record suppression table hai, campaign_recipients
+    // nahi — kyunki campaign delete hote hi uske recipient rows CASCADE se
+    // mit jate hain, aur unsubscribed=true flag bhi unke saath chala jata,
+    // jaise ek insaan ki ginti chupke se 0 ho jaati thi.
+    const unsubRow = await one(`SELECT count(*)::int AS n FROM suppression WHERE reason = 'unsubscribed'`);
 
     const t = totals ?? {};
     const sentChange = change(t.sent ?? 0, t.sent_before ?? 0);
@@ -231,7 +236,7 @@ router.get(
         { id: 'clickRate', value: rate(t.clicked ?? 0, t.sent ?? 0), delta: '', trend: 'flat' },
         { id: 'failed', value: t.failed ?? 0, delta: '', trend: 'flat' },
         { id: 'pending', value: t.pending ?? 0, delta: '', trend: 'flat' },
-        { id: 'unsubscribed', value: t.unsubscribed ?? 0, delta: '', trend: 'flat' },
+        { id: 'unsubscribed', value: unsubRow?.n ?? 0, delta: '', trend: 'flat' },
         { id: 'scheduled', value: campaignRow?.scheduled ?? 0, delta: '', trend: 'flat' },
       ],
     });
@@ -286,11 +291,12 @@ router.get(
   asyncHandler(async (req, res) => {
     const row = await one(`
       SELECT
-        count(*) FILTER (WHERE status = 'Sent')::int AS sent,
-        count(*) FILTER (WHERE status = 'Failed')::int AS failed,
-        count(*) FILTER (WHERE status = 'Bounced')::int AS bounced,
-        count(*) FILTER (WHERE unsubscribed = true)::int AS unsubscribed
-      FROM campaign_recipients
+        (SELECT count(*)::int FROM campaign_recipients WHERE status = 'Sent') AS sent,
+        (SELECT count(*)::int FROM campaign_recipients WHERE status = 'Failed') AS failed,
+        (SELECT count(*)::int FROM campaign_recipients WHERE status = 'Bounced') AS bounced,
+        -- Suppression = pakka, permanent record. campaign_recipients.unsubscribed
+        -- campaign delete hone par CASCADE se mit jata hai (dekho /dashboard ka comment).
+        (SELECT count(*)::int FROM suppression WHERE reason = 'unsubscribed') AS unsubscribed
     `);
 
     // "Sent" hi bolte hain, "Delivered" nahi — hume kabhi pata nahi chalta ki
