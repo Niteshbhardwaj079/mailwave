@@ -19,6 +19,7 @@ import { clientIp } from '../lib/activity.js';
 import { newId } from '../lib/ids.js';
 import { escapeHtml } from '../services/render.js';
 import { sendSystemEmail } from '../services/systemMail.js';
+import { enqueueWebhookEvent } from '../services/webhooks.js';
 
 const router = Router();
 
@@ -58,7 +59,7 @@ router.get(
 
     try {
       const recipient = await one(
-        'SELECT id, campaign_id FROM campaign_recipients WHERE id = $1',
+        'SELECT id, campaign_id, email, name, open_count FROM campaign_recipients WHERE id = $1',
         [recipientId]
       );
 
@@ -72,6 +73,18 @@ router.get(
           [recipientId]
         );
         await recordEvent(recipient.campaign_id, recipientId, 'open', req);
+
+        // Sirf PEHLI baar — mail app baar-baar wahi pixel dobara load kar
+        // sakta hai, aur har baar webhook bhejna ek hi "khola" ko baar-baar
+        // client ko batana hoga.
+        if (recipient.open_count === 0) {
+          await enqueueWebhookEvent('email.opened', {
+            campaignId: recipient.campaign_id,
+            recipientId: recipient.id,
+            email: recipient.email,
+            name: recipient.name,
+          });
+        }
       }
     } catch (error) {
       // Note kar lo, par pixel to bhejna hi hai.
@@ -98,13 +111,24 @@ router.get(
 
     try {
       await query('UPDATE campaign_links SET click_count = click_count + 1 WHERE id = $1', [linkId]);
-      await query(
+      const recipient = await one(
         `UPDATE campaign_recipients
             SET click_count = click_count + 1, last_click_at = now()
-          WHERE id = $1`,
+          WHERE id = $1
+      RETURNING email, name`,
         [recipientId]
       );
       await recordEvent(link.campaign_id, recipientId, 'click', req, linkId);
+
+      if (recipient) {
+        await enqueueWebhookEvent('email.clicked', {
+          campaignId: link.campaign_id,
+          recipientId,
+          email: recipient.email,
+          name: recipient.name,
+          url: link.url,
+        });
+      }
     } catch (error) {
       console.error('[track] click', error);
     }
@@ -135,7 +159,7 @@ async function unsubscribe(req, res) {
   const recipientId = req.params.id;
 
   const recipient = await one(
-    'SELECT id, campaign_id, email FROM campaign_recipients WHERE id = $1',
+    'SELECT id, campaign_id, email, name FROM campaign_recipients WHERE id = $1',
     [recipientId]
   );
 
@@ -145,6 +169,12 @@ async function unsubscribe(req, res) {
   }
 
   await query('UPDATE campaign_recipients SET unsubscribed = true WHERE id = $1', [recipientId]);
+  await enqueueWebhookEvent('contact.unsubscribed', {
+    campaignId: recipient.campaign_id,
+    recipientId: recipient.id,
+    email: recipient.email,
+    name: recipient.name,
+  });
   await query(
     `UPDATE contacts SET status = 'Unsubscribed', updated_at = now() WHERE lower(email) = lower($1)`,
     [recipient.email]

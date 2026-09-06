@@ -380,6 +380,32 @@ CREATE TABLE IF NOT EXISTS api_keys (
 
 CREATE INDEX IF NOT EXISTS api_keys_hash_idx ON api_keys (key_hash);
 
+-- --- Webhooks ---------------------------------------------------------------
+--
+-- Client ka apna URL — jahan hum real-time events POST karte hain (email
+-- bheja gaya, khula, click hua, unsubscribe hua, campaign khatam hui).
+-- Config (url/secret/enabled) settings table ke 'webhooks' key me rehta hai;
+-- yeh table sirf ek QUEUE hai — har event yahan pehle daala jata hai, phir
+-- background worker (services/webhooks.js) ise bhejta hai. Isse:
+--   - sending/tracking kabhi kisi dheeme ya toote hue client URL ke liye
+--     nahi rukti (event daalna turant hai, bhejna alag se, baad me)
+--   - fail hone par khud-ba-khud dobara koshish hoti hai (backoff se)
+CREATE TABLE IF NOT EXISTS webhook_deliveries (
+  id               text PRIMARY KEY,
+  event            text NOT NULL,
+  payload          jsonb NOT NULL,
+  status           text NOT NULL DEFAULT 'pending', -- pending|delivered|failed
+  attempts         integer NOT NULL DEFAULT 0,
+  next_attempt_at  timestamptz NOT NULL DEFAULT now(),
+  last_status_code integer,
+  last_error       text,
+  created_at       timestamptz NOT NULL DEFAULT now(),
+  delivered_at     timestamptz
+);
+
+CREATE INDEX IF NOT EXISTS webhook_deliveries_due_idx ON webhook_deliveries (status, next_attempt_at);
+CREATE INDEX IF NOT EXISTS webhook_deliveries_created_idx ON webhook_deliveries (created_at DESC);
+
 -- Applied migrations, so migrate.js is safe to run repeatedly.
 CREATE TABLE IF NOT EXISTS schema_migrations (
   version     integer PRIMARY KEY,

@@ -16,6 +16,7 @@ import { newId } from '../lib/ids.js';
 import { buildEmail } from './render.js';
 import { sendMail } from './mailer.js';
 import { notifySuperAdmins, sendSystemEmail } from './systemMail.js';
+import { enqueueWebhookEvent } from './webhooks.js';
 
 // Kaun se campaign abhi chal rahe hain. Server restart hone par khali ho jata
 // hai — isliye status database me bhi likha jata hai, sirf yahan nahi.
@@ -246,6 +247,7 @@ async function run(campaign, account, controller, company) {
       running.delete(campaign.id);
       console.log(`[sender] ${campaign.id}: poora ho gaya`);
       await notifyCampaignFinished(campaign.id);
+      await enqueueWebhookEvent('campaign.finished', { campaignId: campaign.id, campaignName: campaign.name });
       return;
     }
 
@@ -275,13 +277,31 @@ async function run(campaign, account, controller, company) {
         );
 
         if (result.previewUrl) console.log(`[sender] preview: ${result.previewUrl}`);
+
+        await enqueueWebhookEvent('email.sent', {
+          campaignId: campaign.id,
+          campaignName: campaign.name,
+          recipientId: recipient.id,
+          email: recipient.email,
+          name: recipient.name,
+        });
       } catch (error) {
         // Ek address fail hone se poori campaign nahi rukni chahiye.
+        const message = String(error?.message || error).slice(0, 300);
         await query(
           `UPDATE campaign_recipients SET status = 'Failed', error = $2 WHERE id = $1`,
-          [recipient.id, String(error?.message || error).slice(0, 300)]
+          [recipient.id, message]
         );
         console.error(`[sender] ${recipient.email} fail:`, error?.message || error);
+
+        await enqueueWebhookEvent('email.failed', {
+          campaignId: campaign.id,
+          campaignName: campaign.name,
+          recipientId: recipient.id,
+          email: recipient.email,
+          name: recipient.name,
+          reason: message,
+        });
       }
     }
 

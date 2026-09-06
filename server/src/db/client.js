@@ -302,7 +302,11 @@ export const BACKUP_FORMAT_VERSION = 1;
 // hain. Inhe backup ke andar rakhna ulta-seedha ho jata: restore karte hi
 // backup ki apni history bhi purani ho jati, jabki asli files storage me
 // jyon ki tyon padi rehti.
-const EXCLUDED_FROM_BACKUP = new Set(['backups', 'schema_migrations']);
+// webhook_deliveries bhi isi wajah se: purani, adhoori bhejne wali queue
+// wapas aayi to purane events dobara (aur der se) client ko chale jate —
+// ek queue restore karne layak cheez nahi hai, wo to bas "abhi kya bhejna
+// hai" ki list hai.
+const EXCLUDED_FROM_BACKUP = new Set(['backups', 'schema_migrations', 'webhook_deliveries']);
 
 function sha256(input) {
   return createHash('sha256').update(input).digest('hex');

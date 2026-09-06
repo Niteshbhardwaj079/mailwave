@@ -338,6 +338,9 @@ async function seedSettings() {
       confirmation: 'You have been removed from our mailing list.',
       oneClickHeader: true,
     },
+    // url/secret khaali — koi bhi event bhejta hi nahi jab tak admin apna
+    // URL na daale aur chalu na kare.
+    webhooks: { url: '', secret: '', enabled: false },
   };
 
   for (const [key, value] of Object.entries(defaults)) {

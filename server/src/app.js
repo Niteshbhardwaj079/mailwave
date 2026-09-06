@@ -25,6 +25,7 @@ import imageRoutes from './routes/images.js';
 import backupRoutes from './routes/backup.js';
 import settingsRoutes from './routes/settings.js';
 import apiKeyRoutes from './routes/apiKeys.js';
+import webhookRoutes from './routes/webhooks.js';
 
 export function createApp() {
   const app = express();
@@ -91,6 +92,7 @@ export function createApp() {
   app.use('/api/images', requireAuth, imageRoutes);
   app.use('/api/settings', requireAuth, settingsRoutes);
   app.use('/api/api-keys', requireAuth, apiKeyRoutes);
+  app.use('/api/webhooks', requireAuth, webhookRoutes);
 
   // Backup upload me poori file body me aati hai, JSON nahi — isliye express
   // ke JSON parser se pehle raw stream chahiye. Route khud stream padhta hai.

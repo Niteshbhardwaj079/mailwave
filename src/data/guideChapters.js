@@ -56,4 +56,13 @@ export const guideChapters = [
     link: { to: '/users', labelKey: 'nav.users' },
     hasWarning: true,
   },
+  {
+    number: 8,
+    key: 'c8',
+    icon: 'bi-broadcast',
+    steps: ['s1', 's2', 's3', 's4', 's5', 's6'],
+    minutes: 4,
+    link: { to: '/settings', labelKey: 'nav.settings' },
+    hasWarning: true,
+  },
 ];

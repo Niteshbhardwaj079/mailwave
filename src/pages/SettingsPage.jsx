@@ -9,6 +9,7 @@ import { appConfig } from '../config/appConfig';
 import { THEME_MODES } from '../config/themeColors';
 import { Card, CardBody, CardFoot, CardHead } from '../components/ui/Card';
 import { Note } from '../components/ui/Controls';
+import StatusPill from '../components/ui/StatusPill';
 import Sheet from '../components/ui/Sheet';
 import EmptyState from '../components/ui/EmptyState';
 import { useAuth } from '../store/AuthProvider';
@@ -30,7 +31,10 @@ const SECTIONS = [
   { key: 'unsubscribe', labelKey: 'set.unsubscribe', icon: 'bi-box-arrow-right' },
   { key: 'security', labelKey: 'topbar.security', icon: 'bi-shield-lock' },
   { key: 'api', labelKey: 'set.api', icon: 'bi-code-slash' },
+  { key: 'webhooks', labelKey: 'set.webhooks', icon: 'bi-broadcast' },
 ];
+
+const DELIVERY_TONE = { pending: 'warning', delivered: 'success', failed: 'danger' };
 
 function SwitchRow({ id, title, desc, checked, onChange, disabled }) {
   return (
@@ -227,6 +231,80 @@ export default function SettingsPage() {
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : t('toast.networkError'));
     }
+  }
+
+  // --- webhooks ----------------------------------------------------------------
+  const webhookCall = useApi('/api/webhooks');
+  const webhook = webhookCall.data?.webhook ?? null;
+  const deliveriesCall = useApi('/api/webhooks/deliveries', { deps: [section] });
+  const deliveries = deliveriesCall.data?.deliveries ?? [];
+
+  const [webhookUrlDraft, setWebhookUrlDraft] = useState('');
+  const [webhookEnabledDraft, setWebhookEnabledDraft] = useState(false);
+  const [webhookSaving, setWebhookSaving] = useState(false);
+  const [webhookTesting, setWebhookTesting] = useState(false);
+  const [webhookTestResult, setWebhookTestResult] = useState(null);
+  const [rotateConfirmOpen, setRotateConfirmOpen] = useState(false);
+  const [rotatingSecret, setRotatingSecret] = useState(false);
+  // Asli secret sirf isi state me, sirf banne/badalne ke turant baad.
+  const [revealedSecret, setRevealedSecret] = useState(null);
+  const [secretCopied, setSecretCopied] = useState(false);
+
+  useEffect(() => {
+    if (webhook) {
+      setWebhookUrlDraft(webhook.url);
+      setWebhookEnabledDraft(webhook.enabled);
+    }
+  }, [webhook]);
+
+  async function saveWebhook() {
+    setWebhookSaving(true);
+    setWebhookTestResult(null);
+    try {
+      await api.put('/api/webhooks', { url: webhookUrlDraft.trim(), enabled: webhookEnabledDraft });
+      webhookCall.reload();
+      toast.success(t('toast.webhookSaved'));
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : t('toast.networkError'));
+    } finally {
+      setWebhookSaving(false);
+    }
+  }
+
+  async function testWebhook() {
+    setWebhookTesting(true);
+    setWebhookTestResult(null);
+    try {
+      const data = await api.post('/api/webhooks/test');
+      setWebhookTestResult(data);
+      if (data.ok) toast.success(t('toast.webhookTestSent'));
+      else toast.error(t('set.webhookTestFailed'));
+      deliveriesCall.reload();
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : t('toast.networkError'));
+    } finally {
+      setWebhookTesting(false);
+    }
+  }
+
+  async function rotateSecret() {
+    setRotatingSecret(true);
+    try {
+      const data = await api.post('/api/webhooks/rotate-secret');
+      setRotateConfirmOpen(false);
+      setRevealedSecret(data.secret);
+      webhookCall.reload();
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : t('toast.networkError'));
+    } finally {
+      setRotatingSecret(false);
+    }
+  }
+
+  function copyRevealedSecret() {
+    navigator.clipboard?.writeText(revealedSecret);
+    setSecretCopied(true);
+    window.setTimeout(() => setSecretCopied(false), 1800);
   }
 
   function handleSection(event) {
@@ -888,6 +966,133 @@ export default function SettingsPage() {
               </Note>
             </>
           ) : null}
+
+          {section === 'webhooks' ? (
+            <>
+              <Card>
+                <CardHead
+                  title={
+                    <span className="mw-row">
+                      {t('set.webhooksTitle')}
+                      <HelpButton topic="settingsWebhooks" />
+                    </span>
+                  }
+                  subtitle={t('set.webhooksSub')}
+                />
+                <CardBody>
+                  <p className="mw-fs-14 mb-3">{t('set.webhooksIntro')}</p>
+
+                  <Note tone="success" icon="bi-magic">
+                    <strong>{t('set.webhooksNoCodeTitle')} </strong>
+                    {t('set.webhooksNoCodeText')}
+                  </Note>
+
+                  {!webhook ? (
+                    <div className="p-3 text-center mw-text-muted">
+                      <div className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" />
+                      {t('common.loading')}
+                    </div>
+                  ) : (
+                    <>
+                      <div className="mt-4">
+                        <label className="form-label" htmlFor="wh-url">{t('set.webhookUrlLabel')}</label>
+                        <input
+                          id="wh-url"
+                          type="url"
+                          className="form-control"
+                          placeholder={t('set.webhookUrlPlaceholder')}
+                          value={webhookUrlDraft}
+                          onChange={(event) => setWebhookUrlDraft(event.target.value)}
+                        />
+                      </div>
+
+                      <SwitchRow
+                        id="wh-enabled"
+                        title={t('set.webhookEnabledTitle')}
+                        desc={t('set.webhookEnabledDesc')}
+                        checked={webhookEnabledDraft}
+                        onChange={(event) => setWebhookEnabledDraft(event.target.checked)}
+                      />
+
+                      {webhookTestResult ? (
+                        <Note tone={webhookTestResult.ok ? 'success' : 'warning'} icon={webhookTestResult.ok ? 'bi-check-circle' : 'bi-exclamation-triangle'}>
+                          {webhookTestResult.ok
+                            ? t('toast.webhookTestSent')
+                            : `${t('set.webhookTestFailed')}${webhookTestResult.statusCode ? ` (HTTP ${webhookTestResult.statusCode})` : ''}${webhookTestResult.error ? `: ${webhookTestResult.error}` : ''}`}
+                        </Note>
+                      ) : null}
+
+                      <hr className="my-4" />
+
+                      <div className="mw-switchrow">
+                        <div className="mw-switchrow__body">
+                          <div className="mw-switchrow__title">{t('set.webhookSecretTitle')}</div>
+                          <p className="mw-switchrow__desc mb-0">{t('set.webhookSecretDesc')}</p>
+                          <p className="mw-fs-12 mw-mono mw-text-muted mt-1 mb-0">
+                            {webhook.hasSecret ? webhook.secretPrefix : t('set.webhookSecretNotSet')}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-secondary"
+                          onClick={() => (webhook.hasSecret ? setRotateConfirmOpen(true) : rotateSecret())}
+                        >
+                          {webhook.hasSecret ? t('set.rotateSecret') : t('set.generateSecret')}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </CardBody>
+                <CardFoot>
+                  <button type="button" className="btn btn-outline-secondary" onClick={testWebhook} disabled={webhookTesting || !webhook?.url}>
+                    <i className="bi bi-send me-2" />
+                    {webhookTesting ? t('common.loading') : t('set.sendTestWebhook')}
+                  </button>
+                  <button type="button" className="btn btn-primary" onClick={saveWebhook} disabled={webhookSaving}>
+                    {webhookSaving ? t('common.loading') : t('common.saveChanges')}
+                  </button>
+                </CardFoot>
+              </Card>
+
+              <Card flush>
+                <CardHead title={t('set.recentDeliveries')} subtitle={t('set.recentDeliveriesSub')} />
+                {deliveries.length === 0 ? (
+                  <EmptyState icon="bi-broadcast" title={t('set.noDeliveriesYet')} text={t('set.noDeliveriesYetText')} />
+                ) : (
+                  <div className="mw-tablewrap">
+                    <table className="mw-table">
+                      <thead>
+                        <tr>
+                          <th scope="col">{t('common.status')}</th>
+                          <th scope="col">Event</th>
+                          <th scope="col">{t('bak.when')}</th>
+                          <th scope="col">{t('common.actions')}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {deliveries.map((delivery) => (
+                          <tr key={delivery.id}>
+                            <td>
+                              <StatusPill
+                                status={t(`set.deliveryStatus.${delivery.status}`)}
+                                tone={DELIVERY_TONE[delivery.status] ?? 'muted'}
+                              />
+                            </td>
+                            <td className="mw-mono mw-fs-12">{delivery.event}</td>
+                            <td className="mw-table__muted mw-nowrap">{formatDateTime(delivery.createdAt)}</td>
+                            <td className="mw-fs-12 mw-text-muted">
+                              {delivery.lastStatusCode ? `HTTP ${delivery.lastStatusCode}` : ''}
+                              {delivery.lastError ? ` — ${delivery.lastError}` : ''}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </Card>
+            </>
+          ) : null}
         </div>
       </div>
 
@@ -971,6 +1176,51 @@ export default function SettingsPage() {
           <p className="mw-fs-14 mb-0">
             <strong>{revokeFor.name}</strong> — {t('set.revokeKeyText')}
           </p>
+        ) : null}
+      </Sheet>
+
+      {/* Secret badalna pakka karo — jo bhi purane secret se jaanch kar raha
+          hai, uska verify turant fail hone lagega jab tak wo bhi apdate na kare. */}
+      <Sheet
+        open={rotateConfirmOpen}
+        title={t('set.rotateSecretConfirmTitle')}
+        onClose={() => setRotateConfirmOpen(false)}
+        footer={
+          <>
+            <button type="button" className="btn btn-outline-secondary flex-fill" onClick={() => setRotateConfirmOpen(false)}>
+              {t('common.cancel')}
+            </button>
+            <button type="button" className="btn btn-danger flex-fill" onClick={rotateSecret} disabled={rotatingSecret}>
+              {rotatingSecret ? t('common.loading') : t('set.rotateSecret')}
+            </button>
+          </>
+        }
+      >
+        <p className="mw-fs-14 mb-0">{t('set.rotateSecretConfirmText')}</p>
+      </Sheet>
+
+      {/* Asli secret — sirf ek baar. Yeh Sheet band hote hi hamesha ke liye
+          gayab ho jata hai; wapas dekhne ka koi tarika nahi hai. */}
+      <Sheet
+        open={Boolean(revealedSecret)}
+        title={t('set.webhookSecretCreated')}
+        onClose={() => setRevealedSecret(null)}
+        footer={
+          <button type="button" className="btn btn-primary flex-fill" onClick={() => setRevealedSecret(null)}>
+            {t('set.webhookSecretSaved')}
+          </button>
+        }
+      >
+        <Note tone="warning" icon="bi-exclamation-triangle">
+          {t('set.webhookSecretOnceWarning')}
+        </Note>
+        {revealedSecret ? (
+          <div className="mw-urlbox mt-3">
+            <span className="mw-urlbox__text mw-mono">{revealedSecret}</span>
+            <button type="button" className="mw-urlbox__btn" onClick={copyRevealedSecret}>
+              {secretCopied ? t('common.copied') : t('common.copy')}
+            </button>
+          </div>
         ) : null}
       </Sheet>
     </div>

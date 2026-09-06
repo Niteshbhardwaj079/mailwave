@@ -7,6 +7,7 @@ import { migrate } from './db/migrate.js';
 import { closeDb, currentDriver } from './db/client.js';
 import { startBackupSchedule } from './services/backup.js';
 import { startScheduler, stopScheduler } from './services/scheduler.js';
+import { startWebhookWorker, stopWebhookWorker } from './services/webhooks.js';
 
 /**
  * Server chalu karne se PEHLE dekh lete hain ki port khali hai ya nahi.
@@ -62,6 +63,9 @@ startBackupSchedule();
 // to bhi kuch nahi bigadta — chalu hote hi wo campaign turant chali jati hai.
 startScheduler();
 
+// Webhook queue ko har 30 second me check karta hai aur due events bhejta hai.
+startWebhookWorker();
+
 const server = app.listen(env.port, () => {
   console.log(`${env.brand.name} API listening on http://localhost:${env.port}`);
   console.log(`  database       : ${currentDriver()}`);
@@ -91,6 +95,7 @@ async function shutdown(reason, exitCode = 0) {
   // Naye requests lena band, phir database theek se band.
   server.close();
   stopScheduler();
+  stopWebhookWorker();
 
   try {
     await closeDb();
