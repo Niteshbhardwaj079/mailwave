@@ -378,8 +378,11 @@ const REPORTS = {
       SELECT at AS "When", user_name AS "User", action AS "Action",
              module AS "Module", item AS "Item", detail AS "Detail"
         FROM activity_log
-       WHERE ($1 = '' OR $1 = $1)
-         AND ($2 = '' OR at >= $2::timestamptz)
+       -- Activity log kisi campaign se juda nahi hota (users, contacts,
+       -- templates sab yahan aate hain), isliye $1 (campaignId) yahan
+       -- istemal nahi hota — screen bhi is report ke liye campaign dropdown
+       -- nahi dikhati.
+       WHERE ($2 = '' OR at >= $2::timestamptz)
          AND ($3 = '' OR at <= $3::timestamptz)
        ORDER BY at DESC`,
   },

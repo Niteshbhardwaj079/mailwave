@@ -3,7 +3,7 @@
  * needs a server — handy while the backend is not connected yet.
  */
 
-function triggerDownload(blob, filename) {
+export function triggerDownload(blob, filename) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
@@ -28,6 +28,31 @@ function escapeCell(value) {
 export function downloadCsv(filename, rows) {
   const body = rows.map((row) => row.map(escapeCell).join(',')).join('\r\n');
   const blob = new Blob([`﻿${body}`], { type: 'text/csv;charset=utf-8;' });
+  triggerDownload(blob, filename);
+}
+
+/**
+ * rows: array of arrays, first row is the header. Asli .xlsx file banata hai —
+ * ExcelJS sirf tabhi load hoti hai jab koi Excel format chunta hai, warna
+ * bekaar hi 1 MB har page load par nahi aati.
+ */
+export async function downloadXlsx(filename, rows) {
+  const ExcelJS = (await import('exceljs')).default;
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet('Report');
+  rows.forEach((row) => sheet.addRow(row));
+  if (rows.length) sheet.getRow(1).font = { bold: true };
+  sheet.columns.forEach((column) => {
+    column.width = Math.min(
+      40,
+      Math.max(10, ...column.values.filter(Boolean).map((value) => String(value).length))
+    );
+  });
+
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
   triggerDownload(blob, filename);
 }
 

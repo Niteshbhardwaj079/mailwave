@@ -11,7 +11,7 @@ import Sheet from '../components/ui/Sheet';
 import { ApiError, api, qs } from '../api/client';
 import { useApi } from '../api/useApi';
 import { useToast } from '../components/ui/ToastProvider';
-import { downloadCsv } from '../utils/download';
+import { downloadCsv, downloadXlsx } from '../utils/download';
 import { reportTypes } from '../data/mockData';
 
 const RANGES = [
@@ -100,13 +100,14 @@ export default function ReportsPage() {
         return;
       }
 
-      // Excel .csv file seedha khol leta hai, isliye dono option ek hi file
-      // banate hain — bas naam alag. Isse ek aur library nahi jodni padti aur
-      // file har computer par khulti hai.
       const columns = data.columns ?? Object.keys(rows[0]);
       const table = [columns, ...rows.map((row) => columns.map((col) => row[col] ?? ''))];
 
-      downloadCsv(`${type}-report.csv`, table);
+      if (format === 'xlsx') {
+        await downloadXlsx(`${type}-report.xlsx`, table);
+      } else {
+        downloadCsv(`${type}-report.csv`, table);
+      }
       toast.success(t('rep.exported', { count: rows.length }));
       closeExport();
     } catch (error) {
@@ -206,22 +207,24 @@ export default function ReportsPage() {
           <>
             <p className="mw-fs-14 mb-3">{t(exportFor.descKey)}</p>
             <div className="row g-3">
-              <div className="col-12">
-                <label className="form-label" htmlFor="export-campaign">{t('nav.campaigns')}</label>
-                <select
-                  id="export-campaign"
-                  className="form-select"
-                  value={campaignId}
-                  onChange={(event) => setCampaignId(event.target.value)}
-                >
-                  <option value="all">{t('filter.allCampaigns')}</option>
-                  {campaigns.map((campaign) => (
-                    <option key={campaign.id} value={campaign.id}>
-                      {campaign.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {exportFor.id !== 'rp2' ? (
+                <div className="col-12">
+                  <label className="form-label" htmlFor="export-campaign">{t('nav.campaigns')}</label>
+                  <select
+                    id="export-campaign"
+                    className="form-select"
+                    value={campaignId}
+                    onChange={(event) => setCampaignId(event.target.value)}
+                  >
+                    <option value="all">{t('filter.allCampaigns')}</option>
+                    {campaigns.map((campaign) => (
+                      <option key={campaign.id} value={campaign.id}>
+                        {campaign.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
               <div className="col-12 col-md-6">
                 <label className="form-label" htmlFor="export-from">{t('common.from')}</label>
                 <input
