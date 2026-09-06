@@ -1,5 +1,5 @@
 import { env } from '../env.js';
-import { one } from '../db/client.js';
+import { many, one } from '../db/client.js';
 import { sendMail } from './mailer.js';
 import { htmlToText, mergeVariables } from './render.js';
 
@@ -101,5 +101,20 @@ export async function sendSystemEmail(key, to, vars = {}) {
     // Yahan se aage error nahi jaane dete — request apna kaam poora kare.
     console.error(`[system-mail] "${key}" bhejne me dikkat: ${error.message}`);
     return { ok: false, reason: 'send-failed' };
+  }
+}
+
+/**
+ * Kuch system email "copy to every Super Admin" hoti hain — jaise naya user
+ * banna ya kisi role ki permissions badalna. Har ACTIVE Super Admin ko
+ * ek-ek karke bhejta hai.
+ */
+export async function notifySuperAdmins(key, vars = {}) {
+  const admins = await many(
+    `SELECT name, email FROM users WHERE role_key = 'super_admin' AND status = 'Active'`
+  );
+
+  for (const admin of admins) {
+    await sendSystemEmail(key, { email: admin.email, name: admin.name }, vars);
   }
 }

@@ -19,7 +19,7 @@ import { logActivity } from '../lib/activity.js';
 import { newId } from '../lib/ids.js';
 import { validate } from '../lib/validate.js';
 import { requireModule } from '../middleware/permissions.js';
-import { sendSystemEmail } from '../services/systemMail.js';
+import { notifySuperAdmins, sendSystemEmail } from '../services/systemMail.js';
 import { hashPassword } from '../lib/password.js';
 import { newRefreshToken } from '../lib/tokens.js';
 import { env } from '../env.js';
@@ -117,6 +117,18 @@ router.post(
     });
 
     await sendInvite(req, { id, name, email, role });
+
+    // "admin.userCreated" ka wada hai "har naya user banne par Super Admin ko
+    // ek copy" — pehle yeh kabhi bulaya hi nahi jata tha, isliye System Emails
+    // page par yeh template dikhta to tha par kabhi jata nahi tha.
+    await notifySuperAdmins('admin.userCreated', {
+      name,
+      email,
+      role,
+      created_by: req.user.name,
+      change_time: new Date().toUTCString(),
+      activity_url: `${env.appUrl}/activity`,
+    });
 
     const row = await one(`${USER_SELECT} WHERE id = $1`, [id]);
     res.status(201).json({ user: userToApi(row) });

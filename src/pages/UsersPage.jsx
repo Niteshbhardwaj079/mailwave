@@ -267,12 +267,23 @@ export default function UsersPage() {
     setDeleteBlocked(null);
   }
 
-  function confirmDeleteRole() {
+  async function confirmDeleteRole() {
     if (!deleteTarget) return;
-    const result = deleteRole(deleteTarget.key);
+    // deleteRole server ko poochta hai, isliye Promise laut ata hai — bina
+    // await ke result hamesha ek Promise object hi rehta, result.ok kabhi
+    // sach nahi hota aur delete karne layak role bhi "in use" dikhta rehta.
+    const result = await deleteRole(deleteTarget.key);
 
     if (!result.ok) {
-      setDeleteBlocked(result);
+      // "inUse" ke alawa har wajah (locked, server error, role mit chuka) ka
+      // apna toast pehle hi dikh chuka hai deleteRole ke andar — yahan dobara
+      // ek galat "X logon ke paas hai" (jab asal me count hi nahi hai) dikhana
+      // bhala nahi hota, isliye sirf inUse ke liye hi yeh panel dikhate hain.
+      if (result.reason === 'inUse') {
+        setDeleteBlocked(result);
+        return;
+      }
+      setDeleteTarget(null);
       return;
     }
 

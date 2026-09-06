@@ -13,10 +13,12 @@ import { Router } from 'express';
 import { z } from 'zod';
 
 import { many, one, query } from '../db/client.js';
+import { env } from '../env.js';
 import { asyncHandler, badRequest, notFound } from '../lib/http.js';
 import { logActivity } from '../lib/activity.js';
 import { validate } from '../lib/validate.js';
 import { requireModule } from '../middleware/permissions.js';
+import { notifySuperAdmins } from '../services/systemMail.js';
 
 const router = Router();
 
@@ -75,6 +77,16 @@ function cleanPermissions(input) {
   }
 
   return out;
+}
+
+/** Module ka order aur action ka order alag ho sakta hai — barabar jaanchne se pehle donon ko ek jaisa tarteeb dete hain. */
+function sortPermissions(map) {
+  return Object.keys(map)
+    .sort()
+    .reduce((acc, key) => {
+      acc[key] = [...map[key]].sort();
+      return acc;
+    }, {});
 }
 
 function roleToApi(row, permissions) {
@@ -198,8 +210,34 @@ router.put(
     ]);
 
     if (permissions) {
+      const cleaned = cleanPermissions(permissions);
+
+      // "admin.permissionChanged" sirf tabhi bhejni hai jab kuch sach me
+      // badla ho — screen har role-save par poori permissions bhejti hai
+      // (naam/rang badalte waqt bhi), isliye bina is jaanch ke har chhoti
+      // save par bhi "permissions changed" email chali jaati.
+      const beforeRows = await many('SELECT module, action FROM role_permissions WHERE role_key = $1', [
+        req.params.key,
+      ]);
+      const before = beforeRows.reduce((acc, row) => {
+        acc[row.module] = acc[row.module] || [];
+        acc[row.module].push(row.action);
+        return acc;
+      }, {});
+      const changed = JSON.stringify(sortPermissions(before)) !== JSON.stringify(sortPermissions(cleaned));
+
       await query('DELETE FROM role_permissions WHERE role_key = $1', [req.params.key]);
-      await savePermissions(req.params.key, cleanPermissions(permissions));
+      await savePermissions(req.params.key, cleaned);
+
+      if (changed) {
+        await notifySuperAdmins('admin.permissionChanged', {
+          role: label ?? existing.label ?? existing.key,
+          changed_by: req.user.name,
+          change_time: new Date().toUTCString(),
+          change_summary: 'Permissions were updated — open the activity log for the exact change.',
+          activity_url: `${env.appUrl}/activity`,
+        });
+      }
     }
 
     await logActivity(req, {
