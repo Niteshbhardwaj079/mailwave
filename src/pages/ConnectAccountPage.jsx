@@ -19,6 +19,7 @@ const PROVIDER_ICON = {
   zoho: 'bi-envelope',
   sendgrid: 'bi-send',
   brevo: 'bi-send',
+  ses: 'bi-cloud',
   smtp: 'bi-hdd-network',
 };
 
@@ -59,7 +60,10 @@ export default function ConnectAccountPage() {
     [providers, providerKey]
   );
 
-  const isCustom = providerKey === 'smtp';
+  // Amazon SES jaise provider ka host region ke hisaab se badalta hai,
+  // isliye unke liye bhi host/port/username dikhana padta hai — baaki
+  // providers (Gmail, Zoho...) ka host hamesha fixed hota hai.
+  const isCustom = providerKey === 'smtp' || Boolean(provider?.editableHost);
 
   function pickProvider(event) {
     const key = event.currentTarget.dataset.key;

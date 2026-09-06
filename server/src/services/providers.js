@@ -160,6 +160,31 @@ export const PROVIDERS = {
     },
   },
 
+  ses: {
+    key: 'ses',
+    name: 'Amazon SES',
+    host: 'email-smtp.ap-south-1.amazonaws.com',
+    port: 587,
+    secure: false,
+    needsAppPassword: false,
+    // AWS ka region alag-alag ho sakta hai, isliye host yahan bhi badla ja
+    // sakta hai — baaki providers me nahi (unka host hamesha fixed hota hai).
+    editableHost: true,
+    dailyLimitHint: 50000,
+    help: {
+      title: 'Amazon SES',
+      why: 'Bahut bada volume bhejne ke liye best hai, lekin setup thoda alag hai — yahan ka username/password aapka AWS login nahi hai, ek alag "SMTP credential" banana padta hai.',
+      steps: [
+        'AWS Console me SES kholo, apna region chuno (jaise India ke liye Asia Pacific — Mumbai)',
+        '"Verified identities" me apna sending domain ya email address verify karo — bina iske SES kuch nahi bhejega',
+        'Naya account "Sandbox" mode me hota hai — sirf verified address ko hi bhej sakte ho. Sabko bhejne ke liye AWS Support se "production access" maango',
+        'SES ke andar "SMTP settings" → "Create SMTP credentials" dabao — yeh ek NAYA username/password banata hai, apna AWS login yahan mat daalo',
+        'Wahan dikhne wala "SMTP endpoint" (jaise email-smtp.ap-south-1.amazonaws.com) neeche Host me daalo, aur username/password yahan paste karo',
+      ],
+      link: 'https://console.aws.amazon.com/ses/home',
+    },
+  },
+
   smtp: {
     key: 'smtp',
     name: 'Koi aur (Custom SMTP)',
@@ -190,6 +215,7 @@ export function providerList() {
     secure: p.secure,
     needsAppPassword: p.needsAppPassword,
     fixedUser: p.fixedUser ?? null,
+    editableHost: p.editableHost ?? false,
     dailyLimitHint: p.dailyLimitHint,
     help: p.help,
   }));
