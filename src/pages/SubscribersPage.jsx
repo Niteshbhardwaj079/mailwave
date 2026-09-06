@@ -97,7 +97,12 @@ export default function SubscribersPage() {
 
   const usedCampaigns = useMemo(() => {
     const seen = new Map();
-    subscribers.forEach((item) => seen.set(item.campaignId, item.campaign));
+    // Campaign delete ho chuki ho to subscriber ka campaignId apne aap null ho
+    // jata hai — aisi khaali entry filter dropdown me ek blank option jaisi
+    // dikhti, isliye yahin chhod dete hain.
+    subscribers.forEach((item) => {
+      if (item.campaignId) seen.set(item.campaignId, item.campaign);
+    });
     return Array.from(seen, ([value, label]) => ({ value, label }));
   }, [subscribers]);
 

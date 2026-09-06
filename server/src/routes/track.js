@@ -186,10 +186,14 @@ router.get(
       return;
     }
 
+    // ON CONFLICT DO NOTHING hota to jo pehle unsubscribe kar chuka hai, wo
+    // dobara "Subscribe" dabane par bhi hamesha 'Left later' hi rehta —
+    // screen "Thank you for subscribing" bolti, par kuch badalta hi nahi tha.
     await query(
-      `INSERT INTO subscribers (id, name, email, company, city, campaign_id)
-       VALUES ($1,$2,$3,$4,$5,$6)
-       ON CONFLICT (lower(email)) DO NOTHING`,
+      `INSERT INTO subscribers (id, name, email, company, city, campaign_id, status)
+       VALUES ($1,$2,$3,$4,$5,$6,'Subscribed')
+       ON CONFLICT (lower(email)) DO UPDATE
+         SET status = 'Subscribed', campaign_id = EXCLUDED.campaign_id`,
       [
         newId('sub'),
         recipient.name,
