@@ -4,7 +4,7 @@ import en from './locales/en';
 // Only English is bundled with the app. It is the fallback for every missing
 // key, so it has to be there the moment the app starts.
 //
-// The other eleven are separate chunks, fetched when someone actually picks
+// The rest are separate chunks, fetched when someone actually picks
 // that language — a Hindi user never downloads Arabic, Chinese and Tamil.
 // While a dictionary is still on its way, t() falls back to English, which is
 // exactly what it already does for a key a translator has not filled in yet.
@@ -27,6 +27,10 @@ const loaders = {
   de: () => import('./locales/de'),
   pt: () => import('./locales/pt'),
   zh: () => import('./locales/zh'),
+  ru: () => import('./locales/ru'),
+  th: () => import('./locales/th'),
+  ja: () => import('./locales/ja'),
+  ko: () => import('./locales/ko'),
 };
 
 export const LANGUAGES = [
@@ -42,6 +46,10 @@ export const LANGUAGES = [
   { code: 'de', native: 'Deutsch', english: 'German', flag: '🇩🇪', locale: 'de-DE', dir: 'ltr' },
   { code: 'pt', native: 'Português', english: 'Portuguese', flag: '🇧🇷', locale: 'pt-BR', dir: 'ltr' },
   { code: 'zh', native: '简体中文', english: 'Chinese (Simplified)', flag: '🇨🇳', locale: 'zh-CN', dir: 'ltr' },
+  { code: 'ru', native: 'Русский', english: 'Russian', flag: '🇷🇺', locale: 'ru-RU', dir: 'ltr' },
+  { code: 'th', native: 'ไทย', english: 'Thai', flag: '🇹🇭', locale: 'th-TH', dir: 'ltr' },
+  { code: 'ja', native: '日本語', english: 'Japanese', flag: '🇯🇵', locale: 'ja-JP', dir: 'ltr' },
+  { code: 'ko', native: '한국어', english: 'Korean', flag: '🇰🇷', locale: 'ko-KR', dir: 'ltr' },
 ];
 
 export const DEFAULT_LANGUAGE = 'en';
