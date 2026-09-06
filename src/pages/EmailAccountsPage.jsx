@@ -19,11 +19,13 @@ import { formatNumber, percentValue } from '../utils/format';
 const PROVIDER_ICON = {
   google: 'bi-google',
   microsoft: 'bi-microsoft',
+  office365: 'bi-microsoft',
   smtp: 'bi-hdd-network',
   sendgrid: 'bi-send',
   brevo: 'bi-send',
   zoho: 'bi-envelope',
   yahoo: 'bi-envelope',
+  ses: 'bi-cloud',
 };
 
 export default function EmailAccountsPage() {

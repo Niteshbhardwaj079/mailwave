@@ -446,21 +446,6 @@ export function getEmailLog(campaign, row) {
   return events;
 }
 
-export const emailAccounts = [
-  { id: 'acc_1', email: 'hello@gowebkart.com', provider: 'Gmail', providerKey: 'google', senderName: 'Gowebkart Team', replyTo: 'hello@gowebkart.com', status: 'Connected', dailyLimit: 2000, usedToday: 640 },
-  { id: 'acc_2', email: 'offers@gowebkart.com', provider: 'Microsoft 365', providerKey: 'microsoft', senderName: 'Gowebkart Offers', replyTo: 'support@gowebkart.com', status: 'Connected', dailyLimit: 5000, usedToday: 1820 },
-  { id: 'acc_3', email: 'courses@gowebkart.com', provider: 'Custom SMTP', providerKey: 'smtp', senderName: 'Gowebkart Academy', replyTo: 'courses@gowebkart.com', status: 'Needs attention', dailyLimit: 1000, usedToday: 0 },
-];
-
-export const providerOptions = [
-  { key: 'google', name: 'Gmail / Google Workspace', descKey: 'acc.provider.google', icon: 'bi-google', logoClass: 'mw-provider__logo--google', recommended: true },
-  { key: 'microsoft', name: 'Outlook / Microsoft 365', descKey: 'acc.provider.microsoft', icon: 'bi-microsoft', logoClass: 'mw-provider__logo--microsoft', recommended: true },
-  { key: 'sendgrid', name: 'SendGrid', descKey: 'acc.provider.sendgrid', icon: 'bi-send-check', logoClass: 'mw-provider__logo--sendgrid', recommended: false },
-  { key: 'mailgun', name: 'Mailgun', descKey: 'acc.provider.mailgun', icon: 'bi-rocket-takeoff', logoClass: 'mw-provider__logo--mailgun', recommended: false },
-  { key: 'ses', name: 'Amazon SES', descKey: 'acc.provider.ses', icon: 'bi-cloud', logoClass: 'mw-provider__logo--ses', recommended: false },
-  { key: 'smtp', name: 'Custom SMTP', descKey: 'acc.provider.smtp', icon: 'bi-hdd-network', logoClass: 'mw-provider__logo--smtp', recommended: false },
-];
-
 export const contacts = [
   { id: 'c1', name: 'Rahul Verma', email: 'rahul@example.com', phone: '+91 98200 11223', company: 'Verma Traders', tags: ['Lead', 'Mumbai'], group: 'Website Leads', status: 'Subscribed', addedOn: '2026-07-11' },
   { id: 'c2', name: 'Amit Kumar', email: 'amit@example.com', phone: '+91 98111 44556', company: 'Kumar Infotech', tags: ['Customer'], group: 'Customers', status: 'Subscribed', addedOn: '2026-06-02' },

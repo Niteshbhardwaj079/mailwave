@@ -14,7 +14,7 @@ import { useToast } from '../components/ui/ToastProvider';
 const PROVIDER_ICON = {
   google: 'bi-google',
   microsoft: 'bi-microsoft',
-  microsoft365: 'bi-microsoft',
+  office365: 'bi-microsoft',
   yahoo: 'bi-envelope',
   zoho: 'bi-envelope',
   sendgrid: 'bi-send',
