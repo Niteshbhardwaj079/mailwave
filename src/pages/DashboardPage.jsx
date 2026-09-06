@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import PageHeader from '../components/ui/PageHeader';
@@ -63,6 +63,33 @@ export default function DashboardPage() {
   const kpis = statsCall.data?.kpis ?? [];
   const recent = recentCall.data?.campaigns ?? [];
 
+  const [lastUpdated, setLastUpdated] = useState(new Date());
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Koi unsubscribe kare ya campaign schedule ho jaye, dashboard khud khula
+  // reh kar purana number hi dikhata rehta tha — reload karna padta tha.
+  // Ab khud taaza ho jata hai, aur button se turant bhi kar sakte ho.
+  const refreshAll = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([
+      statsCall.refresh(),
+      trendCall.refresh(),
+      deliveryCall.refresh(),
+      heatmapCall.refresh(),
+      recentCall.refresh(),
+    ]);
+    setLastUpdated(new Date());
+    setRefreshing(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [range]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (document.visibilityState === 'visible') refreshAll();
+    }, 30000);
+    return () => clearInterval(timer);
+  }, [refreshAll]);
+
   // Graph ke X-axis par chhoti date chahiye ("26 Aug"). Server sirf asli date
   // bhejta hai; use padhne layak banana screen ka kaam hai, kyunki har bhasha
   // me tarika alag hota hai.
@@ -119,6 +146,13 @@ export default function DashboardPage() {
         helpTopic="dashboard"
         actions={
           <>
+            <span className="mw-fs-12 mw-text-muted mw-hide-mobile me-1 align-self-center">
+              {t('camp.lastUpdated', { time: lastUpdated.toLocaleTimeString() })}
+            </span>
+            <button type="button" className="btn btn-outline-secondary" onClick={refreshAll} disabled={refreshing}>
+              <i className={`bi bi-arrow-clockwise me-2 ${refreshing ? 'mw-spin' : ''}`.trim()} />
+              {refreshing ? t('camp.refreshing') : t('camp.refresh')}
+            </button>
             <Link to="/reports" className="btn btn-outline-secondary mw-hide-mobile">
               <i className="bi bi-download me-2" />
               {t('dash.exportReport')}
