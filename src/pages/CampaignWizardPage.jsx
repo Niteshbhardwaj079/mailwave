@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import PageHeader from '../components/ui/PageHeader';
 import { appConfig } from '../config/appConfig';
@@ -90,6 +90,12 @@ export default function CampaignWizardPage() {
   const { campaignId: editId } = useParams();
   const isEditing = Boolean(editId);
 
+  // Segments page ke "Use in campaign" se aaya ho to ?segment=seg_xxx milta
+  // hai — usi segment ko Recipients step me pehle se chuna hua dikhana hai,
+  // warna button sirf ek khaali wizard khol deta, segment kahin lagta hi nahi.
+  const [searchParams] = useSearchParams();
+  const preselectedSegment = searchParams.get('segment');
+
   const accountsCall = useApi('/api/accounts');
   const accounts = useMemo(() => accountsCall.data?.accounts ?? [], [accountsCall.data]);
 
@@ -100,7 +106,11 @@ export default function CampaignWizardPage() {
   const segments = useMemo(() => segmentsCall.data?.segments ?? [], [segmentsCall.data]);
 
   const [step, setStep] = useState(0);
-  const [draft, setDraft] = useState(INITIAL_DRAFT);
+  const [draft, setDraft] = useState(() =>
+    preselectedSegment
+      ? { ...INITIAL_DRAFT, recipientSource: 'existing', groups: [preselectedSegment] }
+      : INITIAL_DRAFT
+  );
   const [category, setCategory] = useState('All');
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [error, setError] = useState('');

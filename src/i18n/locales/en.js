@@ -1053,6 +1053,7 @@ export default {
   'seg.followClicked': 'Follow-up to clicked',
   'seg.followClickedDesc': 'Targets people who clicked a tracked link — your warmest leads. Also asks for confirmation first.',
   'seg.buildTitle': 'Build a segment',
+  'seg.editTitle': 'Edit segment',
   'seg.save': 'Save segment',
   'seg.name': 'Segment name',
   'seg.condition': 'Condition {number}',

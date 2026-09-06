@@ -48,6 +48,8 @@ export default function SegmentsPage() {
   const [draft, setDraft] = useState(EMPTY_DRAFT);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
+  // null = naya segment bana rahe hain; id ho to usi ko badal rahe hain.
+  const [editingId, setEditingId] = useState(null);
 
   // Builder me rule badalte hi "kitne log aayenge" dikhta hai — save karne se
   // pehle hi. Yahi builder ki sabse kaam ki cheez hai.
@@ -86,7 +88,31 @@ export default function SegmentsPage() {
   }, [builderOpen, draft, ruleFromDraft]);
 
   function openBuilder() {
+    setEditingId(null);
     setDraft(EMPTY_DRAFT);
+    setFormError('');
+    setBuilderOpen(true);
+  }
+
+  /**
+   * Segment hamesha isi builder se banta hai, isliye uska rule hamesha
+   * "do conditions + join" ke shape ka hi hota hai — edit karte waqt wahi
+   * do wapas box me bhar dete hain.
+   */
+  function openEditBuilder(event) {
+    const { id } = event.currentTarget.dataset;
+    const segment = segments.find((item) => item.id === id);
+    if (!segment) return;
+
+    const [first, second] = segment.rule?.conditions ?? [];
+    setEditingId(id);
+    setDraft({
+      name: segment.name,
+      tone: segment.tone,
+      first: first?.kind ?? EMPTY_DRAFT.first,
+      join: segment.rule?.join ?? EMPTY_DRAFT.join,
+      second: second?.kind ?? EMPTY_DRAFT.second,
+    });
     setFormError('');
     setBuilderOpen(true);
   }
@@ -112,7 +138,7 @@ export default function SegmentsPage() {
       const first = CONDITIONS.find((c) => c.value === draft.first);
       const second = CONDITIONS.find((c) => c.value === draft.second);
 
-      await api.post('/api/segments', {
+      const body = {
         name: draft.name.trim(),
         tone: draft.tone,
         rule: {
@@ -122,7 +148,13 @@ export default function SegmentsPage() {
           join: draft.join,
           conditions: [{ kind: draft.first, value: '' }, { kind: draft.second, value: '' }],
         },
-      });
+      };
+
+      if (editingId) {
+        await api.put(`/api/segments/${editingId}`, body);
+      } else {
+        await api.post('/api/segments', body);
+      }
 
       setBuilderOpen(false);
       segmentsCall.reload();
@@ -225,9 +257,17 @@ export default function SegmentsPage() {
                   <span className="mw-fs-12 mw-fw-500 mw-text-muted">{t('seg.contacts')}</span>
                 </span>
                 <span className="mw-row mt-3">
-                  <Link to="/campaigns/new" className="btn btn-sm btn-outline-primary">
+                  <Link to={`/campaigns/new?segment=${segment.id}`} className="btn btn-sm btn-outline-primary">
                     {t('tpl.useInCampaign')}
                   </Link>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-secondary"
+                    data-id={segment.id}
+                    onClick={openEditBuilder}
+                  >
+                    {t('common.edit')}
+                  </button>
                   <button
                     type="button"
                     className="btn btn-sm btn-outline-secondary"
@@ -281,7 +321,7 @@ export default function SegmentsPage() {
 
       <Sheet
         open={builderOpen}
-        title={t('seg.buildTitle')}
+        title={editingId ? t('seg.editTitle') : t('seg.buildTitle')}
         onClose={closeBuilder}
         footer={
           <>
