@@ -137,4 +137,13 @@ export const guideChapters = [
     steps: ['s1', 's2', 's3', 's4', 's5', 's6'],
     minutes: 4,
   },
+  {
+    number: 18,
+    key: 'c18',
+    icon: 'bi-translate',
+    steps: ['s1', 's2', 's3', 's4', 's5', 's6'],
+    minutes: 3,
+    link: { to: '/settings', labelKey: 'nav.settings' },
+    hasWarning: true,
+  },
 ];

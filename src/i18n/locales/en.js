@@ -738,6 +738,17 @@ export default {
   'guide.c17.s6': 'A page shows “You do not have permission”: nothing is broken — ask your Super Admin to open Users & Roles and tick the box for that section.',
   'guide.c17.tip': 'The Activity Log records every important action with a timestamp — it is often the fastest way to see exactly what happened right before an error appeared.',
 
+  'guide.c18.title': 'Sending emails in other languages',
+  'guide.c18.lede': 'Every email {app} sends — the campaigns you write and the automatic ones like password resets — can go out in more than English. Nothing is translated for you; you type each language yourself, and English is always the safe fallback.',
+  'guide.c18.s1': 'Open any template and pick its Email Language from the dropdown near the top. This just labels what language you typed the content in, so you and your team can tell templates apart when building a campaign.',
+  'guide.c18.s2': 'When you build a campaign, whichever template you choose sets that campaign\'s language automatically — you will see it as a badge on the Review & Send screen before you send.',
+  'guide.c18.s3': 'Open System Emails (Super Admin only) and use the language dropdown at the top. Each language has its own independent subject and HTML — editing Spanish never touches English, or any other language.',
+  'guide.c18.s4': 'If a language has nothing saved yet, the editor shows you the English content so you are not starting from a blank page — edit it and press Save to create that language\'s own version.',
+  'guide.c18.s5': 'Set your own preferred email language from Settings > Profile, or set it for someone else from Users & Roles when adding or editing them. This decides which language real emails — invites, password resets and similar — arrive in for that person.',
+  'guide.c18.s6': 'If a person\'s preferred language has no saved version for a particular system email, they simply get the English one — nothing ever fails or looks broken because a translation is missing.',
+  'guide.c18.tip': 'Test any system email in a specific language without waiting for a real trigger — open its language tab and press Send test. The email you receive matches exactly what is open on screen.',
+  'guide.c18.warn': '{app} never translates anything automatically — every language version has to be typed by a person. Only fill in the languages your audience actually needs.',
+
   // --- Bulk selection & clean-up (Update 5) ---
   'bulk.selected': '{count} selected',
   'bulk.selectAll': 'Select all {total}',
