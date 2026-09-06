@@ -578,16 +578,29 @@ router.post(
 
     // commit=false matlab sirf dikhao, save mat karo.
     if (commit) {
-      for (const person of toInsert) {
+      // Batched, not one INSERT per row — this can be up to 50,000 rows, and
+      // a round trip per row was by far the slowest part of a large import.
+      const IMPORT_CHUNK = 500;
+      for (let i = 0; i < toInsert.length; i += IMPORT_CHUNK) {
+        const chunk = toInsert.slice(i, i + IMPORT_CHUNK);
+        const values = [];
+        const params = [];
+        chunk.forEach((person, index) => {
+          const base = index * 7;
+          values.push(`($${base + 1},$${base + 2},$${base + 3},$${base + 4},$${base + 5},$${base + 6},$${base + 7})`);
+          params.push(newId('c'), person.name, person.email, person.phone, person.company, person.city, groupId || null);
+        });
+
         // ON CONFLICT: agar do request ek saath aa jayein to bhi duplicate
-        // nahi banega — database khud rok deta hai.
+        // nahi banega. RETURNING sirf sach me insert hui rows ke liye aata hai.
         const result = await query(
           `INSERT INTO contacts (id, name, email, phone, company, city, group_id)
-           VALUES ($1,$2,$3,$4,$5,$6,$7)
-           ON CONFLICT (lower(email)) DO NOTHING`,
-          [newId('c'), person.name, person.email, person.phone, person.company, person.city, groupId || null]
+           VALUES ${values.join(',')}
+           ON CONFLICT (lower(email)) DO NOTHING
+           RETURNING id`,
+          params
         );
-        if (result.affectedRows ?? result.rowCount) report.imported += 1;
+        report.imported += result.rows.length;
       }
 
       await logActivity(req, {

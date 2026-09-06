@@ -513,16 +513,33 @@ router.post(
       rows = subs.map((s) => ({ email: s.email, name: s.name, data: { company: s.company, city: s.city } }));
     }
 
+    // Batched, not one INSERT per row — "All Contacts" can mean tens of
+    // thousands of rows, and a round trip per row is by far the slowest part
+    // of adding recipients at that size. Chunked so one campaign can't build
+    // a single statement with an unbounded number of placeholders.
+    const RECIPIENT_CHUNK = 500;
     let added = 0;
-    for (const row of rows) {
-      // ON CONFLICT: ek hi address do baar nahi judega.
+    for (let i = 0; i < rows.length; i += RECIPIENT_CHUNK) {
+      const chunk = rows.slice(i, i + RECIPIENT_CHUNK);
+      const values = [];
+      const params = [];
+      chunk.forEach((row, index) => {
+        const base = index * 6;
+        values.push(`($${base + 1},$${base + 2},$${base + 3},$${base + 4},$${base + 5},$${base + 6})`);
+        params.push(newId('rcp'), campaign.id, row.contactId ?? null, row.email, row.name ?? null, JSON.stringify(row.data ?? {}));
+      });
+
+      // ON CONFLICT: ek hi address do baar nahi judega. RETURNING sirf unhi
+      // rows ke liye aata hai jo sach me insert hui — conflict wali nahi, isliye
+      // `added` seedha result.rows.length se milta hai, alag count ki zarurat nahi.
       const result = await query(
         `INSERT INTO campaign_recipients (id, campaign_id, contact_id, email, name, merge_data)
-         VALUES ($1,$2,$3,$4,$5,$6)
-         ON CONFLICT (campaign_id, lower(email)) DO NOTHING`,
-        [newId('rcp'), campaign.id, row.contactId ?? null, row.email, row.name ?? null, JSON.stringify(row.data ?? {})]
+         VALUES ${values.join(',')}
+         ON CONFLICT (campaign_id, lower(email)) DO NOTHING
+         RETURNING id`,
+        params
       );
-      if (result.affectedRows ?? result.rowCount) added += 1;
+      added += result.rows.length;
     }
 
     const total = await one(
@@ -957,13 +974,21 @@ router.post(
 
     if (kind === 'suppress') {
       // Suppression list ka matlab: in par aage koi bhi campaign nahi jayega.
-      for (const row of rows) {
-        await query(
-          `INSERT INTO suppression (email, reason, detail) VALUES ($1,'manual',$2)
-           ON CONFLICT (email) DO NOTHING`,
-          [row.email, `Campaign report se haath se joda gaya: ${campaignName}`]
-        );
-      }
+      // Ek hi statement — `ids` already capped at 2000 by the schema above,
+      // so this never risks an unbounded number of placeholders.
+      const detailText = `Campaign report se haath se joda gaya: ${campaignName}`;
+      const values = [];
+      const params = [];
+      rows.forEach((row, index) => {
+        const base = index * 2;
+        values.push(`($${base + 1},'manual',$${base + 2})`);
+        params.push(row.email, detailText);
+      });
+      await query(
+        `INSERT INTO suppression (email, reason, detail) VALUES ${values.join(',')}
+         ON CONFLICT (email) DO NOTHING`,
+        params
+      );
     }
 
     const detail = {

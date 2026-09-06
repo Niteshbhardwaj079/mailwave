@@ -18,6 +18,22 @@ import { resolve } from 'node:path';
 import { env, serverRoot } from '../env.js';
 
 /**
+ * Every `name` passed into a storage method today is already server-
+ * generated (timestampName(), always, even for uploads — see backup.js) and
+ * every route checks it against the `backups` table before it ever reaches
+ * storage. So there is no live path-traversal route through this code right
+ * now. This check exists anyway, as the one place both storage backends
+ * share, so that stays true even if a future route or refactor ever passes
+ * something less trustworthy through.
+ */
+function assertSafeName(name) {
+  if (typeof name !== 'string' || !/^[A-Za-z0-9._-]+$/.test(name) || name.includes('..')) {
+    throw new Error(`Refusing to touch a backup with an unsafe name: ${JSON.stringify(name)}`);
+  }
+  return name;
+}
+
+/**
  * Har storage isi shape ka hona chahiye:
  *   save(name, buffer)   -> void
  *   read(name)           -> Buffer
@@ -38,20 +54,20 @@ class LocalDiskStorage {
 
   async save(name, buffer) {
     await this.#ready();
-    await writeFile(resolve(this.dir, name), buffer);
+    await writeFile(resolve(this.dir, assertSafeName(name)), buffer);
   }
 
   async read(name) {
-    return readFile(resolve(this.dir, name));
+    return readFile(resolve(this.dir, assertSafeName(name)));
   }
 
   async delete(name) {
-    await rm(resolve(this.dir, name), { force: true });
+    await rm(resolve(this.dir, assertSafeName(name)), { force: true });
   }
 
   async exists(name) {
     try {
-      await stat(resolve(this.dir, name));
+      await stat(resolve(this.dir, assertSafeName(name)));
       return true;
     } catch (error) {
       return false;
@@ -96,7 +112,7 @@ class S3Storage {
   }
 
   #key(name) {
-    return `${this.config.prefix}${name}`;
+    return `${this.config.prefix}${assertSafeName(name)}`;
   }
 
   async save(name, buffer) {

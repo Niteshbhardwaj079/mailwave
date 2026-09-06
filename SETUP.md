@@ -199,23 +199,30 @@ BACKUP_KEEP=8
 ### Backup se wapas laana (restore)
 
 1. Backup ke aage **Restore** dabao — pakka karne ke liye `RESTORE` likhna padega
-2. Server band karke dobara chalu karo
-3. Ho gaya — data us backup wale din jaisa ho jayega
+2. **Asli Postgres par** (client ke server par yahi hota hai): usi second ho
+   jata hai — restart ki zarurat nahi. Data us backup wale pal jaisa ho jayega,
+   aur sab (aapko bhi) dobara sign in karna padega.
+3. **PGlite par** (sirf apne computer par test karte waqt): nishaan lagta hai,
+   phir server band karke dobara chalu karna padta hai — tabhi lagta hai.
 
 > **`RESTORE` kyun likhwate hain:** restore poora data badal deta hai. Sirf ek
 > button hota to galti se dab sakta tha. Naam likhna padta hai, isliye galti se
 > kabhi nahi hota.
 >
-> **Server restart kyun:** chalte hue database ko beech me badalna khatarnak
-> hai — aadha purana, aadha naya reh sakta hai. Isliye nishaan lagta hai aur
-> agli baar chalu hone par saaf-saaf lagta hai.
+> **Restore se pehle aaj ka data bhi bacha lo:** restore khud aaj ka data
+> pehle se safe nahi karta — agar aaj ka kaam bhi chahiye, restore dabane se
+> **pehle** ek naya "Back up now" bana lo.
 
-Darne ki baat nahi: restore se pehle purane data ka copy
+PGlite wale case me, restore se pehle purane data ka copy
 `server\data\pgdata.before-restore` me rakh diya jata hai.
 
-> **Asli Postgres par:** yeh file wala backup kaam nahi karta. Wahan aapka
-> hosting provider (Supabase / Neon / Render) khud roz backup leta hai — bas
-> ek baar unke panel me jaakar confirm kar lena ki woh chalu hai.
+> **Backup file kahan rakhi jaati hai:** default me server ki apni disk par —
+> jo hosting restart/redeploy par mit sakti hai (Render jaisi jagah par yeh
+> aam baat hai). Client ke asli server par S3-jaisi jagah (AWS S3, Cloudflare
+> R2, Backblaze B2, DigitalOcean Spaces...) lagana behtar hai, taki file kabhi
+> na mite. `server\.env` me `BACKUP_STORAGE=s3` aur `BACKUP_S3_*` variables se
+> ho jata hai — Backups page khud bata deta hai abhi kaunsi jagah istemal ho
+> rahi hai aur woh permanent hai ya nahi.
 
 ### Data toot jaye to app KHUD theek kar leta hai
 
@@ -424,12 +431,24 @@ bigad jaye to "Reset" se wapas asli matter aa jata hai.
 | `JWT_SECRET` | `server\.env` | Client ke server par naya banna chahiye |
 | `MAIL_TRANSPORT` | `server\.env` | `ethereal` hai to hata do, warna asli mail nahi jayegi |
 | `PUBLIC_URL` | `server\.env` | Tracking, unsubscribe **aur image ke link** isi se bante hain. Galat raha to email me image tooti dikhegi |
+| `APP_URL` | `server\.env` | Website ka asli pata — email ke andar "yahan click karo" jaise links isi se bante hain |
+| `CORS_ORIGINS` | `server\.env` | Website ka pata yahan na ho to browser API se baat hi nahi karne dega — poori website "kuch load nahi ho raha" dikhegi |
 | Company naam, logo | `brand.config.js` | Poore app me ek jagah se badalta hai |
 | Postal address | `brand.config.js` me `address` | Bulk email me kanoonan zaroori hai |
 | Email account | App me Email Accounts | Bina iske mail jayegi hi nahi (invite/reset bhi) |
 
 `server\.env` file **kabhi kisi ko mat bhejo** aur GitHub par mat daalo — usme
 secret keys hoti hain. (`.gitignore` me daal rakhi hai, phir bhi dhyan rakhna.)
+
+Website aur backend agar do alag-alag jagah (do alag domain, subdomain nahi)
+par ho — jaise ek Vercel par aur doosra Render par apne-apne naam se — to
+`server\.env` me ek aur cheez chahiye hogi: `AUTH_COOKIE_SAMESITE=none`. Iske
+bina sign-in 15 minute me apne aap toot jayega. Ek hi domain ke do subdomain
+(jaise `app.yoursite.com` aur `api.yoursite.com`) ho to yeh zarurat nahi —
+default (`lax`) wahan theek se kaam karta hai.
+
+Har variable ka poora naam aur uska matlab `server\.env.example` file me bhi
+likha hai — nayi jagah lagate waqt wahi copy karke apne asli values bhar dena.
 
 ---
 
