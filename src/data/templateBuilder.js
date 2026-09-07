@@ -309,15 +309,19 @@ function renderButtonField(label, url, accent) {
  * {{key}} token daalta hai, wrapper/styling bilkul wahi rehta hai. Button
  * field sirf bare token hai (resolveTemplateFieldTokens use hote hi poora
  * styled snippet apne aap ban jaata hai) — dobara wrap karne ki zaroorat
- * nahi. Sirf renderDefaultTemplateHtml() se, 14 default templates ko ek-baar
- * "connect to tokens" karne ke liye use hota hai.
+ * nahi. Richtext bhi bare hai — uski value khud hi pehle se poora `<p>...`
+ * (ya `<ul>`/`<ol>`) fragment hoti hai (RichTextEditor ke sanitizer se, ya
+ * legacy paragraph-conversion se), isliye ek aur `<p>` wrap karna nested
+ * `<p><p>...</p></p>` bana deta — invalid HTML, layout tod deta. Sirf
+ * renderDefaultTemplateHtml() se, 14 default templates ko ek-baar "connect
+ * to tokens" karne ke liye use hota hai.
  */
 function renderFieldTokenized(field) {
   const token = `{{${field.key}}}`;
   if (field.type === 'heading') return field.value ? renderHeadingField(token) : '';
   if (field.type === 'image') return field.url ? renderImageField(token, field.alt) : '';
   if (field.type === 'button') return field.buttonUrl ? token : '';
-  return field.value ? `            <p style="${STANDARD_TEXT_STYLE}">${token}</p>` : '';
+  return field.value ? `            ${token}` : '';
 }
 
 function renderField(field, accent, tokenize) {
