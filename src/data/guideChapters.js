@@ -43,7 +43,7 @@ export const guideChapters = [
     number: 6,
     key: 'c6',
     icon: 'bi-graph-up',
-    steps: ['s1', 's2', 's3', 's4', 's5', 's6'],
+    steps: ['s1', 's2', 's3', 's4', 's5', 's6', 's7'],
     minutes: 3,
     link: { to: '/', labelKey: 'nav.dashboard' },
   },

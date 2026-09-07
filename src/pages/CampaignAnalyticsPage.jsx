@@ -14,6 +14,7 @@ import { useBulkSelection } from '../utils/useBulkSelection';
 import { downloadCsv, objectsToRows } from '../utils/download';
 import StatusPill from '../components/ui/StatusPill';
 import Sheet from '../components/ui/Sheet';
+import { useToast } from '../components/ui/ToastProvider';
 import PerformanceChart from '../components/charts/PerformanceChart';
 import { widthClass, formatDateTime, formatNumber, getActiveLocale, percent, percentValue } from '../utils/format';
 import { useApi } from '../api/useApi';
@@ -46,8 +47,22 @@ const EVENT_TONE = {
   failed: 'danger',
 };
 
+// Ek Pending recipient dekh kar client sabse pehla sawaal yahi poochta hai:
+// "ruka kyun hai?" — campaign ki current state se seedha jawaab nikaal dete hain.
+function pendingReasonKey(campaign) {
+  if (!campaign) return 'camp.pendingReasonUnknown';
+  if (campaign.status === 'Sending') return 'camp.pendingReasonSending';
+  if (campaign.status === 'Paused') {
+    return campaign.pauseReason === 'quota' ? 'camp.pendingReasonQuota' : 'camp.pendingReasonManual';
+  }
+  if (campaign.status === 'Scheduled') return 'camp.pendingReasonScheduled';
+  if (campaign.status === 'Draft') return 'camp.pendingReasonDraft';
+  return 'camp.pendingReasonUnknown';
+}
+
 export default function CampaignAnalyticsPage() {
   const t = useT();
+  const toast = useToast();
   const { bulkRecipientAction } = useWorkspace();
   const { campaignId } = useParams();
   const [removedIds, setRemovedIds] = useState([]);
@@ -241,15 +256,17 @@ export default function CampaignAnalyticsPage() {
     setResendingTop(true);
     try {
       const data = await api.post(`/api/campaigns/${campaignId}/resend`, { target: 'unopened' });
-      setBulkDone(
+      const message =
         data.affected > 0
           ? t('toast.resendUnopenedDone', { count: data.affected })
-          : t('toast.resendNothing')
-      );
+          : t('toast.resendNothing');
+      setBulkDone(message);
+      toast[data.affected > 0 ? 'success' : 'info'](message);
       recipientsCall.reload();
       campaignCall.reload();
     } catch (error) {
       setBulkDone('');
+      toast.error(error instanceof ApiError ? error.message : t('toast.networkError'));
     } finally {
       setResendingTop(false);
     }
@@ -277,8 +294,12 @@ export default function CampaignAnalyticsPage() {
     const ok = await bulkRecipientAction('resend', ids, campaign.name);
     setBulkBusy(false);
     if (ok) {
-      setBulkDone(t('bulk.doneResend', { count }));
+      const message = t('bulk.doneResend', { count });
+      setBulkDone(message);
+      toast.success(message);
       bulk.clear();
+      recipientsCall.reload();
+      campaignCall.reload();
     }
   }
 
@@ -310,7 +331,9 @@ export default function CampaignAnalyticsPage() {
     setBulkConfirmKind(null);
     if (ok) {
       setRemovedIds((current) => [...current, ...ids]);
-      setBulkDone(t(kind === 'remove' ? 'bulk.doneRemove' : 'bulk.doneSuppress', { count }));
+      const message = t(kind === 'remove' ? 'bulk.doneRemove' : 'bulk.doneSuppress', { count });
+      setBulkDone(message);
+      toast.success(message);
       bulk.clear();
     }
   }
@@ -778,10 +801,7 @@ export default function CampaignAnalyticsPage() {
                       </td>
                       <td className="mw-table__muted">{row.email}</td>
                       <td>
-                        <StatusPill status={row.displayStatus} />
-                        {row.sendCount > 1 ? (
-                          <span className="d-block mw-fs-11 mw-text-muted">{t('camp.sendAttempt', { n: row.sendCount })}</span>
-                        ) : null}
+                        <StatusPill status={row.displayStatus} count={row.sendCount > 1 ? row.sendCount : null} />
                       </td>
                       <td>{row.sent ? <i className="bi bi-check-lg mw-text-success" /> : <span className="mw-text-muted-2">—</span>}</td>
                       <td>{row.opened ? <i className="bi bi-check-lg mw-text-success" /> : <span className="mw-text-muted-2">No</span>}</td>
@@ -816,10 +836,7 @@ export default function CampaignAnalyticsPage() {
                       <span className="d-block mw-rec__sub">{row.email}</span>
                     </span>
                     <span className="text-end">
-                      <StatusPill status={row.displayStatus} />
-                      {row.sendCount > 1 ? (
-                        <span className="d-block mw-fs-11 mw-text-muted">{t('camp.sendAttempt', { n: row.sendCount })}</span>
-                      ) : null}
+                      <StatusPill status={row.displayStatus} count={row.sendCount > 1 ? row.sendCount : null} />
                     </span>
                   </div>
                   <div className="mw-rec__stats">
@@ -858,12 +875,15 @@ export default function CampaignAnalyticsPage() {
             <div className="mw-row mw-row--between mb-4">
               <span className="mw-fs-13 mw-text-muted">{logFor.email}</span>
               <span className="text-end">
-                <StatusPill status={logFor.status} />
-                {logFor.sendCount > 1 ? (
-                  <span className="d-block mw-fs-11 mw-text-muted">{t('camp.sendAttempt', { n: logFor.sendCount })}</span>
-                ) : null}
+                <StatusPill status={logFor.displayStatus} count={logFor.sendCount > 1 ? logFor.sendCount : null} />
               </span>
             </div>
+
+            {logFor.displayStatus === 'Pending' ? (
+              <Note tone="warning" icon="bi-hourglass-split">
+                {t(pendingReasonKey(campaign))}
+              </Note>
+            ) : null}
 
             <ul className="mw-timeline">
               {logEvents.map((event, index) => (
@@ -887,6 +907,16 @@ export default function CampaignAnalyticsPage() {
             <hr className="my-4" />
 
             <div className="mw-fs-13">
+              <div className="mw-kv">
+                <span className="mw-kv__key">{t('camp.sendAttemptsLabel')}</span>
+                <span className="mw-kv__value">{formatNumber(logFor.sendCount ?? 0)}</span>
+              </div>
+              {logFor.lastAttemptAt ? (
+                <div className="mw-kv">
+                  <span className="mw-kv__key">{t('camp.lastAttemptLabel')}</span>
+                  <span className="mw-kv__value">{formatDateTime(logFor.lastAttemptAt)}</span>
+                </div>
+              ) : null}
               <div className="mw-kv">
                 <span className="mw-kv__key">Provider</span>
                 <span className="mw-kv__value">Gmail API</span>

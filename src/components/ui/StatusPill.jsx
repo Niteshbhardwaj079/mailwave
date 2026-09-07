@@ -16,12 +16,13 @@ const TONE_BY_STATUS = {
   Pending: 'warning',
 };
 
-export default function StatusPill({ status, tone, withDot = true }) {
+export default function StatusPill({ status, tone, withDot = true, count }) {
   const resolved = tone || TONE_BY_STATUS[status] || 'muted';
   return (
     <span className={`mw-status mw-status--${resolved}`}>
       {withDot ? <span className="mw-status__dot" aria-hidden="true" /> : null}
       {status}
+      {count ? ` ${count}` : ''}
     </span>
   );
 }
