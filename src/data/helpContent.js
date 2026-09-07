@@ -22,4 +22,5 @@ export const helpContent = {
   activity: { titleKey: 'nav.activity', bullets: ['help.activity.1', 'help.activity.2'], chapter: 15 },
   sysmail: { titleKey: 'nav.systemEmails', bullets: ['help.sysmail.1', 'help.sysmail.2'], chapter: 13 },
   backups: { titleKey: 'nav.backups', bullets: ['help.backups.1', 'help.backups.2'], chapter: 14 },
+  media: { titleKey: 'nav.media', bullets: ['help.media.1', 'help.media.2'], chapter: 19 },
 };

@@ -109,7 +109,7 @@ export const guideChapters = [
     number: 14,
     key: 'c14',
     icon: 'bi-shield-check',
-    steps: ['s1', 's2', 's3', 's4', 's5'],
+    steps: ['s1', 's2', 's3', 's4', 's5', 's6'],
     minutes: 3,
     link: { to: '/backups', labelKey: 'nav.backups' },
     hasWarning: true,
@@ -145,5 +145,13 @@ export const guideChapters = [
     minutes: 3,
     link: { to: '/settings', labelKey: 'nav.settings' },
     hasWarning: true,
+  },
+  {
+    number: 19,
+    key: 'c19',
+    icon: 'bi-images',
+    steps: ['s1', 's2', 's3', 's4', 's5', 's6'],
+    minutes: 3,
+    link: { to: '/media', labelKey: 'nav.media' },
   },
 ];

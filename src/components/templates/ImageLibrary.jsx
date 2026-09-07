@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import ReactCrop, { centerCrop, makeAspectCrop } from 'react-image-crop';
+import ReactCrop, { centerCrop, convertToPixelCrop, makeAspectCrop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 
 import { useT } from '../../i18n/I18nProvider';
@@ -73,6 +73,7 @@ export default function ImageLibrary({ onInsert, onPick }) {
   const [cropFor, setCropFor] = useState(null);
   const [crop, setCrop] = useState();
   const [completedCrop, setCompletedCrop] = useState(null);
+  const [cropError, setCropError] = useState('');
 
   const visible = useMemo(() => {
     const text = search.trim().toLowerCase();
@@ -192,24 +193,53 @@ export default function ImageLibrary({ onInsert, onPick }) {
     setCropFor(image);
     setCrop(undefined);
     setCompletedCrop(null);
+    setCropError('');
   }
 
   function closeCrop() {
     setCropFor(null);
     setCrop(undefined);
     setCompletedCrop(null);
+    setCropError('');
   }
 
   function onCropImageLoad(event) {
     const { width, height } = event.currentTarget;
-    setCrop(centerCrop(makeAspectCrop({ unit: '%', width: 90 }, width / height, width, height), width, height));
+    const percentCrop = centerCrop(makeAspectCrop({ unit: '%', width: 90 }, width / height, width, height), width, height);
+    setCrop(percentCrop);
+    // ReactCrop sirf actual drag (mouseup) par onComplete chalata hai — is
+    // shuruaati, khud-ba-khud lagi crop box ke liye kabhi nahi. Isliye bina
+    // kuch hilaye seedha "Save" dabane par completedCrop hamesha khaali
+    // rehta tha aur saveCrop() chup-chaap kuch nahi karta tha. Yahin turant
+    // ek pixel-crop bana kar donon state set karte hain, taaki bina drag
+    // kiye bhi Save turant kaam kare.
+    setCompletedCrop(convertToPixelCrop(percentCrop, width, height));
   }
+
+  /** Live crop-selection ka ASLI (natural-resolution) size — dikhaye gaye, chhote image ke pixels nahi. */
+  const cropSelectionSize = useMemo(() => {
+    const img = cropImgRef.current;
+    if (!crop?.width || !crop?.height || !img?.naturalWidth || !img?.width) return null;
+    const scaleX = img.naturalWidth / img.width;
+    const scaleY = img.naturalHeight / img.height;
+    return { width: Math.round(crop.width * scaleX), height: Math.round(crop.height * scaleY) };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [crop]);
 
   async function saveCrop() {
     if (!cropImgRef.current || !completedCrop?.width || !completedCrop?.height) return;
-    const dataUrl = cropToDataUrl(cropImgRef.current, completedCrop);
-    await updateImage(cropFor.id, { url: dataUrl });
-    closeCrop();
+    setCropError('');
+    try {
+      const dataUrl = cropToDataUrl(cropImgRef.current, completedCrop);
+      await updateImage(cropFor.id, { url: dataUrl });
+      closeCrop();
+    } catch {
+      // Sabse aam wajah: image kisi doosre server se link ki gayi hai (source
+      // 'url') jo CORS allow nahi karta — canvas "tainted" ho jaata hai aur
+      // us se data nikaalna browser hi rok deta hai. Upload ki hui images
+      // (data:/apna storage) is se kabhi prabhavit nahi hoti.
+      setCropError(t('img.cropFailed'));
+    }
   }
 
   return (
@@ -303,6 +333,7 @@ export default function ImageLibrary({ onInsert, onPick }) {
               <figcaption className="mw-imgcard__body">
                 <div className="mw-imgcard__name mw-truncate">{image.name}</div>
                 <div className="mw-imgcard__meta">
+                  {image.width && image.height ? `${image.width} × ${image.height} px · ` : ''}
                   {image.size ? `${t('img.size')}: ${readableSize(image.size)} · ` : ''}
                   {t('img.added')}: {formatDateTime(image.addedAt)}
                   {image.lastUsedAt ? ` · ${t('img.lastUsed')}: ${formatDateTime(image.lastUsedAt)}` : ''}
@@ -443,10 +474,34 @@ export default function ImageLibrary({ onInsert, onPick }) {
         {cropFor ? (
           <>
             <p className="mw-fs-13 mw-text-muted">{t('img.cropHelp')}</p>
+            {cropError ? (
+              <Note tone="warning" icon="bi-exclamation-triangle">
+                {cropError}
+              </Note>
+            ) : null}
             <ReactCrop crop={crop} onChange={(c) => setCrop(c)} onComplete={(c) => setCompletedCrop(c)}>
               {/* eslint-disable-next-line jsx-a11y/alt-text */}
-              <img ref={cropImgRef} src={cropFor.url} onLoad={onCropImageLoad} style={{ maxWidth: '100%' }} />
+              <img
+                ref={cropImgRef}
+                src={cropFor.url}
+                crossOrigin="anonymous"
+                onLoad={onCropImageLoad}
+                style={{ maxWidth: '100%' }}
+              />
             </ReactCrop>
+            <p className="mw-fs-12 mw-text-muted mt-2 mb-0">
+              {cropImgRef.current?.naturalWidth ? (
+                <>
+                  {t('img.originalSize')}: {cropImgRef.current.naturalWidth} × {cropImgRef.current.naturalHeight} px
+                  {cropSelectionSize ? ' · ' : ''}
+                </>
+              ) : null}
+              {cropSelectionSize ? (
+                <>
+                  {t('img.selectionSize')}: {cropSelectionSize.width} × {cropSelectionSize.height} px
+                </>
+              ) : null}
+            </p>
           </>
         ) : null}
       </Sheet>

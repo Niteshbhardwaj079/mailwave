@@ -344,6 +344,9 @@ export default {
   'img.useThis': 'Use this image',
   'img.crop': 'Crop',
   'img.cropHelp': 'Drag the corners to choose the area to keep, then press Save. This replaces the image everywhere it is already used.',
+  'img.originalSize': 'Original size',
+  'img.selectionSize': 'Selected area',
+  'img.cropFailed': 'Could not crop this image. This can happen with images linked from another website — try uploading the file directly instead.',
 
   // --- Media Library page --------------------------------------------------
   'media.title': 'Media Library',
@@ -690,6 +693,8 @@ export default {
   'help.activity.2': 'Nobody can edit or delete these records, so they can be trusted in a dispute.',
   'help.backups.1': 'A copy of everything is made automatically when the server starts, and every few days after that.',
   'help.backups.2': 'Restoring one signs everyone out and replaces today’s data — make a fresh backup first if today matters too.',
+  'help.media.1': 'Upload, search and reuse images across every template instead of uploading the same picture again.',
+  'help.media.2': 'Crop any image right here — it updates everywhere that image is already used.',
 
   // --- Guide chapters -----------------------------------------------------
   'guide.c1.lede': '{app} sends one email to many people at once, and then tells you who opened it and who clicked.',
@@ -806,6 +811,7 @@ export default {
   'guide.c14.s3': 'Download a backup file and keep a copy somewhere else too, such as your own computer — do not rely on only one location.',
   'guide.c14.s4': 'Old backups are removed automatically so the disk never fills up, and you can restore any of your last few at any time.',
   'guide.c14.s5': 'To restore one, pick it and type RESTORE to confirm. Everything goes back exactly to how it was at that moment.',
+  'guide.c14.s6': 'Uploaded images (Media Library) are included too, as long as you have not connected your own Object Storage bucket in Settings. If you have, those image files live in your own bucket, not in {app} — back that bucket up separately with your storage provider.',
   'guide.c14.tip': 'Restoring does not save what is here right now first. Make a fresh backup before you restore, if today’s data matters to you too.',
   'guide.c14.warn': 'Restoring signs everyone out, including you, and anything done after that backup is gone for good. This cannot be undone once you confirm it.',
 
@@ -844,6 +850,16 @@ export default {
   'guide.c18.s6': 'If a person\'s preferred language has no saved version for a particular system email, they simply get the English one — nothing ever fails or looks broken because a translation is missing.',
   'guide.c18.tip': 'Test any system email in a specific language without waiting for a real trigger — open its language tab and press Send test. The email you receive matches exactly what is open on screen.',
   'guide.c18.warn': '{app} never translates anything automatically — every language version has to be typed by a person. Only fill in the languages your audience actually needs.',
+
+  'guide.c19.title': 'The Media Library — images for your emails',
+  'guide.c19.lede': 'Every image you upload lives here — reuse the same one across many templates instead of uploading it again each time.',
+  'guide.c19.s1': 'Open Media Library from the sidebar, or the Images tab inside any template editor — both show the exact same images.',
+  'guide.c19.s2': 'Press Upload to add a picture (up to 2 MB), or paste a link under "Add by URL" to use one already hosted elsewhere.',
+  'guide.c19.s3': 'Each image shows its size in pixels (width × height) and file size, plus when it was added and last used in a campaign.',
+  'guide.c19.s4': 'Press Crop on any image to trim it — drag the corners to choose the area, or just press Save to keep the area already selected for you. This replaces the image everywhere it is already used, so every template updates automatically.',
+  'guide.c19.s5': 'Before deleting an image, {app} tells you if it is still used in any saved template or in a campaign already sent, so you never break something by accident.',
+  'guide.c19.s6': 'Search and sort (recent, name, size, last used) to find an older image quickly once your library grows.',
+  'guide.c19.tip': 'Copy Link on any image gives you a ready web address you can paste anywhere — not just inside {app}.',
 
   // --- Bulk selection & clean-up (Update 5) ---
   'bulk.selected': '{count} selected',

@@ -14,7 +14,7 @@ export default function MediaLibraryPage() {
 
   return (
     <div className="mw-stack">
-      <PageHeader title={t('media.title')} subtitle={t('media.subtitle')} helpTopic="templates" />
+      <PageHeader title={t('media.title')} subtitle={t('media.subtitle')} helpTopic="media" />
 
       <Card flush>
         <CardBody>
