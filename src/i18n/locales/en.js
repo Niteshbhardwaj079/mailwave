@@ -233,8 +233,7 @@ export default {
   'tpl.unsavedNote': 'Remember to press Save — changes are not stored until you do.',
   'tpl.previewOnly': 'Preview only — this page shows exactly what the recipient will see.',
   'tpl.defaultBadge': 'Default',
-  'tpl.defaultReadOnly': 'This is a default (master) template. It cannot be edited directly — use "Use this template" to make your own copy, then edit that.',
-  'tpl.duplicateAndEdit': 'Use this template',
+  'tpl.defaultEditNote': 'This is a default template, shared as a starting point for everyone. Saving here changes it permanently for every future "Use this template" and everyone who already has it open. Press Duplicate first if you want to keep the original as-is and work on your own independent copy instead.',
 
   // --- Template designer (structured "Design" tab) ------------------------
   'tpl.design.tab': 'Design',

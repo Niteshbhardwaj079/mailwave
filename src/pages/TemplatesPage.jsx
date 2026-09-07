@@ -45,14 +45,7 @@ export default function TemplatesPage() {
     navigate('/templates/new');
   }
 
-  /** Default (master) template ke liye — hamesha copy khud edit karne khulti hai. */
-  function handleUseDefault(event) {
-    duplicateTemplate(event.currentTarget.dataset.id).then((record) => {
-      if (record) navigate(`/templates/${record.id}/edit`);
-    });
-  }
-
-  /** Apni template ka plain duplicate button — yahin ruk kar list refresh ho jaati hai. */
+  /** Default aur apni, dono templates ke liye — yahin ruk kar list refresh ho jaati hai. */
   function handleDuplicate(event) {
     duplicateTemplate(event.currentTarget.dataset.id).then((record) => {
       if (record) pager.reload();
@@ -177,41 +170,30 @@ export default function TemplatesPage() {
                       <i className="bi bi-eye me-1" />
                       {t('common.preview')}
                     </Link>
-                    {template.isDefault ? (
+                    <Link to={`/templates/${template.id}/edit`} className="btn btn-sm btn-outline-primary flex-fill">
+                      <i className="bi bi-pencil me-1" />
+                      {t('common.edit')}
+                    </Link>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-secondary"
+                      data-id={template.id}
+                      onClick={handleDuplicate}
+                      aria-label={t('common.duplicate')}
+                    >
+                      <i className="bi bi-files" />
+                    </button>
+                    {/* Default (master) templates ke liye delete kabhi nahi — API bhi isse alag se rokta hai. */}
+                    {template.isDefault ? null : (
                       <button
                         type="button"
-                        className="btn btn-sm btn-outline-primary flex-fill"
+                        className="btn btn-sm btn-outline-danger"
                         data-id={template.id}
-                        onClick={handleUseDefault}
+                        onClick={askDelete}
+                        aria-label={t('common.delete')}
                       >
-                        <i className="bi bi-files me-1" />
-                        {t('tpl.useInCampaign')}
+                        <i className="bi bi-trash3" />
                       </button>
-                    ) : (
-                      <>
-                        <Link to={`/templates/${template.id}/edit`} className="btn btn-sm btn-outline-primary flex-fill">
-                          <i className="bi bi-pencil me-1" />
-                          {t('common.edit')}
-                        </Link>
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-outline-secondary"
-                          data-id={template.id}
-                          onClick={handleDuplicate}
-                          aria-label={t('common.duplicate')}
-                        >
-                          <i className="bi bi-files" />
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-outline-danger"
-                          data-id={template.id}
-                          onClick={askDelete}
-                          aria-label={t('common.delete')}
-                        >
-                          <i className="bi bi-trash3" />
-                        </button>
-                      </>
                     )}
                   </div>
                 </article>

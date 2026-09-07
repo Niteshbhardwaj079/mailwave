@@ -10,10 +10,13 @@
 //
 // Ek file samajh li, toh baaki sab samajh aa jayengi.
 //
-// Default (is_default) templates ek istisna hain: PUT/DELETE unhe kabhi
-// nahi chhoote — sirf /:id/duplicate se copy banti hai, jise phir normally
-// edit kiya ja sakta hai. Isse app ke saath aaye 14 master templates hamesha
-// wahi rehte hain jo pehle din the.
+// Default (is_default) templates ek chhoti si istisna hain: DELETE unhe
+// kabhi nahi chhoo sakta — app ke saath aaye 14 master templates hamesha
+// maujood rehte hain. PUT (edit) allowed hai — Super Admin inhe seedha
+// sudhaar sakta hai, aur wo edit hamesha ke liye usi row me save hoti hai.
+// /:id/duplicate se ek bilkul alag, independent copy bhi kabhi bhi banai ja
+// sakti hai — us copy par baad me kiya gaya kaam is master ko kabhi nahi
+// chhoota, aur na is master me future edits us copy ko.
 // ---------------------------------------------------------------------------
 import { Router } from 'express';
 import { z } from 'zod';
@@ -188,11 +191,11 @@ router.put(
   requireModule('templates', 'edit'),
   validate(templateInput),
   asyncHandler(async (req, res) => {
-    const existing = await one('SELECT id, name, is_default FROM templates WHERE id = $1', [req.params.id]);
+    // Default (master) templates CAN be edited in place — unlike delete, this
+    // is intentional: a Super Admin can correct/improve a built-in template
+    // and have it save permanently. Only delete stays blocked (below).
+    const existing = await one('SELECT id, name FROM templates WHERE id = $1', [req.params.id]);
     if (!existing) throw notFound('Yeh template nahi mila');
-    if (existing.is_default) {
-      throw badRequest('Yeh ek default (master) template hai — isse seedha edit nahi kiya ja sakta. Pehle "Use this template" se apni copy banao.');
-    }
 
     const { name, category, subject, html, language, contentSchema } = req.body;
 

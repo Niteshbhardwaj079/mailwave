@@ -180,12 +180,8 @@ export default function TemplateEditorPage() {
   }
 
   async function handleSave() {
-    if (isDefault) {
-      const copy = await duplicateTemplate(savedId);
-      if (copy) navigate(`/templates/${copy.id}/edit`);
-      return;
-    }
-
+    // Default templates save in place too now — the master row itself is
+    // updated, permanently. Only DELETE stays blocked for them (server-side).
     const record = await saveTemplate({
       id: savedId || undefined,
       name: name.trim() || t('tpl.newTemplate'),
@@ -202,6 +198,13 @@ export default function TemplateEditorPage() {
 
   function closeSaved() {
     setSavedOpen(false);
+  }
+
+  /** Makes a completely independent copy of whatever template is currently open, then edits that copy. */
+  async function handleDuplicate() {
+    if (!savedId) return;
+    const copy = await duplicateTemplate(savedId);
+    if (copy) navigate(`/templates/${copy.id}/edit`);
   }
 
   function goToTemplates() {
@@ -236,17 +239,23 @@ export default function TemplateEditorPage() {
                 {t('tpl.openPreview')}
               </a>
             ) : null}
+            {savedId ? (
+              <button type="button" className="btn btn-outline-secondary mw-btn-block-mobile" onClick={handleDuplicate}>
+                <i className="bi bi-files me-2" />
+                {t('common.duplicate')}
+              </button>
+            ) : null}
             <button type="button" className="btn btn-primary mw-btn-block-mobile" onClick={handleSave}>
-              <i className={`bi ${isDefault ? 'bi-files' : 'bi-save'} me-2`} />
-              {isDefault ? t('tpl.duplicateAndEdit') : t('common.save')}
+              <i className="bi bi-save me-2" />
+              {t('common.save')}
             </button>
           </>
         }
       />
 
       {isDefault ? (
-        <Note tone="warning" icon="bi-lock">
-          {t('tpl.defaultReadOnly')}
+        <Note tone="info" icon="bi-info-circle">
+          {t('tpl.defaultEditNote')}
         </Note>
       ) : null}
 
@@ -270,7 +279,6 @@ export default function TemplateEditorPage() {
                   value={name}
                   onChange={handleName}
                   placeholder={t('tpl.namePlaceholder')}
-                  disabled={isDefault}
                 />
               </div>
               <div className="col-12 col-md-6">
@@ -284,7 +292,6 @@ export default function TemplateEditorPage() {
                   list="tpl-category-options"
                   value={category}
                   onChange={handleCategory}
-                  disabled={isDefault}
                   placeholder={t('tpl.design.categoryPlaceholder')}
                 />
                 <datalist id="tpl-category-options">
@@ -298,7 +305,7 @@ export default function TemplateEditorPage() {
                 <label className="form-label" htmlFor="tpl-language">
                   {t('tpl.language')}
                 </label>
-                <select id="tpl-language" className="form-select" value={language} onChange={handleLanguage} disabled={isDefault}>
+                <select id="tpl-language" className="form-select" value={language} onChange={handleLanguage}>
                   {LANGUAGES.map((item) => (
                     <option key={item.code} value={item.code}>
                       {item.flag} {item.native}
@@ -318,35 +325,32 @@ export default function TemplateEditorPage() {
                   value={subject}
                   onChange={handleSubject}
                   placeholder={t('info.subjectPlaceholder')}
-                  disabled={isDefault}
                 />
               </div>
             </div>
 
             {tab === 'design' ? (
               schema ? (
-                <TemplateDesignEditor schema={schema} onChange={handleSchemaChange} readOnly={isDefault} />
+                <TemplateDesignEditor schema={schema} onChange={handleSchemaChange} />
               ) : (
                 <div className="mw-stack--sm d-flex flex-column">
                   <Note tone="warning" icon="bi-exclamation-triangle">
                     {t('tpl.design.detached')}
                   </Note>
-                  {!isDefault ? (
-                    <button
-                      type="button"
-                      className="btn btn-outline-primary align-self-start"
-                      onClick={() => handleSchemaChange(cloneSchema(DEFAULT_SCHEMA))}
-                    >
-                      {t('tpl.design.startFresh')}
-                    </button>
-                  ) : null}
+                  <button
+                    type="button"
+                    className="btn btn-outline-primary align-self-start"
+                    onClick={() => handleSchemaChange(cloneSchema(DEFAULT_SCHEMA))}
+                  >
+                    {t('tpl.design.startFresh')}
+                  </button>
                 </div>
               )
             ) : null}
 
             {tab === 'code' ? (
               <>
-                {!isDefault && schema === null && existing?.contentSchema ? (
+                {schema === null && existing?.contentSchema ? (
                   <Note tone="info" icon="bi-info-circle">
                     {t('tpl.design.detached')}
                   </Note>
@@ -361,7 +365,6 @@ export default function TemplateEditorPage() {
                         className="mw-var"
                         data-name={variable}
                         onClick={insertVariable}
-                        disabled={isDefault}
                       >
                         {`{{${variable}}}`}
                       </button>
@@ -380,7 +383,6 @@ export default function TemplateEditorPage() {
                   value={html}
                   onChange={handleHtml}
                   spellCheck="false"
-                  disabled={isDefault}
                 />
                 <p className="form-text">{t('tpl.unsavedNote')}</p>
               </>

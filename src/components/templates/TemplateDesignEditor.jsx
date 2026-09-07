@@ -1,7 +1,6 @@
 import { useState } from 'react';
 
 import { useT } from '../../i18n/I18nProvider';
-import { Note } from '../ui/Controls';
 import ColorField from '../ui/ColorField';
 import Sheet from '../ui/Sheet';
 import ImageLibrary from './ImageLibrary';
@@ -11,13 +10,14 @@ import { EMAIL_SAFE_FONTS, newBlock } from '../../data/templateBuilder';
  * "Design" tab — TemplateEditorPage ke content_schema ko form fields ki
  * tarah edit karta hai. Kabhi raw HTML nahi dikhata; parent (TemplateEditorPage)
  * har change par renderTemplateHtml(schema) chala kar HTML khud bana leta hai.
+ * Default (master) templates bhi yahan se seedha edit hoti hain — is
+ * component ko yeh jaanne ki zarurat nahi ki template default hai ya nahi.
  */
-export default function TemplateDesignEditor({ schema, onChange, readOnly }) {
+export default function TemplateDesignEditor({ schema, onChange }) {
   const t = useT();
   const [pickerFor, setPickerFor] = useState(null); // 'logo' | { blockIndex }
 
   function set(patch) {
-    if (readOnly) return;
     onChange({ ...schema, ...patch });
   }
 
@@ -62,13 +62,7 @@ export default function TemplateDesignEditor({ schema, onChange, readOnly }) {
   }
 
   return (
-    <fieldset disabled={readOnly} className="mw-stack">
-      {readOnly ? (
-        <Note tone="warning" icon="bi-lock">
-          {t('tpl.defaultReadOnly')}
-        </Note>
-      ) : null}
-
+    <div className="mw-stack">
       <div>
         <h4 className="mw-fs-14 mw-fw-700 mb-2">{t('tpl.design.header')}</h4>
         <div className="row g-3">
@@ -310,6 +304,6 @@ export default function TemplateDesignEditor({ schema, onChange, readOnly }) {
       <Sheet open={Boolean(pickerFor)} title={t('img.title')} onClose={() => setPickerFor(null)}>
         <ImageLibrary onPick={handlePicked} />
       </Sheet>
-    </fieldset>
+    </div>
   );
 }
