@@ -438,10 +438,17 @@ export function WorkspaceProvider({ children }) {
    * mana kar diya to purani haalat wapas aa jati hai — screen kabhi jhooth
    * nahi bolti.
    */
+  /**
+   * Ab yeh SEEDHA checkbox se nahi bulaya jata — screen apni ek "draft" copy
+   * rakhti hai jab tak Save Changes na dabe (UsersPage.jsx dekho). Isliye
+   * yahan optimistic-update + revert-on-fail wahi purana pattern hai, bas ab
+   * ek hi baar chalta hai (poori role ki permissions ek saath), har checkbox
+   * par nahi.
+   */
   const savePermissions = useCallback(
     async (roleKey, nextPermissions) => {
       const role = roles.find((item) => item.key === roleKey);
-      if (!role || role.locked) return;
+      if (!role || role.locked) return null;
 
       const before = role.permissions;
 
@@ -461,43 +468,16 @@ export function WorkspaceProvider({ children }) {
         });
         setRoles((current) => current.map((item) => (item.key === roleKey ? data.role : item)));
         refreshActivity();
+        toast.success(t('toast.permissionsChanged'));
+        return true;
       } catch (error) {
         setRoles((current) =>
           current.map((item) => (item.key === roleKey ? { ...item, permissions: before } : item))
         );
-        fail(error);
+        return fail(error);
       }
     },
-    [roles, fail, refreshActivity]
-  );
-
-  const togglePermission = useCallback(
-    (roleKey, moduleKey, actionKey) => {
-      const role = roles.find((item) => item.key === roleKey);
-      if (!role || role.locked) return;
-
-      const list = role.permissions?.[moduleKey] || [];
-      const next = list.includes(actionKey)
-        ? list.filter((item) => item !== actionKey)
-        : [...list, actionKey];
-
-      savePermissions(roleKey, { ...role.permissions, [moduleKey]: next });
-    },
-    [roles, savePermissions]
-  );
-
-  const setModulePermissions = useCallback(
-    (roleKey, moduleKey, actions) => {
-      const role = roles.find((item) => item.key === roleKey);
-      if (!role || role.locked) return;
-
-      savePermissions(roleKey, { ...role.permissions, [moduleKey]: actions });
-
-      // Ek-ek checkbox par toast nahi dete (checkbox khud dikh jata hai), par
-      // "sab chuno" ek bada badlaav hai — uska batana chahiye.
-      toast.success(t('toast.permissionsChanged'));
-    },
-    [roles, savePermissions, toast, t]
+    [roles, toast, t, fail, refreshActivity]
   );
 
   // --- users ---------------------------------------------------------------
@@ -566,6 +546,28 @@ export function WorkspaceProvider({ children }) {
         refreshActivity();
       } catch (error) {
         fail(error);
+      }
+    },
+    [users, toast, t, fail, refreshActivity]
+  );
+
+  /**
+   * Server khud bhi apne aap ko aur aakhri Super Admin ko delete hone se
+   * rokta hai (dekho server/src/routes/users.js) — yahan sirf usi mana ko
+   * ek saaf toast me dikhate hain, koi naya rule nahi jodte.
+   */
+  const deleteUser = useCallback(
+    async (id) => {
+      const user = users.find((item) => item.id === id);
+
+      try {
+        await api.delete(`/api/users/${id}`);
+        setUsers((current) => current.filter((item) => item.id !== id));
+        toast.success(t('toast.userDeleted'), user?.name);
+        refreshActivity();
+        return true;
+      } catch (error) {
+        return fail(error);
       }
     },
     [users, toast, t, fail, refreshActivity]
@@ -839,11 +841,11 @@ export function WorkspaceProvider({ children }) {
       updateRole,
       deleteRole,
       duplicateRole,
-      togglePermission,
-      setModulePermissions,
+      savePermissions,
       users,
       saveUser,
       toggleUserStatus,
+      deleteUser,
       setUserPassword,
       sendPasswordResetLink,
       systemEmails,
@@ -882,11 +884,11 @@ export function WorkspaceProvider({ children }) {
       updateRole,
       deleteRole,
       duplicateRole,
-      togglePermission,
-      setModulePermissions,
+      savePermissions,
       users,
       saveUser,
       toggleUserStatus,
+      deleteUser,
       setUserPassword,
       sendPasswordResetLink,
       systemEmails,

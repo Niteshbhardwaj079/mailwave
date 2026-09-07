@@ -51,7 +51,7 @@ export const guideChapters = [
     number: 7,
     key: 'c7',
     icon: 'bi-shield-lock',
-    steps: ['s1', 's2', 's3', 's4', 's5'],
+    steps: ['s1', 's2', 's3', 's4', 's5', 's6'],
     minutes: 3,
     link: { to: '/users', labelKey: 'nav.users' },
     hasWarning: true,

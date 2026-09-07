@@ -16,6 +16,7 @@ import { runDueCampaigns } from '../services/scheduler.js';
 import { sendMail } from '../services/mailer.js';
 import { buildEmail } from '../services/render.js';
 import { LANGUAGE_CODES, DEFAULT_LANGUAGE } from '../lib/languages.js';
+import { providerPreset } from '../services/providers.js';
 
 const router = Router();
 
@@ -105,6 +106,7 @@ function toApi(row) {
     name: row.name,
     accountId: row.account_id,
     sender: row.account_email ?? null,
+    senderProvider: row.account_provider ? providerPreset(row.account_provider).name : null,
     senderName: row.sender_name,
     replyTo: row.reply_to,
     subject: row.subject,
@@ -143,7 +145,7 @@ function toApi(row) {
 // Har campaign ke saath uske counts bhi le aate hain, taki frontend ko har row
 // ke liye alag request na karni pade.
 const SELECT = `
-  SELECT c.*, a.email AS account_email, t.name AS template_name,
+  SELECT c.*, a.email AS account_email, a.provider AS account_provider, t.name AS template_name,
          (SELECT count(*)::int FROM campaign_recipients r WHERE r.campaign_id = c.id) AS recipients,
          (SELECT count(*)::int FROM campaign_recipients r WHERE r.campaign_id = c.id AND r.status = 'Sent') AS sent,
          (SELECT count(*)::int FROM campaign_recipients r WHERE r.campaign_id = c.id AND r.status = 'Pending') AS pending,

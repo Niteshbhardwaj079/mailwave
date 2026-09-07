@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import PageHeader from '../components/ui/PageHeader';
 import { Card, CardFoot, CardHead } from '../components/ui/Card';
@@ -12,6 +12,7 @@ import EmptyState from '../components/ui/EmptyState';
 import Sheet from '../components/ui/Sheet';
 import { useT } from '../i18n/I18nProvider';
 import { useWorkspace } from '../store/WorkspaceProvider';
+import { useAuth } from '../store/AuthProvider';
 import { PERMISSION_ACTIONS, PERMISSION_MODULES, ROLE_ICONS, ROLE_TONES } from '../data/adminData';
 import { roleDesc, roleLabel } from '../utils/roles';
 import { formatDateTime, initialsOf } from '../utils/format';
@@ -23,24 +24,27 @@ const EMPTY_ROLE = { name: '', description: '', tone: 'primary', icon: 'bi-perso
 
 export default function UsersPage() {
   const t = useT();
+  const { user: currentUser } = useAuth();
   const {
     users,
     roles,
     saveUser,
     toggleUserStatus,
+    deleteUser,
     setUserPassword,
     sendPasswordResetLink,
     createRole,
     updateRole,
     deleteRole,
     duplicateRole,
-    togglePermission,
-    setModulePermissions,
+    savePermissions,
     loading,
   } = useWorkspace();
 
   const [tab, setTab] = useState('people');
   const [deactivateFor, setDeactivateFor] = useState(null);
+  const [deleteUserFor, setDeleteUserFor] = useState(null);
+  const [userDeleteBusy, setUserDeleteBusy] = useState(false);
   const [query, setQuery] = useState('');
   // Box me turant dikhta hai, par chhantai 200ms ruk kar — bade data par type
   // karte waqt screen atakti nahi.
@@ -60,6 +64,12 @@ export default function UsersPage() {
   // Save dabane ke baad hi laal border dikhao — khaali form kholte hi nahi.
   const [attemptedSave, setAttemptedSave] = useState(false);
   const [editingRole, setEditingRole] = useState(null);
+  // Checkbox click sirf isi ko badalta hai — Save Changes dabane tak server
+  // ko kuch pata hi nahi chalta. Role badalte hi (neeche wala effect) yeh
+  // us role ki asli (server wali) permissions se dubara bhar jata hai, isliye
+  // ek role ki adhoori edit doosre role par kabhi nahi dikhti.
+  const [draftPermissions, setDraftPermissions] = useState({});
+  const [permissionsSaving, setPermissionsSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleteBlocked, setDeleteBlocked] = useState(null);
   const [passwordFor, setPasswordFor] = useState(null);
@@ -69,6 +79,17 @@ export default function UsersPage() {
   const [notifyUser, setNotifyUser] = useState(true);
   const [passwordError, setPasswordError] = useState('');
   const [passwordDone, setPasswordDone] = useState('');
+
+  // Role badla (ya roles pehli baar aaye) — draft ko us role ki asli, server
+  // wali permissions se bhar do. Yeh jaan-boojh kar sirf `selectedRole` par
+  // depend karta hai, `roles` array par nahi — warna kisi AUR role ki save
+  // (jo `roles` ko naya reference deti hai) is role ka abhi-abhi kiya hua
+  // adhoora edit bhi saaf kar deti.
+  useEffect(() => {
+    const found = roles.find((item) => item.key === selectedRole);
+    setDraftPermissions(found?.permissions ?? {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedRole]);
 
   const labels = useMemo(
     () => roles.reduce((acc, role) => ({ ...acc, [role.key]: roleLabel(role, t) }), {}),
@@ -161,6 +182,30 @@ export default function UsersPage() {
     if (!deactivateFor) return;
     toggleUserStatus(deactivateFor.id);
     setDeactivateFor(null);
+  }
+
+  // --- delete ----------------------------------------------------------------
+  function askDeleteUser(event) {
+    const { id } = event.currentTarget.dataset;
+    // Apne aap ko delete karne ka button dikhta hi nahi (neeche dekho), par
+    // yeh doosri safety hai — kisi tarah click ho bhi jaye to yahin ruk jata.
+    if (id === currentUser?.id) return;
+    setDeleteUserFor(users.find((item) => item.id === id) || null);
+  }
+
+  function closeDeleteUser() {
+    setDeleteUserFor(null);
+  }
+
+  async function confirmDeleteUser() {
+    if (!deleteUserFor) return;
+    setUserDeleteBusy(true);
+    // Server khud bhi aakhri Super Admin ko delete hone se rokta hai — tabhi
+    // sheet band karo jab asal me delete ho jaye, warna galat lagega ki ho
+    // gaya jabki server ne mana kar diya (uska toast pehle hi dikh chuka).
+    const ok = await deleteUser(deleteUserFor.id);
+    setUserDeleteBusy(false);
+    if (ok) setDeleteUserFor(null);
   }
 
   // --- passwords -----------------------------------------------------------
@@ -315,18 +360,42 @@ export default function UsersPage() {
   }
 
   function handlePermission(event) {
+    // Sirf local draft badalta hai — server ko kuch nahi jaata jab tak Save
+    // Changes na dabe.
     const { module, action } = event.currentTarget.dataset;
-    togglePermission(selectedRole, module, action);
+    setDraftPermissions((current) => {
+      const list = current?.[module] || [];
+      const next = list.includes(action) ? list.filter((item) => item !== action) : [...list, action];
+      return { ...current, [module]: next };
+    });
   }
 
   function handleSelectAllRow(event) {
     const { module } = event.currentTarget.dataset;
     const definition = PERMISSION_MODULES.find((item) => item.key === module);
-    const found = roles.find((item) => item.key === selectedRole);
-    if (!found) return;
-    const current = found.permissions?.[module] || [];
+    const current = draftPermissions?.[module] || [];
     const allOn = definition.actions.every((action) => current.includes(action));
-    setModulePermissions(selectedRole, module, allOn ? [] : [...definition.actions]);
+    setDraftPermissions((prev) => ({ ...prev, [module]: allOn ? [] : [...definition.actions] }));
+  }
+
+  /** Do permission-objects ka mel — key/array order maayne nahi rakhta. */
+  function permissionsEqual(a, b) {
+    const modules = new Set([...Object.keys(a || {}), ...Object.keys(b || {})]);
+    for (const module of modules) {
+      const setA = new Set(a?.[module] || []);
+      const setB = new Set(b?.[module] || []);
+      if (setA.size !== setB.size) return false;
+      for (const action of setA) if (!setB.has(action)) return false;
+    }
+    return true;
+  }
+
+  async function handleSavePermissions() {
+    const found = roles.find((item) => item.key === selectedRole);
+    if (!found || found.locked) return;
+    setPermissionsSaving(true);
+    await savePermissions(selectedRole, draftPermissions);
+    setPermissionsSaving(false);
   }
 
   function clearFilters() {
@@ -336,7 +405,8 @@ export default function UsersPage() {
   }
 
   const role = roles.find((item) => item.key === selectedRole) || roles[0] || null;
-  const roleIsEmpty = PERMISSION_MODULES.every((module) => (role?.permissions?.[module.key] || []).length === 0);
+  const roleIsEmpty = PERMISSION_MODULES.every((module) => (draftPermissions?.[module.key] || []).length === 0);
+  const permissionsDirty = Boolean(role) && !role.locked && !permissionsEqual(draftPermissions, role.permissions || {});
 
   return (
     <div className="mw-stack">
@@ -478,6 +548,18 @@ export default function UsersPage() {
                           >
                             <i className={`bi ${user.status === 'Disabled' ? 'bi-toggle-off' : 'bi-toggle-on'}`} />
                           </button>
+                          {user.id !== currentUser?.id ? (
+                            <button
+                              type="button"
+                              className="mw-iconbtn mw-text-danger"
+                              data-id={user.id}
+                              onClick={askDeleteUser}
+                              aria-label={`${t('common.delete')} ${user.name}`}
+                              title={t('common.delete')}
+                            >
+                              <i className="bi bi-trash3" />
+                            </button>
+                          ) : null}
                         </td>
                       </tr>
                     ))}
@@ -525,6 +607,17 @@ export default function UsersPage() {
                         >
                           {user.status === 'Disabled' ? t('users.activate') : t('users.deactivate')}
                         </button>
+                        {user.id !== currentUser?.id ? (
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline-danger"
+                            data-id={user.id}
+                            onClick={askDeleteUser}
+                            aria-label={`${t('common.delete')} ${user.name}`}
+                          >
+                            <i className="bi bi-trash3" />
+                          </button>
+                        ) : null}
                       </span>
                     </div>
                   </div>
@@ -668,7 +761,7 @@ export default function UsersPage() {
                 </thead>
                 <tbody>
                   {PERMISSION_MODULES.map((module) => {
-                    const allowed = role?.permissions?.[module.key] || [];
+                    const allowed = draftPermissions?.[module.key] || [];
                     const allOn = module.actions.every((action) => allowed.includes(action));
 
                     return (
@@ -725,7 +818,27 @@ export default function UsersPage() {
             </div>
 
             <CardFoot>
-              <span className="mw-fs-12 mw-text-muted">{t('users.roleNote')}</span>
+              <span className="mw-row mw-row--between w-100 flex-wrap gap-2">
+                <span className="mw-fs-12 mw-text-muted">
+                  {t('users.roleNote')}
+                  {permissionsDirty ? (
+                    <span className="mw-fs-12 mw-text-warning mw-fw-650 ms-2">
+                      <i className="bi bi-record-circle-fill mw-fs-11 me-1" aria-hidden="true" />
+                      {t('users.unsavedChanges')}
+                    </span>
+                  ) : null}
+                </span>
+                {!role.locked ? (
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-primary"
+                    onClick={handleSavePermissions}
+                    disabled={!permissionsDirty || permissionsSaving}
+                  >
+                    {permissionsSaving ? t('common.loading') : t('users.savePermissions')}
+                  </button>
+                ) : null}
+              </span>
             </CardFoot>
           </Card>
         </div>
@@ -1119,6 +1232,24 @@ export default function UsersPage() {
           </button>
           <button type="button" className="btn btn-danger flex-fill" onClick={confirmDeactivate}>
             {t('users.deactivate')}
+          </button>
+        </div>
+      </Sheet>
+
+      <Sheet
+        open={Boolean(deleteUserFor)}
+        title={t('users.deleteUserConfirmTitle')}
+        onClose={closeDeleteUser}
+      >
+        <p className="mw-fs-14 mw-text-muted mb-4">
+          {t('users.deleteUserConfirmText', { name: deleteUserFor?.name ?? '' })}
+        </p>
+        <div className="d-flex gap-2">
+          <button type="button" className="btn btn-outline-secondary flex-fill" onClick={closeDeleteUser} disabled={userDeleteBusy}>
+            {t('common.cancel')}
+          </button>
+          <button type="button" className="btn btn-danger flex-fill" onClick={confirmDeleteUser} disabled={userDeleteBusy}>
+            {userDeleteBusy ? t('common.loading') : t('common.delete')}
           </button>
         </div>
       </Sheet>

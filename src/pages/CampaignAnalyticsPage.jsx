@@ -15,6 +15,7 @@ import { downloadCsv, objectsToRows } from '../utils/download';
 import StatusPill from '../components/ui/StatusPill';
 import Sheet from '../components/ui/Sheet';
 import { useToast } from '../components/ui/ToastProvider';
+import { formatUserAgent, looksLikeUserAgent } from '../utils/userAgent';
 import PerformanceChart from '../components/charts/PerformanceChart';
 import { widthClass, formatDateTime, formatNumber, getActiveLocale, percent, percentValue } from '../utils/format';
 import { useApi } from '../api/useApi';
@@ -895,7 +896,11 @@ export default function CampaignAnalyticsPage() {
                   <span className="d-block mw-timeline__time">{formatDateTime(event.at)}</span>
                   <span className="d-block mw-timeline__text">
                     {t(EVENT_LABEL[event.kind] ?? 'common.actions')}
-                    {event.detail ? <span className="d-block mw-text-muted mw-fs-12">{event.detail}</span> : null}
+                    {event.detail ? (
+                      <span className="d-block mw-text-muted mw-fs-12">
+                        {looksLikeUserAgent(event.detail) ? formatUserAgent(event.detail) : event.detail}
+                      </span>
+                    ) : null}
                   </span>
                 </li>
               ))}
@@ -918,8 +923,12 @@ export default function CampaignAnalyticsPage() {
                 </div>
               ) : null}
               <div className="mw-kv">
+                <span className="mw-kv__key">{t('camp.sendingAccountLabel')}</span>
+                <span className="mw-kv__value">{campaign.sender ?? '—'}</span>
+              </div>
+              <div className="mw-kv">
                 <span className="mw-kv__key">Provider</span>
-                <span className="mw-kv__value">Gmail API</span>
+                <span className="mw-kv__value">{campaign.senderProvider ?? '—'}</span>
               </div>
               <div className="mw-kv">
                 <span className="mw-kv__key">Opens</span>
