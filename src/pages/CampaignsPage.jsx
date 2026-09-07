@@ -232,6 +232,11 @@ export default function CampaignsPage() {
                       <td className="mw-table__num mw-text-danger">{formatNumber(campaign.failed)}</td>
                       <td>
                         <StatusPill status={campaign.status} />
+                        {campaign.status === 'Paused' ? (
+                          <span className="d-block mw-table__muted mw-fs-11">
+                            {campaign.pauseReason === 'quota' ? t('camp.pausedQuota') : t('camp.pausedManual')}
+                          </span>
+                        ) : null}
                       </td>
                       <td className="mw-nowrap mw-table__muted">{formatDate(campaign.date)}</td>
                       <td className="text-end">
@@ -265,7 +270,14 @@ export default function CampaignsPage() {
                       {campaign.name}
                       <span className="d-block mw-rec__sub">{campaign.sender}</span>
                     </button>
-                    <StatusPill status={campaign.status} />
+                    <span className="text-end">
+                      <StatusPill status={campaign.status} />
+                      {campaign.status === 'Paused' ? (
+                        <span className="d-block mw-fs-11 mw-text-muted">
+                          {campaign.pauseReason === 'quota' ? t('camp.pausedQuota') : t('camp.pausedManual')}
+                        </span>
+                      ) : null}
+                    </span>
                   </div>
 
                   <div className="mw-rec__stats">

@@ -108,6 +108,13 @@ export const env = {
   appUrl: process.env.APP_URL || 'http://localhost:5173',
 
   /**
+   * Settings > Sending > "Retry failed emails once" — poora ek campaign
+   * khatam hone ke baad, itne minute wait karke, ek hi baar dobara koshish
+   * karta hai. Tests me isse 0 rakh sakte ho taaki wait na karna pade.
+   */
+  retryDelayMinutes: int(process.env.RETRY_DELAY_MINUTES, 15),
+
+  /**
    * App khud jo email bhejta hai (password reset, invite) wo kis account se
    * jaaye. Khali chhod do to jo pehla email account juda hai wahi istemal hoga.
    * Client alag "no-reply@..." rakhna chahe to yahan uska email likh do.

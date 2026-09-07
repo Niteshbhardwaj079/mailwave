@@ -717,12 +717,15 @@ export default function CampaignWizardPage() {
     const progress = percentValue(sent + failed, total);
     const running = live.status === 'Sending';
     const done = !running && pending === 0 && total > 0;
+    // Insaan ne khud roka tha ya aaj ki bhejne ki limit khatam ho gayi —
+    // dono "Paused" jaise dikhte the, ab reason saaf dikhta hai.
+    const pausedLabel = live.pauseReason === 'quota' ? t('camp.pausedQuota') : t('camp.pausedManual');
 
     return (
       <div className="mw-stack">
         <PageHeader
           title={done ? t('wiz.doneTitle') : running ? t('wiz.sendingTitle') : t('wiz.paused')}
-          subtitle={done ? t('wiz.doneSub') : t('wiz.sendingSub')}
+          subtitle={done ? t('wiz.doneSub') : running ? t('wiz.sendingSub') : pausedLabel}
           breadcrumb={[{ label: t('nav.campaigns'), to: '/campaigns' }, { label: draft.name }]}
         />
 
@@ -752,7 +755,7 @@ export default function CampaignWizardPage() {
                 </>
               ) : (
                 <>
-                  <i className="bi bi-pause-circle-fill mw-text-warning" /> {t('wiz.paused')}
+                  <i className="bi bi-pause-circle-fill mw-text-warning" /> {pausedLabel}
                 </>
               )}
             </span>

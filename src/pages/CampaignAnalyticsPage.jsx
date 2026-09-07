@@ -322,6 +322,7 @@ export default function CampaignAnalyticsPage() {
         { key: 'name', label: 'Name' },
         { key: 'email', label: 'Email' },
         { key: 'status', label: 'Status' },
+        { key: 'sendCount', label: 'Send attempts' },
         { key: 'openCount', label: 'Opens' },
         { key: 'clickCount', label: 'Clicks' },
         { key: 'lastActivity', label: 'Last activity' },
@@ -778,6 +779,9 @@ export default function CampaignAnalyticsPage() {
                       <td className="mw-table__muted">{row.email}</td>
                       <td>
                         <StatusPill status={row.displayStatus} />
+                        {row.sendCount > 1 ? (
+                          <span className="d-block mw-fs-11 mw-text-muted">{t('camp.sendAttempt', { n: row.sendCount })}</span>
+                        ) : null}
                       </td>
                       <td>{row.sent ? <i className="bi bi-check-lg mw-text-success" /> : <span className="mw-text-muted-2">—</span>}</td>
                       <td>{row.opened ? <i className="bi bi-check-lg mw-text-success" /> : <span className="mw-text-muted-2">No</span>}</td>
@@ -811,7 +815,12 @@ export default function CampaignAnalyticsPage() {
                       {row.name}
                       <span className="d-block mw-rec__sub">{row.email}</span>
                     </span>
-                    <StatusPill status={row.displayStatus} />
+                    <span className="text-end">
+                      <StatusPill status={row.displayStatus} />
+                      {row.sendCount > 1 ? (
+                        <span className="d-block mw-fs-11 mw-text-muted">{t('camp.sendAttempt', { n: row.sendCount })}</span>
+                      ) : null}
+                    </span>
                   </div>
                   <div className="mw-rec__stats">
                     <span className="mw-rec__stat">
@@ -848,7 +857,12 @@ export default function CampaignAnalyticsPage() {
           <>
             <div className="mw-row mw-row--between mb-4">
               <span className="mw-fs-13 mw-text-muted">{logFor.email}</span>
-              <StatusPill status={logFor.status} />
+              <span className="text-end">
+                <StatusPill status={logFor.status} />
+                {logFor.sendCount > 1 ? (
+                  <span className="d-block mw-fs-11 mw-text-muted">{t('camp.sendAttempt', { n: logFor.sendCount })}</span>
+                ) : null}
+              </span>
             </div>
 
             <ul className="mw-timeline">

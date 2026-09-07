@@ -288,6 +288,10 @@ ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS pause_reason text;
 -- hai, sirf record/badge ke liye — sending already frozen html/subject use karti hai.
 ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS language text NOT NULL DEFAULT 'en';
 
+-- Automatic retry (Settings > Sending) ek campaign ke liye kabhi ek se zyada
+-- baar nahi chalta — yeh flag hi rok deta hai.
+ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS auto_retried boolean NOT NULL DEFAULT false;
+
 CREATE INDEX IF NOT EXISTS campaigns_status_idx ON campaigns (status);
 
 CREATE TABLE IF NOT EXISTS campaign_recipients (
@@ -312,6 +316,17 @@ CREATE UNIQUE INDEX IF NOT EXISTS campaign_recipients_unique
   ON campaign_recipients (campaign_id, lower(email));
 CREATE INDEX IF NOT EXISTS campaign_recipients_status_idx
   ON campaign_recipients (campaign_id, status);
+
+-- Kitni baar bhejne ki koshish hui — pehli baar, har manual "Resend", aur
+-- automatic retry, sab isi ek counter me girte hain. "Send #2" jaisa label
+-- yahi se dikhta hai.
+ALTER TABLE campaign_recipients ADD COLUMN IF NOT EXISTS send_count integer NOT NULL DEFAULT 0;
+ALTER TABLE campaign_recipients ADD COLUMN IF NOT EXISTS last_attempted_at timestamptz;
+-- Purani rows jo is column se pehle hi bheji/fail ho chuki thin, unko 0 se
+-- 1 par backfill karte hain — warna "Sent" dikhte hue bhi "0 attempts" jaisa
+-- ulta lagta. WHERE clause ki wajah se yeh baar-baar chalne par bhi safe hai.
+UPDATE campaign_recipients SET send_count = 1
+ WHERE send_count = 0 AND status IN ('Sent','Delivered','Failed','Bounced');
 
 -- Every tracked link in a campaign, so a click can be attributed and the
 -- original destination restored.

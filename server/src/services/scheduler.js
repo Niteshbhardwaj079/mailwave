@@ -18,7 +18,7 @@
 // ---------------------------------------------------------------------------
 import { many, query } from '../db/client.js';
 import { env } from '../env.js';
-import { startCampaign } from './sender.js';
+import { recoverStuckCampaigns, startCampaign } from './sender.js';
 
 /** Har kitni der me dekhna hai. */
 const EVERY_MS = 60 * 1000;
@@ -109,6 +109,14 @@ export function startScheduler() {
   if (timer) return;
 
   console.log('[scheduler] Schedule ki hui campaigns har minute dekhi jayengi.');
+
+  // Server crash/restart/deploy hote waqt agar koi campaign 'Sending' beech
+  // me chhoot gayi thi, use yahin khud-ba-khud dobara chalu karte hain —
+  // client ko "Resume" dabana na pade. Sirf EK baar, isi startup par (dekho
+  // recoverStuckCampaigns() ka comment — baar-baar chalana galat hoga).
+  recoverStuckCampaigns().catch((error) =>
+    console.error('[scheduler] Atki hui campaigns dobara chalu nahi ho sakin:', error.message)
+  );
 
   // Pehli baar turant — server band rehne ke dauraan jo time nikal gaya, wo
   // wahin ka wahin chalu ho jaye.

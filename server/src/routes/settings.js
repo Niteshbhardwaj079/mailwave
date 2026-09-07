@@ -5,10 +5,12 @@
 // jaancha jata hai) — isliye koi apni marzi ka naya key ya galat shape wala
 // data nahi daal sakta.
 //
-// Ek hi row asal me KAAM karti hai: 'unsubscribe' — sender.js ismein se
-// unsubscribe link ka text padhta hai jab bhi koi campaign bhejta hai. Baaki
-// teen (sending/tracking/contacts) abhi sirf save/load hoti hain; inhe
-// campaign wizard ya import ke real logic se jodna alag kaam hai.
+// Do rows asal me KAAM karti hain: 'unsubscribe' — sender.js ismein se
+// unsubscribe link ka text padhta hai jab bhi koi campaign bhejta hai — aur
+// 'sending' ka `retryOnce` — sender.js har campaign khatam hone par ismein
+// se padh kar failed recipients ko ek baar khud-ba-khud dobara bhejta hai.
+// 'sending' ka `quietHours`, aur 'tracking'/'contacts' poori tarah, abhi
+// sirf save/load hote hain; inhe real logic se jodna alag kaam hai.
 // ---------------------------------------------------------------------------
 import { Router } from 'express';
 import { z } from 'zod';

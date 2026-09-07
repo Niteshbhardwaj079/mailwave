@@ -49,6 +49,11 @@ export default function CampaignTable({ items, showActions = false }) {
                 <td className="mw-table__num mw-text-danger">{formatNumber(campaign.failed)}</td>
                 <td>
                   <StatusPill status={campaign.status} />
+                  {campaign.status === 'Paused' ? (
+                    <span className="d-block mw-table__muted mw-fs-11">
+                      {campaign.pauseReason === 'quota' ? t('camp.pausedQuota') : t('camp.pausedManual')}
+                    </span>
+                  ) : null}
                 </td>
                 <td className="mw-nowrap mw-table__muted">{formatDate(campaign.date)}</td>
                 {showActions ? (
@@ -72,7 +77,14 @@ export default function CampaignTable({ items, showActions = false }) {
                 {campaign.name}
                 <span className="d-block mw-rec__sub">{campaign.sender}</span>
               </span>
-              <StatusPill status={campaign.status} />
+              <span className="text-end">
+                <StatusPill status={campaign.status} />
+                {campaign.status === 'Paused' ? (
+                  <span className="d-block mw-fs-11 mw-text-muted">
+                    {campaign.pauseReason === 'quota' ? t('camp.pausedQuota') : t('camp.pausedManual')}
+                  </span>
+                ) : null}
+              </span>
             </div>
 
             <div className="mw-row mw-row--between mw-fs-12 mw-text-muted">

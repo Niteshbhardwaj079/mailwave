@@ -119,6 +119,8 @@ function toApi(row) {
     clickTracking: row.click_tracking,
     subscribeButton: row.subscribe_button,
     status: row.status,
+    pauseReason: row.pause_reason,
+    autoRetried: row.auto_retried,
     scheduledAt: row.scheduled_at,
     startedAt: row.started_at,
     finishedAt: row.finished_at,
@@ -323,7 +325,8 @@ router.get(
 
     const rows = await many(
       `SELECT id, email, name, status, error, sent_at, open_count, first_open_at,
-              last_open_at, click_count, last_click_at, unsubscribed
+              last_open_at, click_count, last_click_at, unsubscribed,
+              send_count, last_attempted_at
          FROM campaign_recipients
         ${clause}
         ORDER BY sent_at DESC NULLS LAST, email
@@ -346,6 +349,9 @@ router.get(
       clickCount: r.click_count,
       lastClick: r.last_click_at,
       unsubscribed: r.unsubscribed,
+      // Kitni baar bhejne ki koshish hui — pehla bhejna + har resend/retry.
+      sendCount: r.send_count,
+      lastAttemptAt: r.last_attempted_at,
       // Screen ko haan/na chahiye, ginti nahi — isliye yahin bana kar bhej
       // dete hain. Warna har screen apne hisaab se nikalti aur kahin galti
       // ho jati.

@@ -150,8 +150,15 @@ async function notifyCampaignFailed(campaignId, error) {
 /**
  * Ek campaign bhejta hai. Background me chalta hai — HTTP request iska
  * intezaar nahi karti, warna browser timeout ho jayega.
+ *
+ * `reclaim: true` sirf recoverStuckCampaigns() se aata hai (dekho neeche) —
+ * normal callers (Send button, resend, scheduler) kabhi ise true nahi
+ * bhejte. Farak sirf claim query me hai: normal path ek campaign ko SIRF
+ * tab claim karta hai jab wo abhi 'Sending' NAHI hai (naya start/resume);
+ * reclaim path ULTA hai — sirf tab claim karta hai jab wo PEHLE SE 'Sending'
+ * hai (server restart ke baad orphan mili hui campaign).
  */
-export async function startCampaign(campaignId, { company = env.brand.company } = {}) {
+export async function startCampaign(campaignId, { company = env.brand.company, reclaim = false } = {}) {
   if (running.has(campaignId)) return { started: false, reason: 'already_running' };
 
   const campaign = await one('SELECT * FROM campaigns WHERE id = $1', [campaignId]);
@@ -165,21 +172,31 @@ export async function startCampaign(campaignId, { company = env.brand.company } 
   // process calling startCampaign twice; it says nothing if this app is ever
   // run as more than one instance. A single UPDATE is always atomic in
   // Postgres regardless of connection/session details, so whichever caller's
-  // UPDATE actually matches a non-'Sending' row wins; everyone else affects
-  // zero rows and backs off instead of both spawning a send loop.
-  const claimed = await one(
-    `UPDATE campaigns
-        SET status = 'Sending', pause_reason = NULL, started_at = COALESCE(started_at, now()), updated_at = now()
-      WHERE id = $1 AND status != 'Sending'
-      RETURNING id`,
-    [campaignId]
-  );
+  // UPDATE actually matches wins; everyone else affects zero rows and backs
+  // off instead of both spawning a send loop.
+  const claimed = reclaim
+    ? await one(
+        `UPDATE campaigns
+            SET pause_reason = NULL, started_at = COALESCE(started_at, now()), updated_at = now()
+          WHERE id = $1 AND status = 'Sending'
+          RETURNING id`,
+        [campaignId]
+      )
+    : await one(
+        `UPDATE campaigns
+            SET status = 'Sending', pause_reason = NULL, started_at = COALESCE(started_at, now()), updated_at = now()
+          WHERE id = $1 AND status != 'Sending'
+          RETURNING id`,
+        [campaignId]
+      );
   if (!claimed) return { started: false, reason: 'already_running' };
 
   const controller = { stop: false };
   running.set(campaignId, controller);
 
   // Jaan-boojh kar await nahi kar rahe: yeh background me chalta rahega.
+  // (run() apna pehla kaam hi status ko dobara DB se padhna karta hai, isliye
+  // yahan `campaign` ka claim-se-pehle wala `status` maayne nahi rakhta.)
   run(campaign, account, controller, company).catch(async (error) => {
     console.error('[sender] campaign fail hui', campaignId, error);
     await query(`UPDATE campaigns SET status = 'Failed', updated_at = now() WHERE id = $1`, [campaignId]);
@@ -188,6 +205,49 @@ export async function startCampaign(campaignId, { company = env.brand.company } 
   });
 
   return { started: true };
+}
+
+/**
+ * Server (re)start hote hi EK BAAR chalta hai (scheduler.js se). Agar koi
+ * campaign database me 'Sending' padi hai lekin is (naye, taaza) process ki
+ * `running` Map me nahi hai, to iska matlab pichla process bhejte-bhejte hi
+ * crash/restart ho gaya tha — us campaign ko yahin se dobara chalu karte
+ * hain, taaki client ko khud "Resume" na dabana pade.
+ *
+ * Duplicate-send ka koi khatra nahi: run() ka batch-query hamesha sirf
+ * status='Pending' wale uthata hai (neeche dekho) — jo pehle se 'Sent' hain
+ * unhe yeh kabhi dobara nahi chhoota.
+ *
+ * SIRF startup par hi safe hai: ek taaza process me `running` guaranteed
+ * khaali hoti hai, isliye har 'Sending' row provably orphaned hai. Isko
+ * baar-baar (jaise har minute) chalana galat hoga — beech me genuinely chal
+ * rahi campaign ko bhi "orphan" samajh sakta.
+ */
+export async function recoverStuckCampaigns() {
+  const stuck = await many(`SELECT id, name, account_id FROM campaigns WHERE status = 'Sending'`);
+  const recovered = [];
+
+  for (const row of stuck) {
+    if (running.has(row.id)) continue; // paranoia — startup par aisा hona hi nahi chahiye
+
+    if (!row.account_id) {
+      // Bina account ke resume nahi ho sakti — hamesha 'Sending' dikhne se
+      // behtar hai saaf 'Failed' maar dena.
+      await query(`UPDATE campaigns SET status = 'Failed', updated_at = now() WHERE id = $1`, [row.id]);
+      console.error(`[sender] "${row.name}" restart ke baad atki thi (koi account nahi) — Failed kar diya.`);
+      continue;
+    }
+
+    const result = await startCampaign(row.id, { company: env.brand.company, reclaim: true });
+    if (result.started) {
+      console.log(`[sender] "${row.name}" — server restart se pehle 'Sending' me atki thi, khud-ba-khud dobara chalu ki.`);
+      recovered.push(row.id);
+    } else {
+      console.error(`[sender] "${row.name}" ko restart ke baad dobara chalu nahi kar paye (${result.reason}).`);
+    }
+  }
+
+  return recovered;
 }
 
 export async function pauseCampaign(campaignId) {
@@ -256,6 +316,43 @@ async function run(campaign, account, controller, company) {
     );
 
     if (batch.length === 0) {
+      // Automatic retry — Settings > Sending ka "Retry failed emails once".
+      // Sirf EK baar, sirf 'Failed' par (kabhi 'Bounced' par nahi — wo hard
+      // bounce maana jata hai, dobara koshish karne se koi fayda nahi).
+      if (!campaign.auto_retried) {
+        const sending = await workspaceSetting('sending', {});
+        if (sending.retryOnce) {
+          const failedCount = await one(
+            `SELECT count(*)::int AS n FROM campaign_recipients WHERE campaign_id = $1 AND status = 'Failed'`,
+            [campaign.id]
+          );
+          if ((failedCount?.n ?? 0) > 0) {
+            // Turant flag lagate hain — chahe aage kuch bhi ho, dobara kabhi
+            // is campaign ke liye automatic retry na chale.
+            await query(`UPDATE campaigns SET auto_retried = true, updated_at = now() WHERE id = $1`, [campaign.id]);
+            campaign.auto_retried = true;
+            console.log(
+              `[sender] ${campaign.id}: ${failedCount.n} fail hue the — ${env.retryDelayMinutes} minute baad ek baar dobara koshish`
+            );
+            if (env.retryDelayMinutes > 0) await sleep(env.retryDelayMinutes * 60 * 1000);
+
+            // Itni der me kisi ne Pause ya Delete kiya ho sakta hai.
+            const stillSending = await one('SELECT status FROM campaigns WHERE id = $1', [campaign.id]);
+            if (!stillSending || stillSending.status !== 'Sending') {
+              running.delete(campaign.id);
+              return;
+            }
+
+            await query(
+              `UPDATE campaign_recipients SET status = 'Pending', error = NULL, sent_at = NULL
+                WHERE campaign_id = $1 AND status = 'Failed'`,
+              [campaign.id]
+            );
+            continue;
+          }
+        }
+      }
+
       await query(
         `UPDATE campaigns SET status = 'Sent', finished_at = now(), updated_at = now() WHERE id = $1`,
         [campaign.id]
@@ -284,7 +381,10 @@ async function run(campaign, account, controller, company) {
         });
 
         await query(
-          `UPDATE campaign_recipients SET status = 'Sent', sent_at = now(), error = NULL WHERE id = $1`,
+          `UPDATE campaign_recipients
+              SET status = 'Sent', sent_at = now(), error = NULL,
+                  send_count = send_count + 1, last_attempted_at = now()
+            WHERE id = $1`,
           [recipient.id]
         );
         await query(
@@ -305,7 +405,10 @@ async function run(campaign, account, controller, company) {
         // Ek address fail hone se poori campaign nahi rukni chahiye.
         const message = String(error?.message || error).slice(0, 300);
         await query(
-          `UPDATE campaign_recipients SET status = 'Failed', error = $2 WHERE id = $1`,
+          `UPDATE campaign_recipients
+              SET status = 'Failed', error = $2,
+                  send_count = send_count + 1, last_attempted_at = now()
+            WHERE id = $1`,
           [recipient.id, message]
         );
         console.error(`[sender] ${recipient.email} fail:`, error?.message || error);
