@@ -1,25 +1,36 @@
 import { useRef, useState } from 'react';
 
 import { useT } from '../../i18n/I18nProvider';
-import { Note } from '../ui/Controls';
 import Sheet from '../ui/Sheet';
 import ImageLibrary from './ImageLibrary';
 import RichTextEditor from './RichTextEditor';
 import DynamicFieldPicker from './DynamicFieldPicker';
-import { DEFAULT_SCHEMA, newTemplateField, SOCIAL_PLATFORMS } from '../../data/templateBuilder';
+import {
+  SOCIAL_PLATFORMS,
+  allTemplateFieldKeys,
+  newCustomLinkItem,
+  newFooterTextItem,
+  newMobileNumberItem,
+  newSocialLinkItem,
+  newTemplateField,
+  rekeySocialLinkForPlatform,
+} from '../../data/templateBuilder';
 import { uniqueFieldKey } from '../../data/dynamicFields';
 
 /**
  * "Design" tab — TemplateEditorPage ke content_schema ko form fields ki
- * tarah edit karta hai. Kabhi raw HTML nahi dikhata; parent (TemplateEditorPage)
- * har change par renderTemplateHtml(schema) chala kar HTML khud bana leta hai.
- * Default (master) templates bhi yahan se seedha edit hoti hain — is
- * component ko yeh jaanne ki zarurat nahi ki template default hai ya nahi.
+ * tarah edit karta hai (WordPress ACF jaisa). Kabhi raw HTML nahi dikhata,
+ * aur kabhi html ko chhoota bhi nahi — yeh sirf DATA (schema) edit karta
+ * hai. Client khud Code tab me decide karta hai ki har field/link ka
+ * {{key}} kahan rakhna hai. Default (master) templates bhi yahan se seedha
+ * edit hoti hain — is component ko yeh jaanne ki zarurat nahi ki template
+ * default hai ya nahi.
  *
- * Har content field (Heading, Text, Image, Button) ki apni friendly label +
- * auto-generated {{key}} hoti hai — Code tab me isi key se insert hoti hai.
- * Style (colour/font) controls jaan-boojh kar yahan nahi hain — font hamesha
- * Arial hai, colors template ke saath pehle se set hain.
+ * Har field/link (Heading, Text, Image, Button, Footer Text, Mobile Number,
+ * Custom Link, Social Link) ki apni friendly label + auto-generated {{key}}
+ * hoti hai — Code tab me isi key se insert hoti hai. Style (colour/font)
+ * controls jaan-boojh kar yahan nahi hain — font hamesha Arial hai, colors
+ * template ke saath pehle se set hain.
  */
 export default function TemplateDesignEditor({ schema, onChange, dynamicFields, ownFieldKeys }) {
   const t = useT();
@@ -38,7 +49,7 @@ export default function TemplateDesignEditor({ schema, onChange, dynamicFields, 
   }
 
   function addField(type, label) {
-    const existingKeys = (schema.fields || []).map((f) => f.key).concat(ownFieldKeys || []);
+    const existingKeys = allTemplateFieldKeys(schema).concat(ownFieldKeys || []);
     set({ fields: [...(schema.fields || []), newTemplateField(type, label, existingKeys)] });
   }
 
@@ -58,20 +69,14 @@ export default function TemplateDesignEditor({ schema, onChange, dynamicFields, 
       setField(field.id, { label });
       return;
     }
-    const existingKeys = (schema.fields || [])
-      .filter((f) => f.id !== field.id)
-      .map((f) => f.key)
+    const existingKeys = allTemplateFieldKeys(schema)
+      .filter((key) => key !== field.key)
       .concat(ownFieldKeys || []);
     setField(field.id, { label, key: uniqueFieldKey(label, existingKeys) });
   }
 
   function lockFieldKey(field) {
     if (!field.keyLocked) setField(field.id, { keyLocked: true });
-  }
-
-  /** Code tab me haath se HTML edit karne se content-fields "detached" ho jaati hain — yeh unhe wapas structured bana deta hai. */
-  function startFreshContent() {
-    set({ fields: JSON.parse(JSON.stringify(DEFAULT_SCHEMA.fields)) });
   }
 
   function moveField(index, dir) {
@@ -82,60 +87,84 @@ export default function TemplateDesignEditor({ schema, onChange, dynamicFields, 
     set({ fields });
   }
 
+  function newItemExistingKeys() {
+    return allTemplateFieldKeys(schema).concat(ownFieldKeys || []);
+  }
+
   // --- footer text lines -----------------------------------------------------
   function addFooterText() {
-    set({ footerTexts: [...(schema.footerTexts || []), ''] });
+    set({ footerTexts: [...(schema.footerTexts || []), newFooterTextItem(newItemExistingKeys())] });
   }
 
-  function setFooterText(index, next) {
-    const footerTexts = (schema.footerTexts || []).map((text, i) => (i === index ? next : text));
-    set({ footerTexts });
+  function setFooterText(id, next) {
+    set({ footerTexts: (schema.footerTexts || []).map((item) => (item.id === id ? { ...item, value: next } : item)) });
   }
 
-  function removeFooterText(index) {
-    set({ footerTexts: (schema.footerTexts || []).filter((_, i) => i !== index) });
+  function removeFooterText(id) {
+    set({ footerTexts: (schema.footerTexts || []).filter((item) => item.id !== id) });
   }
 
   // --- mobile numbers ----------------------------------------------------------
   function addMobileNumber() {
-    set({ mobileNumbers: [...(schema.mobileNumbers || []), ''] });
+    set({ mobileNumbers: [...(schema.mobileNumbers || []), newMobileNumberItem(newItemExistingKeys())] });
   }
 
-  function setMobileNumber(index, next) {
-    const mobileNumbers = (schema.mobileNumbers || []).map((n, i) => (i === index ? next : n));
-    set({ mobileNumbers });
+  function setMobileNumber(id, next) {
+    set({ mobileNumbers: (schema.mobileNumbers || []).map((item) => (item.id === id ? { ...item, value: next } : item)) });
   }
 
-  function removeMobileNumber(index) {
-    set({ mobileNumbers: (schema.mobileNumbers || []).filter((_, i) => i !== index) });
+  function removeMobileNumber(id) {
+    set({ mobileNumbers: (schema.mobileNumbers || []).filter((item) => item.id !== id) });
   }
 
   // --- custom links --------------------------------------------------------
   function addCustomLink() {
-    set({ customLinks: [...(schema.customLinks || []), { label: '', url: '' }] });
+    set({ customLinks: [...(schema.customLinks || []), newCustomLinkItem(newItemExistingKeys())] });
   }
 
-  function setCustomLink(index, patch) {
-    const customLinks = (schema.customLinks || []).map((link, i) => (i === index ? { ...link, ...patch } : link));
-    set({ customLinks });
+  function setCustomLink(id, patch) {
+    set({ customLinks: (schema.customLinks || []).map((item) => (item.id === id ? { ...item, ...patch } : item)) });
   }
 
-  function removeCustomLink(index) {
-    set({ customLinks: (schema.customLinks || []).filter((_, i) => i !== index) });
+  function removeCustomLink(id) {
+    set({ customLinks: (schema.customLinks || []).filter((item) => item.id !== id) });
+  }
+
+  /** Custom link ki key bhi content field jaisi hi hai — label ke saath live badalti hai jab tak pehli baar blur na ho. */
+  function setCustomLinkLabel(item, label) {
+    if (item.keyLocked) {
+      setCustomLink(item.id, { label });
+      return;
+    }
+    const existingKeys = allTemplateFieldKeys(schema)
+      .filter((key) => key !== item.key)
+      .concat(ownFieldKeys || []);
+    setCustomLink(item.id, { label, key: uniqueFieldKey(label, existingKeys) });
+  }
+
+  function lockCustomLinkKey(item) {
+    if (!item.keyLocked) setCustomLink(item.id, { keyLocked: true });
   }
 
   // --- social links (text label + URL only — no icon images) -----------------
   function addSocialLink() {
-    set({ socialLinks: [...(schema.socialLinks || []), { platform: SOCIAL_PLATFORMS[0].id, url: '' }] });
+    set({ socialLinks: [...(schema.socialLinks || []), newSocialLinkItem(newItemExistingKeys())] });
   }
 
-  function setSocialLink(index, patch) {
-    const socialLinks = (schema.socialLinks || []).map((link, i) => (i === index ? { ...link, ...patch } : link));
-    set({ socialLinks });
+  function setSocialLink(id, patch) {
+    set({ socialLinks: (schema.socialLinks || []).map((item) => (item.id === id ? { ...item, ...patch } : item)) });
   }
 
-  function removeSocialLink(index) {
-    set({ socialLinks: (schema.socialLinks || []).filter((_, i) => i !== index) });
+  function removeSocialLink(id) {
+    set({ socialLinks: (schema.socialLinks || []).filter((item) => item.id !== id) });
+  }
+
+  /** Platform badalte hi key turant naye platform ke naam se dobara ban jaati hai — ismein "lock until blur" ki zaroorat nahi (dropdown ek discrete choice hai). */
+  function setSocialLinkPlatform(item, platformId) {
+    const existingKeys = allTemplateFieldKeys(schema)
+      .filter((key) => key !== item.key)
+      .concat(ownFieldKeys || []);
+    setSocialLink(item.id, rekeySocialLinkForPlatform(platformId, existingKeys));
   }
 
   function handlePicked(url) {
@@ -157,6 +186,7 @@ export default function TemplateDesignEditor({ schema, onChange, dynamicFields, 
               value={schema.brandName}
               onChange={(e) => set({ brandName: e.target.value })}
             />
+            <span className="mw-fs-12 mw-text-muted mw-mono">{'{{brand_name}}'}</span>
           </div>
           <div className="col-12 col-md-6">
             <label className="form-label">{t('tpl.design.logo')}</label>
@@ -173,6 +203,7 @@ export default function TemplateDesignEditor({ schema, onChange, dynamicFields, 
                 {t('img.title')}
               </button>
             </div>
+            <span className="mw-fs-12 mw-text-muted mw-mono">{'{{logo_url}}'}</span>
             <p className="form-text mb-0">{t('tpl.design.logoHelp')}</p>
           </div>
           <div className="col-12 col-md-6">
@@ -185,6 +216,7 @@ export default function TemplateDesignEditor({ schema, onChange, dynamicFields, 
               onChange={(e) => set({ websiteUrl: e.target.value })}
               placeholder="https://example.com"
             />
+            <span className="mw-fs-12 mw-text-muted mw-mono">{'{{website_url}}'}</span>
             <p className="form-text mb-0">{t('tpl.design.websiteUrlHelp')}</p>
           </div>
         </div>
@@ -192,16 +224,6 @@ export default function TemplateDesignEditor({ schema, onChange, dynamicFields, 
 
       <div>
         <h4 className="mw-fs-14 mw-fw-700 mb-2">{t('tpl.design.content')}</h4>
-        {!schema.fields ? (
-          <div className="mw-stack--sm d-flex flex-column">
-            <Note tone="warning" icon="bi-exclamation-triangle">
-              {t('tpl.design.detached')}
-            </Note>
-            <button type="button" className="btn btn-outline-primary align-self-start" onClick={startFreshContent}>
-              {t('tpl.design.startFresh')}
-            </button>
-          </div>
-        ) : (
         <div className="mw-stack--sm d-flex flex-column">
           {(schema.fields || []).map((field, index) => (
             <div key={field.id} className="p-3" style={{ border: '1px solid var(--mw-border, #e5e7eb)', borderRadius: 8 }}>
@@ -340,7 +362,6 @@ export default function TemplateDesignEditor({ schema, onChange, dynamicFields, 
             </button>
           </div>
         </div>
-        )}
       </div>
 
       <div>
@@ -348,23 +369,27 @@ export default function TemplateDesignEditor({ schema, onChange, dynamicFields, 
         <div className="mw-stack--sm d-flex flex-column">
           <div>
             <label className="form-label d-block">{t('tpl.design.footerText')}</label>
-            {(schema.footerTexts || []).map((text, index) => (
-              <div key={index} className="mw-row mb-2">
-                <input
-                  ref={(el) => (footerTextRefs.current[index] = el)}
-                  type="text"
-                  className="form-control"
-                  value={text}
-                  onChange={(e) => setFooterText(index, e.target.value)}
-                  placeholder={t('tpl.design.footerTextPlaceholder')}
-                />
+            <p className="mw-fs-12 mw-text-muted mb-2">{t('tpl.design.footerTextHelp')}</p>
+            {(schema.footerTexts || []).map((item, index) => (
+              <div key={item.id} className="mw-row mb-2">
+                <div className="flex-grow-1">
+                  <input
+                    ref={(el) => (footerTextRefs.current[index] = el)}
+                    type="text"
+                    className="form-control"
+                    value={item.value}
+                    onChange={(e) => setFooterText(item.id, e.target.value)}
+                    placeholder={t('tpl.design.footerTextPlaceholder')}
+                  />
+                  <span className="mw-fs-12 mw-text-muted mw-mono">{`{{${item.key}}}`}</span>
+                </div>
                 <DynamicFieldPicker
                   fields={dynamicFields}
                   getField={() => footerTextRefs.current[index]}
-                  value={text}
-                  onChange={(next) => setFooterText(index, next)}
+                  value={item.value}
+                  onChange={(next) => setFooterText(item.id, next)}
                 />
-                <button type="button" className="btn btn-outline-danger" onClick={() => removeFooterText(index)}>
+                <button type="button" className="btn btn-outline-danger" onClick={() => removeFooterText(item.id)}>
                   <i className="bi bi-trash3" />
                 </button>
               </div>
@@ -377,17 +402,21 @@ export default function TemplateDesignEditor({ schema, onChange, dynamicFields, 
 
           <div>
             <label className="form-label d-block">{t('tpl.design.mobileNumbers')}</label>
-            {(schema.mobileNumbers || []).map((number, index) => (
-              <div key={index} className="mw-row mb-2">
-                <input
-                  type="tel"
-                  className="form-control"
-                  value={number}
-                  onChange={(e) => setMobileNumber(index, e.target.value)}
-                  placeholder={t('tpl.design.mobileNumberPlaceholder')}
-                  style={{ maxWidth: 260 }}
-                />
-                <button type="button" className="btn btn-outline-danger" onClick={() => removeMobileNumber(index)}>
+            <p className="mw-fs-12 mw-text-muted mb-2">{t('tpl.design.mobileNumbersHelp')}</p>
+            {(schema.mobileNumbers || []).map((item) => (
+              <div key={item.id} className="mw-row mb-2">
+                <div>
+                  <input
+                    type="tel"
+                    className="form-control"
+                    value={item.value}
+                    onChange={(e) => setMobileNumber(item.id, e.target.value)}
+                    placeholder={t('tpl.design.mobileNumberPlaceholder')}
+                    style={{ maxWidth: 260 }}
+                  />
+                  <span className="mw-fs-12 mw-text-muted mw-mono">{`{{${item.key}}}`}</span>
+                </div>
+                <button type="button" className="btn btn-outline-danger" onClick={() => removeMobileNumber(item.id)}>
                   <i className="bi bi-trash3" />
                 </button>
               </div>
@@ -400,24 +429,29 @@ export default function TemplateDesignEditor({ schema, onChange, dynamicFields, 
 
           <div>
             <label className="form-label d-block">{t('tpl.design.customLinks')}</label>
-            {(schema.customLinks || []).map((link, index) => (
-              <div key={index} className="mw-row mb-2">
+            <p className="mw-fs-12 mw-text-muted mb-2">{t('tpl.design.customLinksHelp')}</p>
+            {(schema.customLinks || []).map((item) => (
+              <div key={item.id} className="mw-row mb-2">
                 <input
                   type="text"
                   className="form-control"
                   style={{ maxWidth: 200 }}
-                  value={link.label}
-                  onChange={(e) => setCustomLink(index, { label: e.target.value })}
+                  value={item.label}
+                  onChange={(e) => setCustomLinkLabel(item, e.target.value)}
+                  onBlur={() => lockCustomLinkKey(item)}
                   placeholder={t('tpl.design.customLinkLabelPlaceholder')}
                 />
-                <input
-                  type="text"
-                  className="form-control"
-                  value={link.url}
-                  onChange={(e) => setCustomLink(index, { url: e.target.value })}
-                  placeholder="https://example.com/privacy-policy"
-                />
-                <button type="button" className="btn btn-outline-danger" onClick={() => removeCustomLink(index)}>
+                <div className="flex-grow-1">
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={item.url}
+                    onChange={(e) => setCustomLink(item.id, { url: e.target.value })}
+                    placeholder="https://example.com/privacy-policy"
+                  />
+                  <span className="mw-fs-12 mw-text-muted mw-mono">{`{{${item.key}}}`}</span>
+                </div>
+                <button type="button" className="btn btn-outline-danger" onClick={() => removeCustomLink(item.id)}>
                   <i className="bi bi-trash3" />
                 </button>
               </div>
@@ -431,13 +465,13 @@ export default function TemplateDesignEditor({ schema, onChange, dynamicFields, 
           <div>
             <label className="form-label d-block">{t('tpl.design.socialLinks')}</label>
             <p className="mw-fs-12 mw-text-muted mb-2">{t('tpl.design.socialLinksHelp')}</p>
-            {(schema.socialLinks || []).map((link, index) => (
-              <div key={index} className="mw-row mb-2">
+            {(schema.socialLinks || []).map((item) => (
+              <div key={item.id} className="mw-row mb-2">
                 <select
                   className="form-select"
                   style={{ maxWidth: 180 }}
-                  value={link.platform}
-                  onChange={(e) => setSocialLink(index, { platform: e.target.value })}
+                  value={item.platform}
+                  onChange={(e) => setSocialLinkPlatform(item, e.target.value)}
                 >
                   {SOCIAL_PLATFORMS.map((platform) => (
                     <option key={platform.id} value={platform.id}>
@@ -445,14 +479,17 @@ export default function TemplateDesignEditor({ schema, onChange, dynamicFields, 
                     </option>
                   ))}
                 </select>
-                <input
-                  type="text"
-                  className="form-control"
-                  value={link.url}
-                  onChange={(e) => setSocialLink(index, { url: e.target.value })}
-                  placeholder="https://…"
-                />
-                <button type="button" className="btn btn-outline-danger" onClick={() => removeSocialLink(index)}>
+                <div className="flex-grow-1">
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={item.url}
+                    onChange={(e) => setSocialLink(item.id, { url: e.target.value })}
+                    placeholder="https://…"
+                  />
+                  <span className="mw-fs-12 mw-text-muted mw-mono">{`{{${item.key}}}`}</span>
+                </div>
+                <button type="button" className="btn btn-outline-danger" onClick={() => removeSocialLink(item.id)}>
                   <i className="bi bi-trash3" />
                 </button>
               </div>
@@ -471,6 +508,7 @@ export default function TemplateDesignEditor({ schema, onChange, dynamicFields, 
               value={schema.unsubscribeText}
               onChange={(e) => set({ unsubscribeText: e.target.value })}
             />
+            <span className="mw-fs-12 mw-text-muted mw-mono">{'{{unsubscribe_text}}'}</span>
             <p className="form-text mb-0">{t('tpl.design.unsubscribeHelp')}</p>
           </div>
         </div>

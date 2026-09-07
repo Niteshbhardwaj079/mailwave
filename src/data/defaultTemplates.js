@@ -338,6 +338,13 @@ export function resolveDefaultTemplateSchema(entry, placeholderBaseUrl) {
   return JSON.parse(json);
 }
 
+/**
+ * Tokenize mode se render karta hai — layout/design bilkul wahi rehta hai
+ * (koi bhi visible cheez nahi badalti), bas har field/link ki jagah uska
+ * apna {{key}} token save hota hai. Isse Design tab me koi bhi default
+ * template ka field edit karne se uska token — html me jahan bhi hai —
+ * turant sahi value dikhata hai, bina layout regenerate kiye.
+ */
 export function renderDefaultTemplateHtml(entry, placeholderBaseUrl) {
-  return renderTemplateHtml(resolveDefaultTemplateSchema(entry, placeholderBaseUrl));
+  return renderTemplateHtml(resolveDefaultTemplateSchema(entry, placeholderBaseUrl), { tokenize: true });
 }

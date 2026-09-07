@@ -14,7 +14,7 @@ import { useT } from '../i18n/I18nProvider';
 import { useWorkspace } from '../store/WorkspaceProvider';
 import { useToast } from '../components/ui/ToastProvider';
 import { BLANK_HTML, starterTemplates } from '../data/starterHtml';
-import { DEFAULT_SCHEMA, normalizeSchema, renderTemplateHtml, resolveTemplateFieldTokens } from '../data/templateBuilder';
+import { DEFAULT_SCHEMA, findSocialPlatform, normalizeSchema, renderTemplateHtml, resolveTemplateFieldTokens } from '../data/templateBuilder';
 import { combineDynamicFields, fillDynamicPreview } from '../data/dynamicFields';
 import { LANGUAGES } from '../i18n/languages';
 import { api, ApiError } from '../api/client';
@@ -25,14 +25,13 @@ function cloneSchema(schema) {
 }
 
 /**
- * `schema` ab kabhi poori tarah `null` nahi hoti — sirf `schema.fields`
- * null ho sakti hai (jab Code tab me haath se raw HTML likha gaya ho).
- * Logo/brand/website/footer/social hamesha zinda rehte hain, chahe content
- * "detached" ho — isse Design -> Code -> Design switch karne par kabhi kuch
- * kho nahi jaata.
+ * `schema` (Design tab ka data) aur `html` (Code tab ka raw text) poori
+ * tarah independent hain — WordPress ACF jaisa. Ek Design tab field kabhi
+ * bhi html ko chhoo/regenerate nahi karta; Code tab me kuch bhi likhne se
+ * Design tab ki field list kabhi gayab/reset nahi hoti.
  */
 function schemaFromExisting(existingTemplate) {
-  if (!existingTemplate?.contentSchema) return { ...cloneSchema(DEFAULT_SCHEMA), fields: null };
+  if (!existingTemplate?.contentSchema) return { ...cloneSchema(DEFAULT_SCHEMA), fields: [] };
   return normalizeSchema(existingTemplate.contentSchema);
 }
 
@@ -154,23 +153,50 @@ export default function TemplateEditorPage() {
 
   const defaultStarters = useMemo(() => templates.filter((item) => item.isDefault), [templates]);
 
-  // Is template ke apne fields (Logo/Website/Brand Name hamesha, Heading/Text/
-  // Image/Button jo bhi client ne banaye) — Code tab ke dropdown aur Design
-  // tab ke har text field ke apne picker, dono isi list se bharte hain.
+  // Is template ke apne fields aur links (Logo/Website/Brand Name/Unsubscribe
+  // text hamesha, Heading/Text/Image/Button jo bhi client ne banaye, Footer
+  // Text/Mobile Number/Custom Link/Social Link ki har ek entry) — Code tab ke
+  // dropdown aur Design tab ke har text field ke apne picker, dono isi list
+  // se bharte hain. `group` sirf dropdown me optgroup dikhane ke liye hai.
   const templateOwnFields = useMemo(() => {
+    const groupHeader = t('tpl.design.header');
+    const groupContent = t('tpl.design.content');
+    const groupFooter = t('tpl.design.footer');
+    const groupSocial = t('tpl.design.socialLinks');
     const base = [
-      { key: 'logo_url', label: t('tpl.design.logo') },
-      { key: 'website_url', label: t('tpl.design.websiteUrl') },
-      { key: 'brand_name', label: t('tpl.design.brandName') },
+      { key: 'logo_url', label: t('tpl.design.logo'), group: groupHeader },
+      { key: 'website_url', label: t('tpl.design.websiteUrl'), group: groupHeader },
+      { key: 'brand_name', label: t('tpl.design.brandName'), group: groupHeader },
+      { key: 'unsubscribe_text', label: t('tpl.design.unsubscribeText'), group: groupFooter },
     ];
-    const own = (schema.fields || []).map((f) => ({ key: f.key, label: f.label }));
-    return [...base, ...own];
-  }, [schema.fields, t]);
+    const own = (schema.fields || []).map((f) => ({ key: f.key, label: f.label, group: groupContent }));
+    const footerTexts = (schema.footerTexts || []).map((item, i) => ({
+      key: item.key,
+      label: `${t('tpl.design.footerText')} ${i + 1}`,
+      group: groupFooter,
+    }));
+    const mobileNumbers = (schema.mobileNumbers || []).map((item, i) => ({
+      key: item.key,
+      label: `${t('tpl.design.mobileNumbers')} ${i + 1}`,
+      group: groupFooter,
+    }));
+    const customLinks = (schema.customLinks || []).map((item) => ({
+      key: item.key,
+      label: item.label || t('tpl.design.addCustomLink'),
+      group: groupFooter,
+    }));
+    const socialLinks = (schema.socialLinks || []).map((item) => ({
+      key: item.key,
+      label: findSocialPlatform(item.platform).label,
+      group: groupSocial,
+    }));
+    return [...base, ...own, ...footerTexts, ...mobileNumbers, ...customLinks, ...socialLinks];
+  }, [schema.fields, schema.footerTexts, schema.mobileNumbers, schema.customLinks, schema.socialLinks, t]);
 
-  const allInsertableFields = useMemo(
-    () => [...templateOwnFields, ...dynamicFields],
-    [templateOwnFields, dynamicFields]
-  );
+  const allInsertableFields = useMemo(() => {
+    const groupGlobal = t('tpl.variables');
+    return [...templateOwnFields, ...dynamicFields.map((f) => ({ ...f, group: groupGlobal }))];
+  }, [templateOwnFields, dynamicFields, t]);
 
   // Preview-only substitution — raw {{tokens}} kabhi screen par nahi dikhte.
   // Pehle is template ke apne fields (logo/heading_two/website_url/...) ki
@@ -198,21 +224,15 @@ export default function TemplateEditorPage() {
     setLanguage(event.target.value);
   }
 
+  // Design tab kabhi html ko chhoota nahi — field ki value badalna sirf
+  // schema (data) update karta hai. Wo field jahan bhi {{key}} ke roop me
+  // Code tab me rakha gaya hai, wahi preview me turant nayi value dikha
+  // deta hai (dekho previewHtml, upar).
   function handleSchemaChange(nextSchema) {
     setSchema(nextSchema);
-    setHtml(renderTemplateHtml(nextSchema));
-  }
-
-  /** Content (fields) ko "detached" karta hai — logo/brand/website/footer/social kabhi nahi kho te. */
-  function detachContent() {
-    if (schema.fields) setSchema({ ...schema, fields: null });
   }
 
   function handleHtml(event) {
-    // Raw HTML ko haath se edit karna structured CONTENT fields ka bharosa
-    // tod deta hai — header/footer/social abhi bhi Design tab me editable
-    // rehte hain, sirf content-fields list "detached" hoti hai.
-    detachContent();
     setHtml(event.target.value);
   }
 
@@ -225,7 +245,6 @@ export default function TemplateEditorPage() {
     const start = field.selectionStart ?? html.length;
     const end = field.selectionEnd ?? html.length;
     const next = `${html.slice(0, start)}${snippet}${html.slice(end)}`;
-    detachContent();
     setHtml(next);
     window.requestAnimationFrame(() => {
       field.focus();
@@ -237,7 +256,6 @@ export default function TemplateEditorPage() {
   function loadStarter(event) {
     const starter = starterTemplates.find((item) => item.key === event.currentTarget.dataset.key);
     if (!starter) return;
-    setSchema({ ...schema, fields: null });
     setHtml(starter.html);
     if (!name) setName(starter.name);
     setTab('code');
@@ -249,19 +267,29 @@ export default function TemplateEditorPage() {
     if (!name) setName(source.name);
     setCategory(source.category);
     setSubject(source.subject);
-    if (source.contentSchema) {
-      const normalized = normalizeSchema(source.contentSchema);
-      setSchema(normalized);
-      setHtml(renderTemplateHtml(normalized));
-      setTab('design');
-    } else {
-      setSchema({ ...schema, fields: null });
-      setHtml(source.html);
-      setTab('code');
-    }
+    // Default template ka apna, ASLI html seedha use karte hain — kabhi
+    // dobara render nahi karte, taaki uski design/layout bilkul wahi rahe
+    // jo master row me save hai. Schema sirf Design tab me edit karne ke
+    // liye normalize hoti hai.
+    if (source.contentSchema) setSchema(normalizeSchema(source.contentSchema));
+    setHtml(source.html);
+    setTab(source.contentSchema ? 'design' : 'code');
   }
 
   async function handleSave() {
+    // Template Name aur Category — sirf yehi do fields hard-required hain
+    // (Email Language hamesha bhara hota hai, ek controlled <select> hai).
+    // Design tab ke andar koi bhi field kabhi required nahi — wahi to poore
+    // is redesign ka matlab hai.
+    if (!name.trim()) {
+      toast.error(t('tpl.nameRequired'));
+      return;
+    }
+    if (!category.trim()) {
+      toast.error(t('tpl.categoryRequired'));
+      return;
+    }
+
     // {{heading_two}}/{{logo_url}}/{{website_url}}-jaise apne-hi-template
     // tokens ko YAHAN resolve NAHI karte — save/reload ke baad bhi Code tab
     // me wahi token dikhna chahiye jo type kiya tha ("Code variables remain
@@ -275,8 +303,8 @@ export default function TemplateEditorPage() {
     // updated, permanently. Only DELETE stays blocked for them (server-side).
     const record = await saveTemplate({
       id: savedId || undefined,
-      name: name.trim() || t('tpl.newTemplate'),
-      category,
+      name: name.trim(),
+      category: category.trim(),
       subject,
       html,
       language,
@@ -435,21 +463,13 @@ export default function TemplateEditorPage() {
 
             {tab === 'code' ? (
               <>
-                {!schema.fields ? (
-                  <Note tone="info" icon="bi-info-circle">
-                    {t('tpl.design.detached')}
-                  </Note>
-                ) : null}
                 <div className="mb-3">
                   <span className="form-label d-block">{t('tpl.variables')}</span>
                   <DynamicFieldPicker
                     fields={allInsertableFields}
                     getField={() => codeRef.current}
                     value={html}
-                    onChange={(next) => {
-                      detachContent();
-                      setHtml(next);
-                    }}
+                    onChange={setHtml}
                     className="form-select"
                     ariaLabel={t('dyn.insertField')}
                   />

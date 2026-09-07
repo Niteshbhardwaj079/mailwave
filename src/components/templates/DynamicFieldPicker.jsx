@@ -38,6 +38,19 @@ export default function DynamicFieldPicker({ fields, getField, value, onChange, 
     });
   }
 
+  // Agar koi field apna `group` batati hai (Header/Content/Footer/Social/
+  // Global), to unhe optgroups me dikhate hain — list lambi hone par dhoondna
+  // aasan ho jaata hai. Group na ho to pehle jaisi hi flat list.
+  const hasGroups = fields.some((field) => field.group);
+  const groups = hasGroups
+    ? fields.reduce((acc, field) => {
+        const key = field.group || '';
+        if (!acc.has(key)) acc.set(key, []);
+        acc.get(key).push(field);
+        return acc;
+      }, new Map())
+    : null;
+
   return (
     <select
       className={className || 'form-select form-select-sm mw-dynfield-picker'}
@@ -46,11 +59,21 @@ export default function DynamicFieldPicker({ fields, getField, value, onChange, 
       aria-label={ariaLabel || t('dyn.insertField')}
     >
       <option value="">{t('dyn.insertField')}</option>
-      {fields.map((field) => (
-        <option key={field.key} value={field.key}>
-          {field.label}
-        </option>
-      ))}
+      {groups
+        ? Array.from(groups.entries()).map(([group, groupFields]) => (
+            <optgroup key={group || '_'} label={group || t('dyn.insertField')}>
+              {groupFields.map((field) => (
+                <option key={field.key} value={field.key}>
+                  {field.label}
+                </option>
+              ))}
+            </optgroup>
+          ))
+        : fields.map((field) => (
+            <option key={field.key} value={field.key}>
+              {field.label}
+            </option>
+          ))}
     </select>
   );
 }
