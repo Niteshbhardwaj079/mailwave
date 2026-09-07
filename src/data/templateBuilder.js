@@ -7,10 +7,21 @@
 // hai, bas ab fields ek fixed schema se aate hain (14 default templates aur
 // koi bhi naya custom template dono isi se render hote hain).
 //
+// Har content field (Heading, Heading Two, Description, ...) ki apni ek
+// friendly label + auto-generated {{key}} hoti hai — bilkul global Dynamic
+// Fields (src/data/dynamicFields.js) jaisa hi, bas is EK TEMPLATE ke andar.
+// Client Code tab me `{{heading_two}}` type kare ya Design tab khud render
+// kare — dono jagah asli value hamesha resolveTemplateFieldTokens() se save
+// hone se PEHLE bhar di jaati hai, isliye asli bheji gayi email me kabhi koi
+// "unresolved" apna-hi-token nahi bachta. Sirf recipient/global tokens
+// ({{name}}, {{company}}, ...) jaise-ke-taise pass through hote hain — unhe
+// asli value send time par (server/src/services/render.js) milti hai.
+//
 // Yeh file frontend (Vite) aur backend (Node, server/src/db/seed.js se
 // relative import) dono me chalti hai — isliye plain JS, koi browser/Node-
 // khaas API nahi. systemEmailTranslations.js jaisa hi convention.
 // ---------------------------------------------------------------------------
+import { uniqueFieldKey } from './dynamicFields.js';
 
 /**
  * Har email client (khaaskar Outlook) sirf Arial jaisa system font bharose se
@@ -20,10 +31,12 @@
 export const EMAIL_SAFE_FONT = 'Arial,Helvetica,sans-serif';
 
 /**
- * Social links ke liye jaana-pehchana platforms — client naam nahi likhta,
- * bas ek icon chunta hai. Icon PNGs server/public/social-icons/<id>.png me
- * committed hain (real files, koi external service ya icon-font/CSS nahi —
- * email me wo bharose ke layak nahi hote).
+ * Social links ke liye jaana-pehchana platforms — bas dropdown se chunne ke
+ * liye (label auto-bhar jaata hai). Email me KABHI icon-image ke roop me
+ * render nahi hote — sirf ek saaf, clickable TEXT link (jaise
+ * "Instagram" -> https://...) — image-only social icon email clients me
+ * bharose ke layak nahi (block ho sakte hain), isliye text hi asli/sirf
+ * tareeka hai.
  */
 export const SOCIAL_PLATFORMS = [
   { id: 'facebook', label: 'Facebook' },
@@ -39,6 +52,9 @@ export function findSocialPlatform(id) {
   return SOCIAL_PLATFORMS.find((p) => p.id === id) || SOCIAL_PLATFORMS[SOCIAL_PLATFORMS.length - 1];
 }
 
+/** Logo/Brand/Website hamesha maujood, single (list nahi) fields hain — inki key kabhi nahi badalti. */
+export const RESERVED_TEMPLATE_KEYS = ['logo_url', 'brand_name', 'website_url'];
+
 export const DEFAULT_SCHEMA = {
   accentColor: '#4f46e5',
   backgroundColor: '#f4f5fa',
@@ -46,8 +62,15 @@ export const DEFAULT_SCHEMA = {
   fontFamily: EMAIL_SAFE_FONT,
   logoUrl: '',
   brandName: '',
-  heading: '',
-  blocks: [{ type: 'paragraph', text: '' }],
+  websiteUrl: '',
+  // null = Code tab par haath se HTML likha gaya (structured fields ab bharose
+  // ke layak nahi) — TemplateEditorPage isi se "Design" tab ka haal decide
+  // karta hai. Ek nayi/khaali template hamesha ek shuruaati Heading + Text
+  // field ke saath khulti hai.
+  fields: [
+    { id: 'f_heading', label: 'Heading', key: 'heading', type: 'heading', value: '', keyLocked: true },
+    { id: 'f_body', label: 'Body text', key: 'body', type: 'richtext', value: '', keyLocked: true },
+  ],
   footerTexts: [],
   mobileNumbers: [],
   customLinks: [],
@@ -68,14 +91,62 @@ function telHref(value) {
   return String(value ?? '').replace(/(?!^\+)[^\d]/g, '');
 }
 
+const STANDARD_TEXT_STYLE = 'margin:0 0 16px;font-size:15px;line-height:1.7;color:#374151';
+
+/** Purane { type:'paragraph', text } block ko naye richtext field ki value (poora HTML fragment) me badalta hai. */
+function legacyParagraphToRichValue(text) {
+  const html = String(text ?? '').replace(/\n/g, '<br />');
+  return `<p style="${STANDARD_TEXT_STYLE}">${html}</p>`;
+}
+
+let legacyKeyCounter = 0;
+function legacyKey(prefix) {
+  legacyKeyCounter += 1;
+  return `${prefix}_${legacyKeyCounter}`;
+}
+
 /**
- * Purane (single-value) schema ko naye (multi-value) shape me badalta hai,
- * bina kisi stored row ko chhue — sirf render/edit karte waqt, in-memory.
- * Isliye purani templates (14 default samet) kabhi dobara save kiye bina bhi
- * sahi dikhti/render hoti rehti hain.
+ * Purane schema shapes ko naye (fields-list) shape me badalta hai, bina kisi
+ * stored row ko chhue — sirf render/edit karte waqt, in-memory. Isliye purani
+ * templates (14 default samet) kabhi dobara save kiye bina bhi sahi
+ * dikhti/render hoti rehti hain. Do purane shapes handle hote hain:
+ *   1. { heading, blocks: [...] }               (is feature se pehle)
+ *   2. { fields: [...] }                        (abhi ka, jaisa-ka-taisa)
  */
 export function normalizeSchema(schemaInput) {
+  // Legacy-check karne ke liye ASLI input dekhte hain, DEFAULT_SCHEMA se
+  // merge karne se PEHLE — warna DEFAULT_SCHEMA.fields (do khaali starter
+  // fields) hamesha jeet jaata, aur purani heading/blocks wali templates
+  // (14 default samet) khaali content ke saath render hotin.
+  const rawFields = schemaInput?.fields;
   const schema = { ...DEFAULT_SCHEMA, ...schemaInput };
+
+  // Purani save hui fields (jinme keyLocked property kabhi thi hi nahi) hamesha
+  // locked maani jaati hain — sirf ABHI-ABHI "+Add" se bani nayi field, jab tak
+  // pehli baar blur na ho, apni key label ke saath live badalti hai.
+  let fields = Array.isArray(rawFields) ? rawFields.map((f) => ({ ...f, keyLocked: f.keyLocked !== false })) : null;
+  if (!fields && (schema.heading || schema.blocks)) {
+    legacyKeyCounter = 0;
+    fields = [];
+    if (typeof schema.heading === 'string' && schema.heading.trim()) {
+      fields.push({ id: legacyKey('legacy_h'), label: 'Heading', key: 'heading', type: 'heading', value: schema.heading, keyLocked: true });
+    }
+    let pIndex = 0;
+    let iIndex = 0;
+    let bIndex = 0;
+    for (const block of schema.blocks || []) {
+      if (block.type === 'image') {
+        iIndex += 1;
+        fields.push({ id: legacyKey('legacy_i'), label: `Image ${iIndex}`, key: `image_${iIndex}`, type: 'image', url: block.url || '', alt: block.alt || '', keyLocked: true });
+      } else if (block.type === 'button') {
+        bIndex += 1;
+        fields.push({ id: legacyKey('legacy_b'), label: `Button ${bIndex}`, key: `button_${bIndex}`, type: 'button', buttonLabel: block.label || '', buttonUrl: block.url || '', keyLocked: true });
+      } else {
+        pIndex += 1;
+        fields.push({ id: legacyKey('legacy_p'), label: `Paragraph ${pIndex}`, key: `paragraph_${pIndex}`, type: 'richtext', value: legacyParagraphToRichValue(block.text), keyLocked: true });
+      }
+    }
+  }
 
   let footerTexts = Array.isArray(schema.footerTexts) ? schema.footerTexts : null;
   if (!footerTexts) {
@@ -95,6 +166,7 @@ export function normalizeSchema(schemaInput) {
   return {
     ...schema,
     fontFamily: EMAIL_SAFE_FONT, // ab kabhi kuch aur nahi hota, purani value ho to bhi yahi jeetta hai
+    fields, // null rehta hai agar sach me raw-HTML se detach ho chuki hai (koi heading/blocks/fields kabhi nahi thi)
     footerTexts,
     mobileNumbers,
     customLinks,
@@ -102,24 +174,50 @@ export function normalizeSchema(schemaInput) {
   };
 }
 
-function renderParagraph(text) {
-  // {{var}} tokens user ne khud likhe hain, jaan-boojh kar escape nahi karte —
-  // subject/body ki tarah hi seedhe render pipeline me jaate hain, jahan
-  // asli value se badal jaate hain.
-  const html = String(text ?? '').replace(/\n/g, '<br />');
-  return `            <p style="margin:0 0 16px;font-size:15px;line-height:1.7;color:#374151">${html}</p>`;
+/** Naya, khaali field Design tab me jodne ke liye — label existing keys se takrayegi to number apne aap lag jaata hai. */
+export function newTemplateField(type, label, existingKeys) {
+  const key = uniqueFieldKey(label, [...RESERVED_TEMPLATE_KEYS, ...existingKeys]);
+  const id = `f_${Date.now().toString(36)}_${Math.round(Math.random() * 1e4).toString(36)}`;
+  // `keyLocked:false` — TemplateDesignEditor abhi bhi label ke saath key ko
+  // live regenerate karta hai jab tak client pehli baar is field se bahar na
+  // click kare ("blur"); usके baad key hamesha ke liye lock ho jaati hai.
+  // Isse "+Add Heading" karke turant "Heading Two" type karne par key sahi
+  // ({{heading_two}}) bante hai, generic "{{heading_2}}" nahi.
+  const base = { id, label, key, keyLocked: false };
+  if (type === 'image') return { ...base, type: 'image', url: '', alt: '' };
+  if (type === 'button') return { ...base, type: 'button', buttonLabel: '', buttonUrl: '' };
+  if (type === 'heading') return { ...base, type: 'heading', value: '' };
+  return { ...base, type: 'richtext', value: '' };
 }
 
-function renderImage(url, alt) {
+function renderHeadingField(value) {
+  if (!value) return '';
+  return `            <h1 style="margin:0 0 14px;font-size:22px;color:#111827;font-family:${EMAIL_SAFE_FONT}">${esc(value)}</h1>`;
+}
+
+/** RichTextEditor.jsx ka sanitizer pehle se hi poora, email-safe HTML fragment deta hai — yahan seedha use karte hain. */
+function renderRichtextField(value) {
+  if (!value) return '';
+  return `            ${value}`;
+}
+
+function renderImageField(url, alt) {
   if (!url) return '';
   return `            <img src="${escAttr(url)}" alt="${escAttr(alt)}" width="536" style="display:block;max-width:100%;border-radius:8px;margin:0 0 16px" />`;
 }
 
-function renderButton(label, url, accent) {
+function renderButtonField(label, url, accent) {
   if (!url) return '';
   return `            <p style="margin:8px 0 20px">
               <a href="${escAttr(url)}" style="display:inline-block;background:${accent};color:#ffffff;text-decoration:none;padding:13px 26px;border-radius:8px;font-size:15px;font-weight:bold">${esc(label || 'Click here')}</a>
             </p>`;
+}
+
+function renderField(field, accent) {
+  if (field.type === 'heading') return renderHeadingField(field.value);
+  if (field.type === 'image') return renderImageField(field.url, field.alt);
+  if (field.type === 'button') return renderButtonField(field.buttonLabel, field.buttonUrl, accent);
+  return renderRichtextField(field.value);
 }
 
 function renderFooterTexts(lines) {
@@ -147,55 +245,51 @@ function renderCustomLinks(links) {
   return `<p style="margin:0 0 4px">${rendered}</p>`;
 }
 
-/** `assetBase` diya ho to social icons ki absolute URL bana deta hai (email me relative URL kaam nahi karta). */
-function renderSocialLinks(links, assetBase) {
+/**
+ * Social links — sirf saaf, clickable TEXT (jaise "Instagram"), kabhi
+ * image-only icon nahi. Email clients aksar image block kar dete hain; text
+ * link hamesha kaam karta hai.
+ */
+function renderSocialLinks(links) {
   const items = links.filter((l) => l?.url);
   if (!items.length) return '';
-  const icons = items
+  const rendered = items
     .map((l) => {
       const platform = findSocialPlatform(l.platform);
-      const iconSrc = `${assetBase || ''}/social-icons/${platform.id}.png`;
-      return `<a href="${escAttr(l.url)}" style="display:inline-block;margin:0 6px;text-decoration:none"><img src="${escAttr(iconSrc)}" width="28" height="28" alt="${escAttr(platform.label)}" style="display:block;border:0;border-radius:6px" /></a>`;
+      return `<a href="${escAttr(l.url)}" style="color:#4f46e5;text-decoration:underline;margin:0 8px">${esc(platform.label)}</a>`;
     })
     .join('');
-  return `<div style="margin-top:10px">${icons}</div>`;
+  return `<p style="margin:0 0 4px">${rendered}</p>`;
 }
 
 /**
  * Schema se poora, Outlook-safe 600px table-layout HTML banata hai.
- * {{var}} tokens jaise-ke-taise pass through hote hain — substitution send
- * time par (mergeVariables) hoti hai, yahan nahi.
- *
- * `assetBase` (jaise apiBase, `src/api/client.js` se) social icons ki
- * absolute URL banane ke liye — kabhi stored schema me nahi baithta,
- * har baar render karte waqt di jaati hai, taaki app ka domain badalne par
- * bhi purani templates dobara sahi resolve ho jayein.
+ * {{var}} tokens jaise-ke-taise pass through hote hain — recipient/global
+ * tokens send time par (mergeVariables) resolve hote hain; is TEMPLATE ke
+ * apne fields (heading_two, logo_url, ...) resolveTemplateFieldTokens() se,
+ * save hone se pehle hi.
  */
-export function renderTemplateHtml(schemaInput, { assetBase = '' } = {}) {
+export function renderTemplateHtml(schemaInput) {
   const schema = normalizeSchema(schemaInput);
   const accent = schema.accentColor || DEFAULT_SCHEMA.accentColor;
 
-  const blocksHtml = (schema.blocks?.length ? schema.blocks : DEFAULT_SCHEMA.blocks)
-    .map((block) => {
-      if (block.type === 'image') return renderImage(block.url, block.alt);
-      if (block.type === 'button') return renderButton(block.label, block.url, accent);
-      return renderParagraph(block.text);
-    })
+  const fieldsHtml = (schema.fields?.length ? schema.fields : DEFAULT_SCHEMA.fields)
+    .map((field) => renderField(field, accent))
     .filter(Boolean)
     .join('\n');
 
-  const headerHtml = schema.logoUrl
+  const brandBlock = schema.logoUrl
     ? `<img src="${escAttr(schema.logoUrl)}" alt="${escAttr(schema.brandName)}" height="36" style="display:block;border:0" />`
     : `<span style="color:#ffffff;font-size:18px;font-weight:bold">${esc(schema.brandName)}</span>`;
-
-  const headingHtml = schema.heading
-    ? `            <h1 style="margin:0 0 14px;font-size:22px;color:#111827;font-family:${EMAIL_SAFE_FONT}">${esc(schema.heading)}</h1>\n`
-    : '';
+  const headerHtml = schema.websiteUrl
+    ? `<a href="${escAttr(schema.websiteUrl)}" style="text-decoration:none">${brandBlock}</a>`
+    : brandBlock;
 
   const footerBits = [
     renderFooterTexts(schema.footerTexts),
     renderMobileNumbers(schema.mobileNumbers),
     renderCustomLinks(schema.customLinks),
+    renderSocialLinks(schema.socialLinks),
   ]
     .filter(Boolean)
     .join('\n            ');
@@ -211,13 +305,12 @@ export function renderTemplateHtml(schemaInput, { assetBase = '' } = {}) {
         </tr>
         <tr>
           <td style="padding:32px;font-family:${EMAIL_SAFE_FONT}">
-${headingHtml}${blocksHtml}
+${fieldsHtml}
           </td>
         </tr>
         <tr>
           <td align="center" style="background:#f9fafb;padding:18px;font-size:12px;color:#6b7280">
             ${footerBits}
-            ${renderSocialLinks(schema.socialLinks, assetBase)}
             <div style="margin-top:10px">
               <a href="{{unsubscribe_url}}" style="color:#6b7280">${esc(schema.unsubscribeText || DEFAULT_SCHEMA.unsubscribeText)}</a>
             </div>
@@ -229,9 +322,32 @@ ${headingHtml}${blocksHtml}
 </table>`;
 }
 
-/** Naya, khaali block editor me jodne ke liye. */
-export function newBlock(type) {
-  if (type === 'image') return { type: 'image', url: '', alt: '' };
-  if (type === 'button') return { type: 'button', label: '', url: '' };
-  return { type: 'paragraph', text: '' };
+function fieldPlainValue(field) {
+  if (field.type === 'image') return field.url || '';
+  if (field.type === 'button') return field.buttonUrl || '';
+  return field.value || '';
+}
+
+/**
+ * Is TEMPLATE ke apne fields (Heading, Heading Two, Logo, Website URL, ...)
+ * ke {{key}} tokens ko unki ASLI value se badalta hai — Design tab se ho ya
+ * Code tab me haath se likhe gaye ho, dono jagah. Save hone se THEEK PEHLE
+ * chalta hai, taaki final saved html me kabhi koi "apna" token unresolved na
+ * bache. Recipient/global tokens ({{name}}, {{company}}, {{unsubscribe_url}},
+ * ...) jaise-ke-taise chhod deta hai — unki jagah send time par bharti hai
+ * (server/src/services/render.js).
+ */
+export function resolveTemplateFieldTokens(html, schemaInput) {
+  if (!html) return '';
+  const schema = normalizeSchema(schemaInput);
+
+  const map = new Map();
+  map.set('logo_url', schema.logoUrl || '');
+  map.set('brand_name', schema.brandName || '');
+  map.set('website_url', schema.websiteUrl || '');
+  for (const field of schema.fields || []) {
+    map.set(field.key, fieldPlainValue(field));
+  }
+
+  return html.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (match, key) => (map.has(key) ? map.get(key) : match));
 }

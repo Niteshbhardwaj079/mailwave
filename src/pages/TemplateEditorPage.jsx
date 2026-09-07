@@ -14,14 +14,26 @@ import { useT } from '../i18n/I18nProvider';
 import { useWorkspace } from '../store/WorkspaceProvider';
 import { useToast } from '../components/ui/ToastProvider';
 import { BLANK_HTML, starterTemplates } from '../data/starterHtml';
-import { DEFAULT_SCHEMA, renderTemplateHtml } from '../data/templateBuilder';
+import { DEFAULT_SCHEMA, normalizeSchema, renderTemplateHtml, resolveTemplateFieldTokens } from '../data/templateBuilder';
 import { combineDynamicFields, fillDynamicPreview } from '../data/dynamicFields';
 import { LANGUAGES } from '../i18n/languages';
-import { api, apiBase, ApiError } from '../api/client';
+import { api, ApiError } from '../api/client';
 import { appConfig } from '../config/appConfig';
 
 function cloneSchema(schema) {
   return JSON.parse(JSON.stringify(schema));
+}
+
+/**
+ * `schema` ab kabhi poori tarah `null` nahi hoti — sirf `schema.fields`
+ * null ho sakti hai (jab Code tab me haath se raw HTML likha gaya ho).
+ * Logo/brand/website/footer/social hamesha zinda rehte hain, chahe content
+ * "detached" ho — isse Design -> Code -> Design switch karne par kabhi kuch
+ * kho nahi jaata.
+ */
+function schemaFromExisting(existingTemplate) {
+  if (!existingTemplate?.contentSchema) return { ...cloneSchema(DEFAULT_SCHEMA), fields: null };
+  return normalizeSchema(existingTemplate.contentSchema);
 }
 
 function newSchemaForBlankTemplate() {
@@ -40,12 +52,10 @@ export default function TemplateEditorPage() {
   const [category, setCategory] = useState(existing?.category || 'Custom');
   const [categories, setCategories] = useState([]);
   const [subject, setSubject] = useState(existing?.subject || '');
-  const [schema, setSchema] = useState(
-    existing ? (existing.contentSchema ? cloneSchema(existing.contentSchema) : null) : newSchemaForBlankTemplate()
-  );
+  const [schema, setSchema] = useState(() => (existing ? schemaFromExisting(existing) : newSchemaForBlankTemplate()));
   const [html, setHtml] = useState(() => {
     if (existing) return existing.html || BLANK_HTML;
-    return renderTemplateHtml(newSchemaForBlankTemplate(), { assetBase: apiBase });
+    return renderTemplateHtml(newSchemaForBlankTemplate());
   });
   const [language, setLanguage] = useState(existing?.language || 'en');
   const [isDefault, setIsDefault] = useState(Boolean(existing?.isDefault));
@@ -115,7 +125,7 @@ export default function TemplateEditorPage() {
     setCategory(existing.category || 'Custom');
     setSubject(existing.subject || '');
     setHtml(existing.html || BLANK_HTML);
-    setSchema(existing.contentSchema ? cloneSchema(existing.contentSchema) : null);
+    setSchema(schemaFromExisting(existing));
     setLanguage(existing.language || 'en');
     setIsDefault(Boolean(existing.isDefault));
     setTab(existing.contentSchema ? 'design' : 'code');
@@ -144,9 +154,33 @@ export default function TemplateEditorPage() {
 
   const defaultStarters = useMemo(() => templates.filter((item) => item.isDefault), [templates]);
 
-  // Preview-only substitution — raw {{tokens}} kabhi screen par nahi dikhte,
-  // asli saved html/subject bilkul waisa hi rehta hai jaisa neeche save hota hai.
-  const previewHtml = useMemo(() => fillDynamicPreview(html, dynamicFields), [html, dynamicFields]);
+  // Is template ke apne fields (Logo/Website/Brand Name hamesha, Heading/Text/
+  // Image/Button jo bhi client ne banaye) — Code tab ke dropdown aur Design
+  // tab ke har text field ke apne picker, dono isi list se bharte hain.
+  const templateOwnFields = useMemo(() => {
+    const base = [
+      { key: 'logo_url', label: t('tpl.design.logo') },
+      { key: 'website_url', label: t('tpl.design.websiteUrl') },
+      { key: 'brand_name', label: t('tpl.design.brandName') },
+    ];
+    const own = (schema.fields || []).map((f) => ({ key: f.key, label: f.label }));
+    return [...base, ...own];
+  }, [schema.fields, t]);
+
+  const allInsertableFields = useMemo(
+    () => [...templateOwnFields, ...dynamicFields],
+    [templateOwnFields, dynamicFields]
+  );
+
+  // Preview-only substitution — raw {{tokens}} kabhi screen par nahi dikhte.
+  // Pehle is template ke apne fields (logo/heading_two/website_url/...) ki
+  // ASLI value bharti hai, phir bachi hui recipient/global fields (Customer
+  // Name, Company Name, ...) ki SAMPLE value — asli saved html/subject
+  // bilkul waisa hi rehta hai jaisa neeche save hota hai.
+  const previewHtml = useMemo(
+    () => fillDynamicPreview(resolveTemplateFieldTokens(html, schema), dynamicFields),
+    [html, schema, dynamicFields]
+  );
 
   function handleName(event) {
     setName(event.target.value);
@@ -166,13 +200,19 @@ export default function TemplateEditorPage() {
 
   function handleSchemaChange(nextSchema) {
     setSchema(nextSchema);
-    setHtml(renderTemplateHtml(nextSchema, { assetBase: apiBase }));
+    setHtml(renderTemplateHtml(nextSchema));
+  }
+
+  /** Content (fields) ko "detached" karta hai — logo/brand/website/footer/social kabhi nahi kho te. */
+  function detachContent() {
+    if (schema.fields) setSchema({ ...schema, fields: null });
   }
 
   function handleHtml(event) {
-    // Raw HTML ko haath se edit karna structured fields ka bharosa tod deta
-    // hai — Design tab tabhi tak sahi rehta hai jab tak sab kuch usi se bane.
-    if (schema) setSchema(null);
+    // Raw HTML ko haath se edit karna structured CONTENT fields ka bharosa
+    // tod deta hai — header/footer/social abhi bhi Design tab me editable
+    // rehte hain, sirf content-fields list "detached" hoti hai.
+    detachContent();
     setHtml(event.target.value);
   }
 
@@ -185,7 +225,7 @@ export default function TemplateEditorPage() {
     const start = field.selectionStart ?? html.length;
     const end = field.selectionEnd ?? html.length;
     const next = `${html.slice(0, start)}${snippet}${html.slice(end)}`;
-    if (schema) setSchema(null);
+    detachContent();
     setHtml(next);
     window.requestAnimationFrame(() => {
       field.focus();
@@ -197,7 +237,7 @@ export default function TemplateEditorPage() {
   function loadStarter(event) {
     const starter = starterTemplates.find((item) => item.key === event.currentTarget.dataset.key);
     if (!starter) return;
-    setSchema(null);
+    setSchema({ ...schema, fields: null });
     setHtml(starter.html);
     if (!name) setName(starter.name);
     setTab('code');
@@ -210,17 +250,27 @@ export default function TemplateEditorPage() {
     setCategory(source.category);
     setSubject(source.subject);
     if (source.contentSchema) {
-      setSchema(cloneSchema(source.contentSchema));
-      setHtml(renderTemplateHtml(source.contentSchema, { assetBase: apiBase }));
+      const normalized = normalizeSchema(source.contentSchema);
+      setSchema(normalized);
+      setHtml(renderTemplateHtml(normalized));
       setTab('design');
     } else {
-      setSchema(null);
+      setSchema({ ...schema, fields: null });
       setHtml(source.html);
       setTab('code');
     }
   }
 
   async function handleSave() {
+    // {{heading_two}}/{{logo_url}}/{{website_url}}-jaise apne-hi-template
+    // tokens ko YAHAN resolve NAHI karte — save/reload ke baad bhi Code tab
+    // me wahi token dikhna chahiye jo type kiya tha ("Code variables remain
+    // valid after save/reload"). Yeh {{unsubscribe_url}} jaise recipient/
+    // global tokens jaisa hi tareeka hai: template me hamesha token hi rehta
+    // hai, asli value SIRF campaign me use hote waqt bharti hai (dekho
+    // StepTemplate.jsx ka resolveTemplateFieldTokens() call) — waisa hi jaisa
+    // asli send par server/src/services/render.js karta hai.
+
     // Default templates save in place too now — the master row itself is
     // updated, permanently. Only DELETE stays blocked for them (server-side).
     const record = await saveTemplate({
@@ -375,27 +425,17 @@ export default function TemplateEditorPage() {
             </div>
 
             {tab === 'design' ? (
-              schema ? (
-                <TemplateDesignEditor schema={schema} onChange={handleSchemaChange} dynamicFields={dynamicFields} />
-              ) : (
-                <div className="mw-stack--sm d-flex flex-column">
-                  <Note tone="warning" icon="bi-exclamation-triangle">
-                    {t('tpl.design.detached')}
-                  </Note>
-                  <button
-                    type="button"
-                    className="btn btn-outline-primary align-self-start"
-                    onClick={() => handleSchemaChange(cloneSchema(DEFAULT_SCHEMA))}
-                  >
-                    {t('tpl.design.startFresh')}
-                  </button>
-                </div>
-              )
+              <TemplateDesignEditor
+                schema={schema}
+                onChange={handleSchemaChange}
+                dynamicFields={allInsertableFields}
+                ownFieldKeys={dynamicFields.map((f) => f.key)}
+              />
             ) : null}
 
             {tab === 'code' ? (
               <>
-                {schema === null && existing?.contentSchema ? (
+                {!schema.fields ? (
                   <Note tone="info" icon="bi-info-circle">
                     {t('tpl.design.detached')}
                   </Note>
@@ -403,11 +443,11 @@ export default function TemplateEditorPage() {
                 <div className="mb-3">
                   <span className="form-label d-block">{t('tpl.variables')}</span>
                   <DynamicFieldPicker
-                    fields={dynamicFields}
+                    fields={allInsertableFields}
                     getField={() => codeRef.current}
                     value={html}
                     onChange={(next) => {
-                      if (schema) setSchema(null);
+                      detachContent();
                       setHtml(next);
                     }}
                     className="form-select"

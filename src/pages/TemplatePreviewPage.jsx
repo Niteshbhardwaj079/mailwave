@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
 import HtmlPreview from '../components/templates/HtmlPreview';
@@ -7,6 +7,9 @@ import EmptyState from '../components/ui/EmptyState';
 import { useT } from '../i18n/I18nProvider';
 import { useWorkspace } from '../store/WorkspaceProvider';
 import { formatDate } from '../utils/format';
+import { resolveTemplateFieldTokens } from '../data/templateBuilder';
+import { combineDynamicFields, fillDynamicPreview } from '../data/dynamicFields';
+import { api } from '../api/client';
 
 /**
  * A standalone page, on purpose. The link can be shared with a colleague to
@@ -17,7 +20,24 @@ export default function TemplatePreviewPage() {
   const { templateId } = useParams();
   const { getTemplate } = useWorkspace();
   const [device, setDevice] = useState('desktop');
+  const [customFields, setCustomFields] = useState([]);
   const template = getTemplate(templateId);
+
+  useEffect(() => {
+    api
+      .get('/api/settings')
+      .then((data) => setCustomFields(data.settings?.dynamicFields ?? []))
+      .catch(() => setCustomFields([]));
+  }, []);
+
+  const dynamicFields = useMemo(() => combineDynamicFields(customFields), [customFields]);
+  // Raw {{tokens}} kabhi yahan nahi dikhte — is template ke apne fields
+  // (logo_url, heading_two, ...) ki asli value, baaki (Customer Name, ...)
+  // ki sample value, TemplateEditorPage ke live preview jaisa hi.
+  const previewHtml = useMemo(
+    () => (template ? fillDynamicPreview(resolveTemplateFieldTokens(template.html, template.contentSchema || {}), dynamicFields) : ''),
+    [template, dynamicFields]
+  );
 
   const DEVICES = [
     { value: 'desktop', label: t('common.desktop') },
@@ -66,7 +86,7 @@ export default function TemplatePreviewPage() {
           <p className="mw-fs-12 mw-text-muted text-center mb-3">
             {template.category} · {t('common.updated')} {formatDate(template.updated)} · {t('tpl.previewOnly')}
           </p>
-          <HtmlPreview html={template.html} device={device} title={template.name} />
+          <HtmlPreview html={previewHtml} device={device} title={template.name} />
         </div>
       </main>
     </div>

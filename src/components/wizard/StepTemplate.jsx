@@ -8,6 +8,7 @@ import { useWorkspace } from '../../store/WorkspaceProvider';
 import { api } from '../../api/client';
 import { formatDate } from '../../utils/format';
 import { findLanguage } from '../../i18n/languages';
+import { resolveTemplateFieldTokens } from '../../data/templateBuilder';
 
 export default function StepTemplate({ draft, onChange, category, onCategoryChange }) {
   const t = useT();
@@ -27,7 +28,13 @@ export default function StepTemplate({ draft, onChange, category, onCategoryChan
     onChange({
       templateId: chosen.id,
       templateName: chosen.name,
-      templateHtml: chosen.html,
+      // Is template ke apne {{heading_two}}/{{logo_url}}/{{website_url}}-jaise
+      // tokens (agar Code tab me kabhi hand-typed hue the) yahin, campaign me
+      // freeze hone ke ek pal pehle, asli value se bhar dete hain — bilkul
+      // waisa hi jaisa yeh template khud Design tab me render karti hai.
+      // Recipient/global tokens ({{name}}, {{unsubscribe_url}}, ...) chhoote
+      // nahi — unki jagah asli send time par bharti hai.
+      templateHtml: resolveTemplateFieldTokens(chosen.html, chosen.contentSchema || {}),
       subject: draft.subject || chosen.subject || '',
       language: chosen.language || 'en',
     });
