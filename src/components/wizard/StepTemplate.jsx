@@ -1,16 +1,25 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import FilterSelect from '../ui/FilterSelect';
 import EmptyState from '../ui/EmptyState';
 import { useT } from '../../i18n/I18nProvider';
 import { useWorkspace } from '../../store/WorkspaceProvider';
-import { templateCategories } from '../../data/constants';
+import { api } from '../../api/client';
 import { formatDate } from '../../utils/format';
 import { findLanguage } from '../../i18n/languages';
 
 export default function StepTemplate({ draft, onChange, category, onCategoryChange }) {
   const t = useT();
   const { templates } = useWorkspace();
+  const [categories, setCategories] = useState([]);
+
+  useEffect(() => {
+    api
+      .get('/api/templates/categories')
+      .then((data) => setCategories(data.categories ?? []))
+      .catch(() => setCategories([]));
+  }, []);
 
   function handleSelect(event) {
     const chosen = templates.find((item) => item.id === event.currentTarget.dataset.id);
@@ -40,10 +49,7 @@ export default function StepTemplate({ draft, onChange, category, onCategoryChan
           icon="bi-collection"
           value={category}
           onChange={onCategoryChange}
-          options={templateCategories.map((name) => ({
-            value: name,
-            label: name === 'All' ? t('filter.allCategories') : name,
-          }))}
+          options={[{ value: 'All', label: t('filter.allCategories') }, ...categories.map((name) => ({ value: name, label: name }))]}
         />
         <Link to="/templates/new" className="btn btn-outline-primary">
           <i className="bi bi-plus-lg me-2" />

@@ -1,10 +1,12 @@
+import { resolve } from 'node:path';
+
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import express from 'express';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 
-import { env } from './env.js';
+import { env, serverRoot } from './env.js';
 import { errorHandler, notFoundHandler } from './middleware/errors.js';
 import { requireAuth } from './middleware/auth.js';
 import authRoutes from './routes/auth.js';
@@ -26,6 +28,7 @@ import backupRoutes from './routes/backup.js';
 import settingsRoutes from './routes/settings.js';
 import apiKeyRoutes from './routes/apiKeys.js';
 import webhookRoutes from './routes/webhooks.js';
+import storageSettingsRoutes from './routes/storageSettings.js';
 
 export function createApp() {
   const app = express();
@@ -93,6 +96,7 @@ export function createApp() {
   app.use('/api/settings', requireAuth, settingsRoutes);
   app.use('/api/api-keys', requireAuth, apiKeyRoutes);
   app.use('/api/webhooks', requireAuth, webhookRoutes);
+  app.use('/api/storage-settings', requireAuth, storageSettingsRoutes);
 
   // Backup upload me poori file body me aati hai, JSON nahi — isliye express
   // ke JSON parser se pehle raw stream chahiye. Route khud stream padhta hai.
@@ -106,6 +110,12 @@ export function createApp() {
   // kholta hai aur wo kabhi login nahi kar sakta. Yahan se sirf image jati
   // hai, aur kuch nahi.
   app.use('/files', fileRoutes);
+
+  // 14 default templates ke placeholder images — app ke saath hi committed
+  // asli .png files (koi external service nahi, isliye kabhi "broken image"
+  // nahi ho sakti). Public hona hi chahiye: yeh bhi Gmail/Outlook seedha khete
+  // hain.
+  app.use('/template-placeholders', express.static(resolve(serverRoot, 'public/template-placeholders')));
 
   app.use(notFoundHandler);
   app.use(errorHandler);

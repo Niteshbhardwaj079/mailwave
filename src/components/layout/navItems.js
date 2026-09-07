@@ -9,6 +9,7 @@ export const navSections = [
       { to: '/contacts', labelKey: 'nav.contacts', icon: 'bi-people', countKey: 'contacts', module: 'contacts' },
       { to: '/subscribers', labelKey: 'nav.subscribers', icon: 'bi-hand-thumbs-up', countKey: 'subscribers', module: 'contacts' },
       { to: '/templates', labelKey: 'nav.templates', icon: 'bi-layout-wtf', countKey: 'templates', module: 'templates' },
+      { to: '/media', labelKey: 'nav.media', icon: 'bi-images', module: 'templates' },
     ],
   },
   {
@@ -54,6 +55,7 @@ export const pageTitleKeys = {
   '/contacts/import': 'con.importExcel',
   '/templates': 'nav.templates',
   '/templates/new': 'tpl.newTemplate',
+  '/media': 'nav.media',
   '/reports': 'nav.reports',
   '/segments': 'nav.segments',
   '/subscribers': 'nav.subscribers',

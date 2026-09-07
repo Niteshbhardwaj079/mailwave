@@ -15,6 +15,12 @@ import {
 import { starterTemplates } from '../../../src/data/starterHtml.js';
 import { systemEmailTemplates } from '../../../src/data/systemEmails.js';
 import { allSeedTranslations } from '../../../src/data/systemEmailTranslations.js';
+import {
+  DEFAULT_TEMPLATES,
+  DEFAULT_TEMPLATE_CATEGORIES,
+  renderDefaultTemplateHtml,
+  resolveDefaultTemplateSchema,
+} from '../../../src/data/defaultTemplates.js';
 
 import { closeDb, many, one, query, transaction } from './client.js';
 import { env } from '../env.js';
@@ -195,6 +201,35 @@ async function seedTemplates() {
         starter.html,
         author,
       ]
+    );
+  }
+}
+
+/**
+ * 14 ready-made master templates + unke categories. `ON CONFLICT (id) DO
+ * NOTHING` — dobara seed chalne se na inka content overwrite hota hai, na
+ * (is_default rows hain hi immutable) kisi ka kiya hua kaam.
+ */
+async function seedDefaultTemplates() {
+  for (const [index, name] of DEFAULT_TEMPLATE_CATEGORIES.entries()) {
+    await query(
+      `INSERT INTO template_categories (id, name, sort_order) VALUES ($1,$2,$3)
+       ON CONFLICT (name) DO NOTHING`,
+      [`cat_${index + 1}`, name, index]
+    );
+  }
+
+  const placeholderBase = `${env.publicUrl}/template-placeholders`;
+
+  for (const entry of DEFAULT_TEMPLATES) {
+    const schema = resolveDefaultTemplateSchema(entry, placeholderBase);
+    const html = renderDefaultTemplateHtml(entry, placeholderBase);
+
+    await query(
+      `INSERT INTO templates (id, name, category, subject, html, language, is_default, content_schema, created_by)
+       VALUES ($1,$2,$3,$4,$5,'en',true,$6,null)
+       ON CONFLICT (id) DO NOTHING`,
+      [entry.id, entry.name, entry.category, entry.subject, html, JSON.stringify(schema)]
     );
   }
 }
@@ -393,6 +428,7 @@ export async function seed({ clean = false } = {}) {
     }
 
     await seedTemplates();
+    await seedDefaultTemplates();
     await seedSystemEmails();
     await seedSettings();
   });

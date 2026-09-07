@@ -1,9 +1,12 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
+import ReactCrop, { centerCrop, makeAspectCrop } from 'react-image-crop';
+import 'react-image-crop/dist/ReactCrop.css';
 
 import { useT } from '../../i18n/I18nProvider';
 import { escapeAttr } from '../../utils/html';
 import { useWorkspace } from '../../store/WorkspaceProvider';
-import { Note } from '../ui/Controls';
+import { Note, SearchInput } from '../ui/Controls';
+import FilterSelect from '../ui/FilterSelect';
 import EmptyState from '../ui/EmptyState';
 import Sheet from '../ui/Sheet';
 import { api } from '../../api/client';
@@ -17,19 +20,82 @@ function readableSize(bytes) {
   return `${Math.round(bytes / 1024)} KB`;
 }
 
-export default function ImageLibrary({ onInsert }) {
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+/** Crop area (natural-pixel %) ko ek nayi, chhoti PNG data: URL me badalta hai. */
+function cropToDataUrl(image, crop) {
+  const canvas = document.createElement('canvas');
+  const scaleX = image.naturalWidth / image.width;
+  const scaleY = image.naturalHeight / image.height;
+  canvas.width = Math.round(crop.width * scaleX);
+  canvas.height = Math.round(crop.height * scaleY);
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(
+    image,
+    crop.x * scaleX,
+    crop.y * scaleY,
+    crop.width * scaleX,
+    crop.height * scaleY,
+    0,
+    0,
+    canvas.width,
+    canvas.height
+  );
+  return canvas.toDataURL('image/png');
+}
+
+/**
+ * `onInsert(html)`  — editor ke raw HTML textarea me ek `<img>` tag daalta hai (Code tab).
+ * `onPick(url,name)` — sirf URL wapas deta hai, ek field bharne ke liye (Design tab: logo/image block).
+ * Dono me se koi bhi na ho to yeh sirf ek management library ki tarah kaam karta hai (Media Library page).
+ */
+export default function ImageLibrary({ onInsert, onPick }) {
   const t = useT();
-  const { images, addImage, removeImage, storageWarning } = useWorkspace();
+  const { images, addImage, removeImage, updateImage, touchImage, storageWarning } = useWorkspace();
   const fileRef = useRef(null);
+  const cropImgRef = useRef(null);
   const [urlValue, setUrlValue] = useState('');
   const [error, setError] = useState('');
   const [copiedId, setCopiedId] = useState(null);
+  const [search, setSearch] = useState('');
+  const [sort, setSort] = useState('recent');
 
-  // Delete se pehle poochte hain. Image mit jane ke baad wapas nahi aati, aur
-  // agar wo kisi ja chuki campaign me lagi thi to logon ke inbox me padi us
-  // email me bhi tooti hui dikhne lagegi.
   const [deleteFor, setDeleteFor] = useState(null);
   const [usage, setUsage] = useState(null);
+
+  const [cropFor, setCropFor] = useState(null);
+  const [crop, setCrop] = useState();
+  const [completedCrop, setCompletedCrop] = useState(null);
+
+  const visible = useMemo(() => {
+    const text = search.trim().toLowerCase();
+    const list = images.filter((image) => !text || image.name.toLowerCase().includes(text));
+    return [...list].sort((a, b) => {
+      if (sort === 'name') return a.name.localeCompare(b.name);
+      if (sort === 'size') return (b.size ?? 0) - (a.size ?? 0);
+      if (sort === 'used') {
+        if (!a.lastUsedAt && !b.lastUsedAt) return 0;
+        if (!a.lastUsedAt) return 1;
+        if (!b.lastUsedAt) return -1;
+        return String(b.lastUsedAt).localeCompare(String(a.lastUsedAt));
+      }
+      return String(b.addedAt).localeCompare(String(a.addedAt));
+    });
+  }, [images, search, sort]);
+
+  const sortOptions = [
+    { value: 'recent', label: t('img.sortRecent') },
+    { value: 'used', label: t('img.sortUsed') },
+    { value: 'name', label: t('img.sortName') },
+    { value: 'size', label: t('img.sortSize') },
+  ];
 
   function openPicker() {
     fileRef.current?.click();
@@ -39,17 +105,13 @@ export default function ImageLibrary({ onInsert }) {
     const files = Array.from(event.target.files || []);
     setError('');
 
-    files.forEach((file) => {
+    files.forEach(async (file) => {
       if (file.size > MAX_BYTES) {
         setError(t('img.tooBig'));
         return;
       }
-
-      const reader = new FileReader();
-      reader.onload = () => {
-        addImage({ name: file.name, url: String(reader.result), size: file.size, source: 'upload' });
-      };
-      reader.readAsDataURL(file);
+      const dataUrl = await readFileAsDataUrl(file);
+      addImage({ name: file.name, url: dataUrl, size: file.size, source: 'upload' });
     });
 
     event.target.value = '';
@@ -63,8 +125,6 @@ export default function ImageLibrary({ onInsert }) {
     const url = urlValue.trim();
     if (!url) return;
 
-    // Only real image locations. Anything else (javascript:, file:, a typo)
-    // would silently produce a broken image inside every email that uses it.
     if (!/^(https?:\/\/|data:image\/)/i.test(url)) {
       setError(t('img.badUrl'));
       return;
@@ -84,14 +144,19 @@ export default function ImageLibrary({ onInsert }) {
   }
 
   function insert(event) {
-    const { url, name } = event.currentTarget.dataset;
-    // A file name can contain quotes and angle brackets; without escaping it
-    // would break out of the alt="" attribute and corrupt the tag.
-    onInsert?.(
-      `\n<img src="${escapeAttr(url)}" alt="${escapeAttr(
-        name
-      )}" width="560" style="display:block;max-width:100%;border-radius:8px" />\n`
-    );
+    const { url, name, id } = event.currentTarget.dataset;
+    if (onPick) {
+      onPick(url, name);
+    } else {
+      // A file name can contain quotes and angle brackets; without escaping it
+      // would break out of the alt="" attribute and corrupt the tag.
+      onInsert?.(
+        `\n<img src="${escapeAttr(url)}" alt="${escapeAttr(
+          name
+        )}" width="560" style="display:block;max-width:100%;border-radius:8px" />\n`
+      );
+    }
+    if (id) touchImage(id);
   }
 
   async function askRemove(event) {
@@ -102,13 +167,9 @@ export default function ImageLibrary({ onInsert }) {
     setUsage(null);
     if (!image) return;
 
-    // Kahan-kahan lagi hai — server se poochte hain, taki user ko andaza na
-    // lagana pade.
     try {
       setUsage(await api.get(`/api/images/${id}/usage`));
     } catch (err) {
-      // Pata na chal paya to bhi delete rok nahi dete — bas warning nahi
-      // dikha payenge.
       setUsage(null);
     }
   }
@@ -125,8 +186,30 @@ export default function ImageLibrary({ onInsert }) {
     if (image) removeImage(image.id);
   }
 
-  function unusedRemove(event) {
-    removeImage(event.currentTarget.dataset.id);
+  function openCrop(event) {
+    const id = event.currentTarget.dataset.id;
+    const image = images.find((item) => item.id === id) ?? null;
+    setCropFor(image);
+    setCrop(undefined);
+    setCompletedCrop(null);
+  }
+
+  function closeCrop() {
+    setCropFor(null);
+    setCrop(undefined);
+    setCompletedCrop(null);
+  }
+
+  function onCropImageLoad(event) {
+    const { width, height } = event.currentTarget;
+    setCrop(centerCrop(makeAspectCrop({ unit: '%', width: 90 }, width / height, width, height), width, height));
+  }
+
+  async function saveCrop() {
+    if (!cropImgRef.current || !completedCrop?.width || !completedCrop?.height) return;
+    const dataUrl = cropToDataUrl(cropImgRef.current, completedCrop);
+    await updateImage(cropFor.id, { url: dataUrl });
+    closeCrop();
   }
 
   return (
@@ -191,11 +274,27 @@ export default function ImageLibrary({ onInsert }) {
         </div>
       </div>
 
+      <div className="mw-row mw-row--wrap align-items-end">
+        <div className="mw-filterbar__search" style={{ minWidth: 220 }}>
+          <SearchInput value={search} onChange={setSearch} placeholder={t('img.searchPlaceholder')} />
+        </div>
+        <FilterSelect
+          id="img-sort"
+          label={t('common.filter')}
+          icon="bi-sort-down"
+          value={sort}
+          onChange={setSort}
+          options={sortOptions}
+        />
+      </div>
+
       {images.length === 0 ? (
         <EmptyState icon="bi-images" title={t('img.empty')} text={t('img.emptyText')} />
+      ) : visible.length === 0 ? (
+        <EmptyState icon="bi-search" title={t('img.noResults')} text={t('img.noResultsText')} />
       ) : (
         <div className="mw-imggrid">
-          {images.map((image) => (
+          {visible.map((image) => (
             <figure key={image.id} className="mw-imgcard m-0">
               <div className="mw-imgcard__thumb">
                 <img className="mw-imgcard__img" src={image.url} alt={image.name} loading="lazy" />
@@ -206,6 +305,7 @@ export default function ImageLibrary({ onInsert }) {
                 <div className="mw-imgcard__meta">
                   {image.size ? `${t('img.size')}: ${readableSize(image.size)} · ` : ''}
                   {t('img.added')}: {formatDateTime(image.addedAt)}
+                  {image.lastUsedAt ? ` · ${t('img.lastUsed')}: ${formatDateTime(image.lastUsedAt)}` : ''}
                 </div>
 
                 <div className="mw-urlbox">
@@ -223,18 +323,28 @@ export default function ImageLibrary({ onInsert }) {
               </figcaption>
 
               <div className="mw-imgcard__actions">
-                {onInsert ? (
+                {onInsert || onPick ? (
                   <button
                     type="button"
                     className="btn btn-sm btn-outline-primary flex-fill"
                     data-url={image.url}
                     data-name={image.name}
+                    data-id={image.id}
                     onClick={insert}
                   >
                     <i className="bi bi-box-arrow-in-down me-1" />
-                    {t('img.insert')}
+                    {onPick ? t('img.useThis') : t('img.insert')}
                   </button>
                 ) : null}
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-secondary"
+                  data-id={image.id}
+                  onClick={openCrop}
+                  aria-label={t('img.crop')}
+                >
+                  <i className="bi bi-crop" />
+                </button>
                 <button
                   type="button"
                   className="btn btn-sm btn-outline-danger"
@@ -249,10 +359,6 @@ export default function ImageLibrary({ onInsert }) {
           ))}
         </div>
       )}
-
-      <Note tone="info" icon="bi-hdd">
-        {t('img.localNote')}
-      </Note>
 
       {storageWarning ? (
         <Note tone="warning" icon="bi-exclamation-triangle">
@@ -292,9 +398,6 @@ export default function ImageLibrary({ onInsert }) {
               </span>
             </div>
 
-            {/* Sabse zaroori chetavni. Ja chuki campaign ke email logon ke
-                inbox me pade hain — image mitte hi unme bhi tooti hui dikhne
-                lagegi, aur wo email wapas nahi bulaye ja sakte. */}
             {usage?.sentCount > 0 ? (
               <Note tone="warning" icon="bi-exclamation-triangle">
                 {t('img.usedInSent', { count: usage.sentCount })}
@@ -317,6 +420,33 @@ export default function ImageLibrary({ onInsert }) {
             ) : null}
 
             <p className="mw-fs-13 mw-text-muted mb-0 mt-3">{t('img.deleteNote')}</p>
+          </>
+        ) : null}
+      </Sheet>
+
+      {/* Crop — usi id/link par naye bytes chadhta hai, koi reference toothta nahi. */}
+      <Sheet
+        open={Boolean(cropFor)}
+        title={t('img.crop')}
+        onClose={closeCrop}
+        footer={
+          <>
+            <button type="button" className="btn btn-outline-secondary flex-fill" onClick={closeCrop}>
+              {t('common.cancel')}
+            </button>
+            <button type="button" className="btn btn-primary flex-fill" onClick={saveCrop}>
+              {t('common.save')}
+            </button>
+          </>
+        }
+      >
+        {cropFor ? (
+          <>
+            <p className="mw-fs-13 mw-text-muted">{t('img.cropHelp')}</p>
+            <ReactCrop crop={crop} onChange={(c) => setCrop(c)} onComplete={(c) => setCompletedCrop(c)}>
+              {/* eslint-disable-next-line jsx-a11y/alt-text */}
+              <img ref={cropImgRef} src={cropFor.url} onLoad={onCropImageLoad} style={{ maxWidth: '100%' }} />
+            </ReactCrop>
           </>
         ) : null}
       </Sheet>

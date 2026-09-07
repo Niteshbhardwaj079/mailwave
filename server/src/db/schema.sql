@@ -167,6 +167,30 @@ CREATE TABLE IF NOT EXISTS templates (
 -- Batata hai template ka content kis language me likha gaya hai.
 ALTER TABLE templates ADD COLUMN IF NOT EXISTS language text NOT NULL DEFAULT 'en';
 
+-- Default (master) templates: 14 ready-made templates jo seed karte hain.
+-- Inhe seedha edit/delete nahi kiya ja sakta — "Use this template" duplicate
+-- bana kar copy par edit karwata hai, taaki master hamesha wahi rahe jo
+-- app ke saath aaya tha.
+ALTER TABLE templates ADD COLUMN IF NOT EXISTS is_default boolean NOT NULL DEFAULT false;
+
+-- Structured editor ("Design" tab) ka form-data — logo, heading, blocks,
+-- colors, footer waghairah. `html` hi asli bhejne wali cheez hai; yeh sirf
+-- editor ko dobara khulne par fields wapas bharne ke liye hai. Raw "Code" tab
+-- se seedha HTML edit karne par yeh null ho jata hai (ab structured fields
+-- ka bharosa nahi kiya ja sakta).
+ALTER TABLE templates ADD COLUMN IF NOT EXISTS content_schema jsonb;
+
+-- Naam sirf yahan track hote hain (tabs/dropdown ke liye) — templates.category
+-- ab bhi free text hi rehta hai, taaki purana data/route na tootein. Naya naam
+-- template save karte waqt yahan apne aap jud jata hai.
+CREATE TABLE IF NOT EXISTS template_categories (
+  id         text PRIMARY KEY,
+  name       text NOT NULL UNIQUE,
+  sort_order int NOT NULL DEFAULT 0,
+  created_by text REFERENCES users(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS images (
   id          text PRIMARY KEY,
   name        text NOT NULL,
@@ -175,6 +199,38 @@ CREATE TABLE IF NOT EXISTS images (
   source      text NOT NULL DEFAULT 'upload',   -- upload | url
   uploaded_by text REFERENCES users(id) ON DELETE SET NULL,
   created_at  timestamptz NOT NULL DEFAULT now()
+);
+
+-- Purane database me yeh columns nahi honge — naye deploy par apne aap jud
+-- jaate hain. Object Storage (client ka apna S3/R2/B2/... bucket) optional
+-- hai — configure na ho to 'db' wala purana raasta (url column me hi bytes)
+-- bilkul pehle jaisa chalta rehta hai.
+ALTER TABLE images ADD COLUMN IF NOT EXISTS storage_provider text NOT NULL DEFAULT 'db'; -- 'db' | 'object'
+ALTER TABLE images ADD COLUMN IF NOT EXISTS object_key text;
+ALTER TABLE images ADD COLUMN IF NOT EXISTS width int;
+ALTER TABLE images ADD COLUMN IF NOT EXISTS height int;
+ALTER TABLE images ADD COLUMN IF NOT EXISTS last_used_at timestamptz;
+
+-- Ek hi logical row (id='default') — client ka connected Object Storage,
+-- agar usne connect kiya ho. Bucket hamesha PRIVATE maana jaata hai: yahan se
+-- kabhi public-access maangi/check nahi hoti, kyunki har image
+-- GET /files/img/:id se hi proxy hoti hai (Gmail/Outlook wahi kholte hain).
+-- secret_access_key_enc kabhi plain text nahi — dekho lib/crypto.js.
+CREATE TABLE IF NOT EXISTS storage_settings (
+  id                    text PRIMARY KEY DEFAULT 'default',
+  provider              text,               -- 's3' | 'r2' | 'b2' | 'wasabi' | 'spaces' | 'other'
+  bucket                text,
+  region                text,
+  endpoint              text,
+  access_key_id         text,
+  secret_access_key_enc text,
+  public_url_base       text,
+  connected             boolean NOT NULL DEFAULT false,
+  last_tested_at        timestamptz,
+  last_test_ok          boolean,
+  last_test_message     text,
+  updated_by            text REFERENCES users(id) ON DELETE SET NULL,
+  updated_at            timestamptz NOT NULL DEFAULT now()
 );
 
 -- --- sending accounts -------------------------------------------------------

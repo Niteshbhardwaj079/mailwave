@@ -18,6 +18,7 @@ import { ApiError, api, apiBase } from '../api/client';
 import { useToast } from '../components/ui/ToastProvider';
 import { formatDateTime, formatNumber } from '../utils/format';
 import { LANGUAGES } from '../i18n/languages';
+import { STORAGE_PROVIDERS, findStorageProvider } from '../data/storageProviders';
 
 const SECTIONS = [
   { key: 'profile', labelKey: 'topbar.profile', icon: 'bi-person' },
@@ -28,6 +29,7 @@ const SECTIONS = [
   { key: 'tracking', labelKey: 'set.tracking', icon: 'bi-eye' },
   { key: 'contacts', labelKey: 'nav.contacts', icon: 'bi-people' },
   { key: 'unsubscribe', labelKey: 'set.unsubscribe', icon: 'bi-box-arrow-right' },
+  { key: 'storage', labelKey: 'set.storage', icon: 'bi-hdd-network' },
   { key: 'security', labelKey: 'topbar.security', icon: 'bi-shield-lock' },
   { key: 'api', labelKey: 'set.api', icon: 'bi-code-slash' },
   { key: 'webhooks', labelKey: 'set.webhooks', icon: 'bi-broadcast' },
@@ -310,6 +312,102 @@ export default function SettingsPage() {
     navigator.clipboard?.writeText(revealedSecret);
     setSecretCopied(true);
     window.setTimeout(() => setSecretCopied(false), 1800);
+  }
+
+  // --- Image Storage (client ka apna S3-compatible bucket) -------------------
+  const storageCall = useApi('/api/storage-settings');
+  const storage = storageCall.data?.storage ?? null;
+
+  const [storageDraft, setStorageDraft] = useState({
+    provider: 's3',
+    bucket: '',
+    region: 'auto',
+    endpoint: '',
+    accessKeyId: '',
+    secretAccessKey: '',
+    publicUrlBase: '',
+  });
+  const [storageSaving, setStorageSaving] = useState(false);
+  const [storageTesting, setStorageTesting] = useState(false);
+  const [storageTestResult, setStorageTestResult] = useState(null);
+  const [storageUploadTesting, setStorageUploadTesting] = useState(false);
+  const [storageUploadUrl, setStorageUploadUrl] = useState(null);
+  const [storageDisconnectOpen, setStorageDisconnectOpen] = useState(false);
+
+  useEffect(() => {
+    if (storage?.provider) {
+      setStorageDraft((current) => ({
+        ...current,
+        provider: storage.provider,
+        bucket: storage.bucket || '',
+        region: storage.region || 'auto',
+        endpoint: storage.endpoint || '',
+        publicUrlBase: storage.publicUrlBase || '',
+        // accessKeyId/secretAccessKey jaan-boojh kar bharte nahi — write-only
+        // fields hain, purani value kabhi wapas nahi dikhti.
+      }));
+    }
+  }, [storage]);
+
+  const activeProviderMeta = findStorageProvider(storageDraft.provider);
+
+  function setStorageField(field, value) {
+    setStorageDraft((current) => ({ ...current, [field]: value }));
+  }
+
+  async function saveStorageSettings() {
+    setStorageSaving(true);
+    setStorageTestResult(null);
+    try {
+      await api.put('/api/storage-settings', storageDraft);
+      storageCall.reload();
+      toast.success(t('set.storageSaved'));
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : t('toast.networkError'));
+    } finally {
+      setStorageSaving(false);
+    }
+  }
+
+  async function testStorageConnection() {
+    setStorageTesting(true);
+    setStorageTestResult(null);
+    try {
+      const data = await api.post('/api/storage-settings/test');
+      setStorageTestResult(data);
+      storageCall.reload();
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : t('toast.networkError'));
+    } finally {
+      setStorageTesting(false);
+    }
+  }
+
+  async function testStorageUpload() {
+    setStorageUploadTesting(true);
+    setStorageUploadUrl(null);
+    try {
+      const data = await api.post('/api/storage-settings/test-upload');
+      setStorageUploadUrl(data.url);
+      toast.success(t('set.storageUploadOk'));
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : t('toast.networkError'));
+    } finally {
+      setStorageUploadTesting(false);
+    }
+  }
+
+  async function confirmDisconnectStorage() {
+    setStorageDisconnectOpen(false);
+    try {
+      await api.delete('/api/storage-settings');
+      storageCall.reload();
+      setStorageTestResult(null);
+      setStorageUploadUrl(null);
+      toast.success(t('set.storageDisconnected'));
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : t('toast.networkError'));
+    }
   }
 
   function handleSection(event) {
@@ -818,6 +916,165 @@ export default function SettingsPage() {
             </Card>
           ) : null}
 
+          {section === 'storage' ? (
+            <Card>
+              <CardHead title={t('set.storageTitle')} subtitle={t('set.storageSub')} />
+              <CardBody>
+                <Note tone="info" icon="bi-shield-lock">
+                  {t('set.storagePrivateNote')}
+                </Note>
+
+                {storage?.provider ? (
+                  <div className="mw-stack--sm d-flex flex-column mb-4">
+                    <div className="mw-kv">
+                      <span className="mw-kv__key">{t('common.status')}</span>
+                      <span className="mw-kv__value">
+                        <StatusPill
+                          status={storage.connected ? t('set.storageConnected') : t('set.storageNotConnected')}
+                          tone={storage.connected ? 'success' : 'warning'}
+                        />
+                      </span>
+                    </div>
+                    <div className="mw-kv">
+                      <span className="mw-kv__key">{t('set.storageProvider')}</span>
+                      <span className="mw-kv__value">{findStorageProvider(storage.provider)?.label ?? storage.provider}</span>
+                    </div>
+                    <div className="mw-kv">
+                      <span className="mw-kv__key">{t('set.storageBucket')}</span>
+                      <span className="mw-kv__value">{storage.bucket}</span>
+                    </div>
+                    <div className="mw-kv">
+                      <span className="mw-kv__key">{t('set.storageRegion')}</span>
+                      <span className="mw-kv__value">{storage.region || '—'}</span>
+                    </div>
+                    <div className="mw-kv">
+                      <span className="mw-kv__key">{t('set.storageLastTest')}</span>
+                      <span className="mw-kv__value">
+                        {storage.lastTestedAt ? formatDateTime(storage.lastTestedAt) : t('set.storageNeverTested')}
+                        {storage.lastTestMessage ? ` — ${storage.lastTestMessage}` : ''}
+                      </span>
+                    </div>
+                    <div>
+                      <button type="button" className="btn btn-sm btn-outline-danger" onClick={() => setStorageDisconnectOpen(true)}>
+                        {t('set.storageDisconnect')}
+                      </button>
+                    </div>
+                    <hr className="my-2" />
+                  </div>
+                ) : null}
+
+                <p className="mw-fs-14 mw-fw-700 mb-2">{t('set.storageChangeTitle')}</p>
+                <div className="row g-3">
+                  <div className="col-12 col-md-6">
+                    <label className="form-label" htmlFor="st-provider">{t('set.storageProviderLabel')}</label>
+                    <select
+                      id="st-provider"
+                      className="form-select"
+                      value={storageDraft.provider}
+                      onChange={(event) => setStorageField('provider', event.target.value)}
+                    >
+                      {STORAGE_PROVIDERS.map((provider) => (
+                        <option key={provider.id} value={provider.id}>
+                          {provider.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="col-12 col-md-6">
+                    <label className="form-label" htmlFor="st-bucket">{t('set.storageBucketLabel')}</label>
+                    <input
+                      id="st-bucket"
+                      type="text"
+                      className="form-control"
+                      value={storageDraft.bucket}
+                      onChange={(event) => setStorageField('bucket', event.target.value)}
+                    />
+                  </div>
+                  <div className="col-12 col-md-6">
+                    <label className="form-label" htmlFor="st-region">{t('set.storageRegionLabel')}</label>
+                    <input
+                      id="st-region"
+                      type="text"
+                      className="form-control"
+                      value={storageDraft.region}
+                      onChange={(event) => setStorageField('region', event.target.value)}
+                    />
+                    <div className="form-text">{activeProviderMeta?.regionHelp}</div>
+                  </div>
+                  {activeProviderMeta?.needsEndpoint ? (
+                    <div className="col-12 col-md-6">
+                      <label className="form-label" htmlFor="st-endpoint">{t('set.storageEndpointLabel')}</label>
+                      <input
+                        id="st-endpoint"
+                        type="text"
+                        className="form-control"
+                        value={storageDraft.endpoint}
+                        onChange={(event) => setStorageField('endpoint', event.target.value)}
+                      />
+                      <div className="form-text">{activeProviderMeta?.endpointHelp}</div>
+                    </div>
+                  ) : null}
+                  <div className="col-12 col-md-6">
+                    <label className="form-label" htmlFor="st-key">{t('set.storageAccessKeyLabel')}</label>
+                    <input
+                      id="st-key"
+                      type="text"
+                      className="form-control"
+                      value={storageDraft.accessKeyId}
+                      onChange={(event) => setStorageField('accessKeyId', event.target.value)}
+                      placeholder={storage?.accessKeyIdMasked || ''}
+                      autoComplete="off"
+                    />
+                  </div>
+                  <div className="col-12 col-md-6">
+                    <label className="form-label" htmlFor="st-secret">{t('set.storageSecretLabel')}</label>
+                    <input
+                      id="st-secret"
+                      type="password"
+                      className="form-control"
+                      value={storageDraft.secretAccessKey}
+                      onChange={(event) => setStorageField('secretAccessKey', event.target.value)}
+                      placeholder={storage?.provider ? t('set.storageSecretUnchanged') : ''}
+                      autoComplete="new-password"
+                    />
+                    <div className="form-text">{t('set.storageSecretHelp')}</div>
+                  </div>
+                </div>
+
+                {storageTestResult ? (
+                  <Note tone={storageTestResult.ok ? 'success' : 'warning'} icon={storageTestResult.ok ? 'bi-check-circle' : 'bi-exclamation-triangle'}>
+                    {storageTestResult.message}
+                  </Note>
+                ) : null}
+
+                {storageUploadUrl ? (
+                  <Note tone="success" icon="bi-image">
+                    {t('set.storageUploadOk')}
+                    <div className="mt-2">
+                      <img src={storageUploadUrl} alt="" width="64" height="64" style={{ borderRadius: 8 }} />
+                    </div>
+                  </Note>
+                ) : null}
+              </CardBody>
+              <CardFoot>
+                <button type="button" className="btn btn-outline-secondary" onClick={testStorageConnection} disabled={storageTesting || !storage?.provider && !storageDraft.bucket}>
+                  {storageTesting ? t('common.loading') : t('set.storageTestConnection')}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary"
+                  onClick={testStorageUpload}
+                  disabled={storageUploadTesting || !storage?.connected}
+                >
+                  {storageUploadTesting ? t('common.loading') : t('set.storageTestUpload')}
+                </button>
+                <button type="button" className="btn btn-primary" onClick={saveStorageSettings} disabled={storageSaving}>
+                  {storageSaving ? t('common.loading') : t('common.saveChanges')}
+                </button>
+              </CardFoot>
+            </Card>
+          ) : null}
+
           {section === 'security' ? (
             <Card>
               <CardHead title={t('topbar.security')} subtitle={t('set.securitySub')} />
@@ -1243,6 +1500,26 @@ export default function SettingsPage() {
             </button>
           </div>
         ) : null}
+      </Sheet>
+
+      {/* Disconnect confirm — credentials hatane se pehle poochte hain.
+          Pehle se maujood images kabhi nahi hatti, sirf naya connection hata hai. */}
+      <Sheet
+        open={storageDisconnectOpen}
+        title={t('set.storageDisconnectConfirmTitle')}
+        onClose={() => setStorageDisconnectOpen(false)}
+        footer={
+          <>
+            <button type="button" className="btn btn-outline-secondary flex-fill" onClick={() => setStorageDisconnectOpen(false)}>
+              {t('common.cancel')}
+            </button>
+            <button type="button" className="btn btn-danger flex-fill" onClick={confirmDisconnectStorage}>
+              {t('set.storageDisconnect')}
+            </button>
+          </>
+        }
+      >
+        <p className="mw-fs-14 mb-0">{t('set.storageDisconnectConfirmText')}</p>
       </Sheet>
     </div>
   );

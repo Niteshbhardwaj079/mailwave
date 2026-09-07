@@ -165,6 +165,7 @@ export function WorkspaceProvider({ children }) {
         subject: template.subject ?? '',
         html: template.html ?? '',
         language: template.language ?? 'en',
+        contentSchema: template.contentSchema ?? null,
       };
 
       try {
@@ -280,6 +281,34 @@ export function WorkspaceProvider({ children }) {
     },
     [images, toast, t, fail, refreshActivity]
   );
+
+  /** Crop/rename: usi id/link par naye bytes/naam chadhata hai — kahin bhi diya hua reference nahi toothta. */
+  const updateImage = useCallback(
+    async (id, patch) => {
+      try {
+        const data = await api.put(`/api/images/${id}`, patch);
+        setImages((current) => current.map((item) => (item.id === id ? data.image : item)));
+        toast.success(t('toast.imageUpdated'));
+        refreshActivity();
+        return data.image;
+      } catch (error) {
+        return fail(error);
+      }
+    },
+    [toast, t, fail, refreshActivity]
+  );
+
+  /** Editor se image "insert" hote hi — "recently used" isi se update hota hai. */
+  const touchImage = useCallback(async (id) => {
+    try {
+      await api.post(`/api/images/${id}/touch`);
+      setImages((current) =>
+        current.map((item) => (item.id === id ? { ...item, lastUsedAt: new Date().toISOString() } : item))
+      );
+    } catch (error) {
+      // Sirf "recently used" ordering ke liye hai — fail hone par bhi insert ruk nahi.
+    }
+  }, []);
 
   // --- roles ---------------------------------------------------------------
   const createRole = useCallback(
@@ -802,6 +831,8 @@ export function WorkspaceProvider({ children }) {
       images,
       addImage,
       removeImage,
+      updateImage,
+      touchImage,
       storageWarning,
       roles,
       createRole,
@@ -844,6 +875,8 @@ export function WorkspaceProvider({ children }) {
       images,
       addImage,
       removeImage,
+      updateImage,
+      touchImage,
       roles,
       createRole,
       updateRole,

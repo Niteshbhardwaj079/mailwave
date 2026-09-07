@@ -42,6 +42,14 @@ export const LANGUAGES = [
   { code: 'mr', native: 'मराठी', english: 'Marathi', flag: '🇮🇳', locale: 'mr-IN', dir: 'ltr' },
   { code: 'bn', native: 'বাংলা', english: 'Bengali', flag: '🇧🇩', locale: 'bn-IN', dir: 'ltr' },
   { code: 'ta', native: 'தமிழ்', english: 'Tamil', flag: '🇮🇳', locale: 'ta-IN', dir: 'ltr' },
+  // Telugu/Malayalam/Kannada/Punjabi: content-tagging only (templates, system
+  // emails, campaigns) — jaanboojh kar `loaders` me nahi daale, isliye UI
+  // chrome inke liye English hi dikhata hai, har doosri abhi-tak-anuvaadit-
+  // nahi key ki tarah.
+  { code: 'te', native: 'తెలుగు', english: 'Telugu', flag: '🇮🇳', locale: 'te-IN', dir: 'ltr' },
+  { code: 'ml', native: 'മലയാളം', english: 'Malayalam', flag: '🇮🇳', locale: 'ml-IN', dir: 'ltr' },
+  { code: 'kn', native: 'ಕನ್ನಡ', english: 'Kannada', flag: '🇮🇳', locale: 'kn-IN', dir: 'ltr' },
+  { code: 'pa', native: 'ਪੰਜਾਬੀ', english: 'Punjabi', flag: '🇮🇳', locale: 'pa-IN', dir: 'ltr' },
   { code: 'ar', native: 'العربية', english: 'Arabic', flag: '🇸🇦', locale: 'ar', dir: 'rtl' },
   { code: 'es', native: 'Español', english: 'Spanish', flag: '🇪🇸', locale: 'es-ES', dir: 'ltr' },
   { code: 'fr', native: 'Français', english: 'French', flag: '🇫🇷', locale: 'fr-FR', dir: 'ltr' },

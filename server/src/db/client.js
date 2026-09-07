@@ -402,7 +402,14 @@ export const BACKUP_FORMAT_VERSION = 1;
 // wapas aayi to purane events dobara (aur der se) client ko chale jate —
 // ek queue restore karne layak cheez nahi hai, wo to bas "abhi kya bhejna
 // hai" ki list hai.
-const EXCLUDED_FROM_BACKUP = new Set(['backups', 'schema_migrations', 'webhook_deliveries']);
+// storage_settings isi wajah se: usme client ki Object Storage secret key
+// (encrypted hi sahi) padi hoti hai — backup file me jaana hi nahi chahiye.
+const EXCLUDED_FROM_BACKUP = new Set([
+  'backups',
+  'schema_migrations',
+  'webhook_deliveries',
+  'storage_settings',
+]);
 
 function sha256(input) {
   return createHash('sha256').update(input).digest('hex');

@@ -1,54 +1,66 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import PageHeader from '../components/ui/PageHeader';
 import { useDebouncedValue } from '../utils/useDebouncedValue';
 import { Card, CardFoot } from '../components/ui/Card';
-import { SearchInput } from '../components/ui/Controls';
+import { SearchInput, ChipGroup } from '../components/ui/Controls';
 import FilterSelect, { FilterBar } from '../components/ui/FilterSelect';
+import Pagination from '../components/ui/Pagination';
 import EmptyState from '../components/ui/EmptyState';
 import Sheet from '../components/ui/Sheet';
 import { useT } from '../i18n/I18nProvider';
 import { useWorkspace } from '../store/WorkspaceProvider';
-import { templateCategories } from '../data/constants';
+import { useServerList } from '../api/useServerList';
+import { api } from '../api/client';
 import { formatDate } from '../utils/format';
-import { findLanguage } from '../i18n/languages';
+import { findLanguage, LANGUAGES } from '../i18n/languages';
 
 export default function TemplatesPage() {
   const t = useT();
   const navigate = useNavigate();
-  const { templates, deleteTemplate, duplicateTemplate, loading } = useWorkspace();
+  const { deleteTemplate, duplicateTemplate } = useWorkspace();
   const [category, setCategory] = useState('All');
-  const [sort, setSort] = useState('recent');
+  const [language, setLanguage] = useState('All');
   const [query, setQuery] = useState('');
   // Box me turant, chhantai 200ms ruk kar — type karte waqt atakta nahi.
   const search = useDebouncedValue(query, 200);
   const [confirmFor, setConfirmFor] = useState(null);
+  const [categories, setCategories] = useState([]);
 
-  const visible = useMemo(() => {
-    const text = search.trim().toLowerCase();
-    const list = templates.filter((template) => {
-      const categoryOk = category === 'All' || template.category === category;
-      const textOk = !text || template.name.toLowerCase().includes(text);
-      return categoryOk && textOk;
-    });
+  useEffect(() => {
+    api
+      .get('/api/templates/categories')
+      .then((data) => setCategories(data.categories ?? []))
+      .catch(() => setCategories([]));
+  }, []);
 
-    return [...list].sort((a, b) => {
-      if (sort === 'name') return a.name.localeCompare(b.name);
-      return String(b.updated).localeCompare(String(a.updated));
-    });
-  }, [templates, category, sort, search]);
+  const pager = useServerList('/api/templates', {
+    key: 'templates',
+    params: { search, category, language },
+    limit: 24,
+  });
 
   function goToNew() {
     navigate('/templates/new');
   }
 
+  /** Default (master) template ke liye — hamesha copy khud edit karne khulti hai. */
+  function handleUseDefault(event) {
+    duplicateTemplate(event.currentTarget.dataset.id).then((record) => {
+      if (record) navigate(`/templates/${record.id}/edit`);
+    });
+  }
+
+  /** Apni template ka plain duplicate button — yahin ruk kar list refresh ho jaati hai. */
   function handleDuplicate(event) {
-    duplicateTemplate(event.currentTarget.dataset.id);
+    duplicateTemplate(event.currentTarget.dataset.id).then((record) => {
+      if (record) pager.reload();
+    });
   }
 
   function askDelete(event) {
-    setConfirmFor(templates.find((item) => item.id === event.currentTarget.dataset.id) || null);
+    setConfirmFor(pager.visible.find((item) => item.id === event.currentTarget.dataset.id) || null);
   }
 
   function closeConfirm() {
@@ -56,24 +68,27 @@ export default function TemplatesPage() {
   }
 
   function confirmDelete() {
-    if (confirmFor) deleteTemplate(confirmFor.id);
+    if (confirmFor) {
+      deleteTemplate(confirmFor.id);
+      pager.setRows((current) => current.filter((item) => item.id !== confirmFor.id));
+    }
     setConfirmFor(null);
   }
 
   function clearFilters() {
     setCategory('All');
-    setSort('recent');
+    setLanguage('All');
     setQuery('');
   }
 
-  const categoryOptions = templateCategories.map((name) => ({
-    value: name,
-    label: name === 'All' ? t('filter.allCategories') : name,
-  }));
+  const categoryChips = useMemo(
+    () => [{ value: 'All', label: t('filter.allCategories') }, ...categories.map((name) => ({ value: name, label: name }))],
+    [categories, t]
+  );
 
-  const sortOptions = [
-    { value: 'recent', label: t('common.updated') },
-    { value: 'name', label: t('common.name') },
+  const languageOptions = [
+    { value: 'All', label: t('filter.allLanguages') },
+    ...LANGUAGES.map((lang) => ({ value: lang.code, label: `${lang.flag} ${lang.native}` })),
   ];
 
   return (
@@ -90,36 +105,32 @@ export default function TemplatesPage() {
         }
       />
 
+      <div className="mw-row" style={{ overflowX: 'auto', flexWrap: 'nowrap' }}>
+        <ChipGroup items={categoryChips} value={category} onChange={setCategory} ariaLabel={t('filter.category')} />
+      </div>
+
       <Card flush>
         <FilterBar onClear={clearFilters} clearLabel={t('common.clear')}>
           <div className="mw-filterbar__search">
             <SearchInput value={query} onChange={setQuery} placeholder={t('tpl.searchPlaceholder')} />
           </div>
           <FilterSelect
-            id="tpl-filter-category"
-            label={t('filter.category')}
-            icon="bi-collection"
-            value={category}
-            onChange={setCategory}
-            options={categoryOptions}
-          />
-          <FilterSelect
-            id="tpl-filter-sort"
-            label={t('common.filter')}
-            icon="bi-sort-down"
-            value={sort}
-            onChange={setSort}
-            options={sortOptions}
+            id="tpl-filter-language"
+            label={t('filter.language')}
+            icon="bi-translate"
+            value={language}
+            onChange={setLanguage}
+            options={languageOptions}
           />
         </FilterBar>
 
         <div className="mw-card__body">
-          {loading && templates.length === 0 ? (
+          {pager.loading && pager.visible.length === 0 ? (
             <div className="p-5 text-center mw-text-muted">
               <div className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" />
               {t('common.loading')}
             </div>
-          ) : visible.length === 0 ? (
+          ) : pager.visible.length === 0 ? (
             <EmptyState
               icon="bi-layout-wtf"
               title={t('tpl.empty')}
@@ -132,7 +143,7 @@ export default function TemplatesPage() {
             />
           ) : (
             <div className="mw-tplgrid">
-              {visible.map((template) => (
+              {pager.visible.map((template) => (
                 <article key={template.id} className="mw-tpl">
                   <div className="mw-tpl__thumb mw-tpl__thumb--frame">
                     <iframe
@@ -150,7 +161,10 @@ export default function TemplatesPage() {
                   </div>
 
                   <div className="mw-tpl__body">
-                    <h3 className="mw-tpl__name">{template.name}</h3>
+                    <h3 className="mw-tpl__name">
+                      {template.name}
+                      {template.isDefault ? <span className="badge bg-secondary ms-2">{t('tpl.defaultBadge')}</span> : null}
+                    </h3>
                     <p className="mw-tpl__meta mb-0">
                       {template.category} · {findLanguage(template.language).flag}{' '}
                       {findLanguage(template.language).native} · {t('common.updated')}{' '}
@@ -163,28 +177,42 @@ export default function TemplatesPage() {
                       <i className="bi bi-eye me-1" />
                       {t('common.preview')}
                     </Link>
-                    <Link to={`/templates/${template.id}/edit`} className="btn btn-sm btn-outline-primary flex-fill">
-                      <i className="bi bi-pencil me-1" />
-                      {t('common.edit')}
-                    </Link>
-                    <button
-                      type="button"
-                      className="btn btn-sm btn-outline-secondary"
-                      data-id={template.id}
-                      onClick={handleDuplicate}
-                      aria-label={t('common.duplicate')}
-                    >
-                      <i className="bi bi-files" />
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-sm btn-outline-danger"
-                      data-id={template.id}
-                      onClick={askDelete}
-                      aria-label={t('common.delete')}
-                    >
-                      <i className="bi bi-trash3" />
-                    </button>
+                    {template.isDefault ? (
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-primary flex-fill"
+                        data-id={template.id}
+                        onClick={handleUseDefault}
+                      >
+                        <i className="bi bi-files me-1" />
+                        {t('tpl.useInCampaign')}
+                      </button>
+                    ) : (
+                      <>
+                        <Link to={`/templates/${template.id}/edit`} className="btn btn-sm btn-outline-primary flex-fill">
+                          <i className="bi bi-pencil me-1" />
+                          {t('common.edit')}
+                        </Link>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-secondary"
+                          data-id={template.id}
+                          onClick={handleDuplicate}
+                          aria-label={t('common.duplicate')}
+                        >
+                          <i className="bi bi-files" />
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-danger"
+                          data-id={template.id}
+                          onClick={askDelete}
+                          aria-label={t('common.delete')}
+                        >
+                          <i className="bi bi-trash3" />
+                        </button>
+                      </>
+                    )}
                   </div>
                 </article>
               ))}
@@ -193,9 +221,14 @@ export default function TemplatesPage() {
         </div>
 
         <CardFoot>
-          <span className="mw-fs-12 mw-text-muted">
-            {t('common.showing')} {visible.length} {t('common.of')} {templates.length}
-          </span>
+          <Pagination
+            page={pager.page}
+            pages={pager.pages}
+            total={pager.total}
+            limit={pager.limit}
+            onPageChange={pager.setPage}
+            onLimitChange={pager.setLimit}
+          />
         </CardFoot>
       </Card>
 

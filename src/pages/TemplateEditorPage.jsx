@@ -7,30 +7,52 @@ import { Note, Segmented } from '../components/ui/Controls';
 import Sheet from '../components/ui/Sheet';
 import HtmlPreview from '../components/templates/HtmlPreview';
 import ImageLibrary from '../components/templates/ImageLibrary';
+import TemplateDesignEditor from '../components/templates/TemplateDesignEditor';
 import { useT } from '../i18n/I18nProvider';
 import { useWorkspace } from '../store/WorkspaceProvider';
 import { BLANK_HTML, starterTemplates } from '../data/starterHtml';
-import { mergeVariables, templateCategories } from '../data/constants';
+import { mergeVariables } from '../data/constants';
+import { DEFAULT_SCHEMA, renderTemplateHtml } from '../data/templateBuilder';
 import { LANGUAGES } from '../i18n/languages';
+import { api } from '../api/client';
+
+function cloneSchema(schema) {
+  return JSON.parse(JSON.stringify(schema));
+}
 
 export default function TemplateEditorPage() {
   const t = useT();
   const { templateId } = useParams();
   const navigate = useNavigate();
-  const { getTemplate, saveTemplate } = useWorkspace();
+  const { getTemplate, saveTemplate, duplicateTemplate, templates } = useWorkspace();
   const existing = templateId ? getTemplate(templateId) : null;
 
   const [name, setName] = useState(existing?.name || '');
   const [category, setCategory] = useState(existing?.category || 'Custom');
+  const [categories, setCategories] = useState([]);
   const [subject, setSubject] = useState(existing?.subject || '');
-  const [html, setHtml] = useState(existing?.html || BLANK_HTML);
+  const [schema, setSchema] = useState(
+    existing ? (existing.contentSchema ? cloneSchema(existing.contentSchema) : null) : cloneSchema(DEFAULT_SCHEMA)
+  );
+  const [html, setHtml] = useState(() => {
+    if (existing) return existing.html || BLANK_HTML;
+    return renderTemplateHtml(DEFAULT_SCHEMA);
+  });
   const [language, setLanguage] = useState(existing?.language || 'en');
-  const [tab, setTab] = useState('code');
+  const [isDefault, setIsDefault] = useState(Boolean(existing?.isDefault));
+  const [tab, setTab] = useState(existing && !existing.contentSchema ? 'code' : 'design');
   const [device, setDevice] = useState('desktop');
   const [savedId, setSavedId] = useState(existing?.id || null);
   const [savedOpen, setSavedOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const codeRef = useRef(null);
+
+  useEffect(() => {
+    api
+      .get('/api/templates/categories')
+      .then((data) => setCategories(data.categories ?? []))
+      .catch(() => setCategories([]));
+  }, []);
 
   // Workspace templates load asynchronously after sign-in, so on a direct
   // page load (a refresh while already on this URL, not a click from inside
@@ -52,7 +74,10 @@ export default function TemplateEditorPage() {
     setCategory(existing.category || 'Custom');
     setSubject(existing.subject || '');
     setHtml(existing.html || BLANK_HTML);
+    setSchema(existing.contentSchema ? cloneSchema(existing.contentSchema) : null);
     setLanguage(existing.language || 'en');
+    setIsDefault(Boolean(existing.isDefault));
+    setTab(existing.contentSchema ? 'design' : 'code');
     setSavedId(existing.id || null);
     hydratedRef.current = true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -60,6 +85,7 @@ export default function TemplateEditorPage() {
 
   const TABS = useMemo(
     () => [
+      { value: 'design', label: t('tpl.design.tab') },
       { value: 'code', label: t('tpl.html') },
       { value: 'images', label: t('img.title') },
       { value: 'starters', label: t('tpl.startingPoints') },
@@ -74,6 +100,8 @@ export default function TemplateEditorPage() {
     ],
     [t]
   );
+
+  const defaultStarters = useMemo(() => templates.filter((item) => item.isDefault), [templates]);
 
   function handleName(event) {
     setName(event.target.value);
@@ -91,7 +119,15 @@ export default function TemplateEditorPage() {
     setLanguage(event.target.value);
   }
 
+  function handleSchemaChange(nextSchema) {
+    setSchema(nextSchema);
+    setHtml(renderTemplateHtml(nextSchema));
+  }
+
   function handleHtml(event) {
+    // Raw HTML ko haath se edit karna structured fields ka bharosa tod deta
+    // hai — Design tab tabhi tak sahi rehta hai jab tak sab kuch usi se bane.
+    if (schema) setSchema(null);
     setHtml(event.target.value);
   }
 
@@ -104,6 +140,7 @@ export default function TemplateEditorPage() {
     const start = field.selectionStart ?? html.length;
     const end = field.selectionEnd ?? html.length;
     const next = `${html.slice(0, start)}${snippet}${html.slice(end)}`;
+    if (schema) setSchema(null);
     setHtml(next);
     window.requestAnimationFrame(() => {
       field.focus();
@@ -119,12 +156,36 @@ export default function TemplateEditorPage() {
   function loadStarter(event) {
     const starter = starterTemplates.find((item) => item.key === event.currentTarget.dataset.key);
     if (!starter) return;
+    setSchema(null);
     setHtml(starter.html);
     if (!name) setName(starter.name);
     setTab('code');
   }
 
+  function loadDefaultStarter(event) {
+    const source = defaultStarters.find((item) => item.id === event.currentTarget.dataset.id);
+    if (!source) return;
+    if (!name) setName(source.name);
+    setCategory(source.category);
+    setSubject(source.subject);
+    if (source.contentSchema) {
+      setSchema(cloneSchema(source.contentSchema));
+      setHtml(renderTemplateHtml(source.contentSchema));
+      setTab('design');
+    } else {
+      setSchema(null);
+      setHtml(source.html);
+      setTab('code');
+    }
+  }
+
   async function handleSave() {
+    if (isDefault) {
+      const copy = await duplicateTemplate(savedId);
+      if (copy) navigate(`/templates/${copy.id}/edit`);
+      return;
+    }
+
     const record = await saveTemplate({
       id: savedId || undefined,
       name: name.trim() || t('tpl.newTemplate'),
@@ -132,6 +193,7 @@ export default function TemplateEditorPage() {
       subject,
       html,
       language,
+      contentSchema: schema,
     });
     if (!record) return;
     setSavedId(record.id);
@@ -175,12 +237,18 @@ export default function TemplateEditorPage() {
               </a>
             ) : null}
             <button type="button" className="btn btn-primary mw-btn-block-mobile" onClick={handleSave}>
-              <i className="bi bi-save me-2" />
-              {t('common.save')}
+              <i className={`bi ${isDefault ? 'bi-files' : 'bi-save'} me-2`} />
+              {isDefault ? t('tpl.duplicateAndEdit') : t('common.save')}
             </button>
           </>
         }
       />
+
+      {isDefault ? (
+        <Note tone="warning" icon="bi-lock">
+          {t('tpl.defaultReadOnly')}
+        </Note>
+      ) : null}
 
       <div className="mw-editor">
         <Card flush>
@@ -202,27 +270,35 @@ export default function TemplateEditorPage() {
                   value={name}
                   onChange={handleName}
                   placeholder={t('tpl.namePlaceholder')}
+                  disabled={isDefault}
                 />
               </div>
               <div className="col-12 col-md-6">
                 <label className="form-label" htmlFor="tpl-category">
                   {t('common.category')}
                 </label>
-                <select id="tpl-category" className="form-select" value={category} onChange={handleCategory}>
-                  {templateCategories
-                    .filter((item) => item !== 'All')
-                    .map((item) => (
-                      <option key={item} value={item}>
-                        {item}
-                      </option>
-                    ))}
-                </select>
+                <input
+                  id="tpl-category"
+                  type="text"
+                  className="form-control"
+                  list="tpl-category-options"
+                  value={category}
+                  onChange={handleCategory}
+                  disabled={isDefault}
+                  placeholder={t('tpl.design.categoryPlaceholder')}
+                />
+                <datalist id="tpl-category-options">
+                  {categories.map((item) => (
+                    <option key={item} value={item} />
+                  ))}
+                </datalist>
+                <p className="form-text mb-0">{t('tpl.design.categoryHelp')}</p>
               </div>
               <div className="col-12 col-md-6">
                 <label className="form-label" htmlFor="tpl-language">
                   {t('tpl.language')}
                 </label>
-                <select id="tpl-language" className="form-select" value={language} onChange={handleLanguage}>
+                <select id="tpl-language" className="form-select" value={language} onChange={handleLanguage} disabled={isDefault}>
                   {LANGUAGES.map((item) => (
                     <option key={item.code} value={item.code}>
                       {item.flag} {item.native}
@@ -231,7 +307,7 @@ export default function TemplateEditorPage() {
                 </select>
                 <p className="form-text mb-0">{t('tpl.languageHelp')}</p>
               </div>
-              <div className="col-12">
+              <div className="col-12 col-md-6">
                 <label className="form-label" htmlFor="tpl-subject">
                   {t('tpl.subject')}
                 </label>
@@ -242,12 +318,39 @@ export default function TemplateEditorPage() {
                   value={subject}
                   onChange={handleSubject}
                   placeholder={t('info.subjectPlaceholder')}
+                  disabled={isDefault}
                 />
               </div>
             </div>
 
+            {tab === 'design' ? (
+              schema ? (
+                <TemplateDesignEditor schema={schema} onChange={handleSchemaChange} readOnly={isDefault} />
+              ) : (
+                <div className="mw-stack--sm d-flex flex-column">
+                  <Note tone="warning" icon="bi-exclamation-triangle">
+                    {t('tpl.design.detached')}
+                  </Note>
+                  {!isDefault ? (
+                    <button
+                      type="button"
+                      className="btn btn-outline-primary align-self-start"
+                      onClick={() => handleSchemaChange(cloneSchema(DEFAULT_SCHEMA))}
+                    >
+                      {t('tpl.design.startFresh')}
+                    </button>
+                  ) : null}
+                </div>
+              )
+            ) : null}
+
             {tab === 'code' ? (
               <>
+                {!isDefault && schema === null && existing?.contentSchema ? (
+                  <Note tone="info" icon="bi-info-circle">
+                    {t('tpl.design.detached')}
+                  </Note>
+                ) : null}
                 <div className="mb-3">
                   <span className="form-label d-block">{t('tpl.variables')}</span>
                   <div className="mw-row mw-row--wrap">
@@ -258,6 +361,7 @@ export default function TemplateEditorPage() {
                         className="mw-var"
                         data-name={variable}
                         onClick={insertVariable}
+                        disabled={isDefault}
                       >
                         {`{{${variable}}}`}
                       </button>
@@ -276,6 +380,7 @@ export default function TemplateEditorPage() {
                   value={html}
                   onChange={handleHtml}
                   spellCheck="false"
+                  disabled={isDefault}
                 />
                 <p className="form-text">{t('tpl.unsavedNote')}</p>
               </>
@@ -286,6 +391,32 @@ export default function TemplateEditorPage() {
             {tab === 'starters' ? (
               <div className="mw-stack--sm d-flex flex-column">
                 <p className="mw-fs-13 mw-text-muted mb-0">{t('tpl.startingPointsHelp')}</p>
+
+                {defaultStarters.length ? (
+                  <>
+                    <h4 className="mw-fs-13 mw-fw-700 mb-1 mt-2">{t('tpl.design.readyMade')}</h4>
+                    {defaultStarters.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        className="mw-starter"
+                        data-id={item.id}
+                        onClick={loadDefaultStarter}
+                      >
+                        <span className="mw-starter__icon" aria-hidden="true">
+                          <i className="bi bi-layout-text-window" />
+                        </span>
+                        <span className="flex-grow-1">
+                          <span className="d-block mw-option__title">{item.name}</span>
+                          <span className="d-block mw-option__desc">{item.category}</span>
+                        </span>
+                        <span className="btn btn-sm btn-outline-primary mw-nowrap">{t('tpl.loadStarter')}</span>
+                      </button>
+                    ))}
+                    <h4 className="mw-fs-13 mw-fw-700 mb-1 mt-3">{t('tpl.design.blankStarters')}</h4>
+                  </>
+                ) : null}
+
                 {starterTemplates.map((starter) => (
                   <button
                     key={starter.key}

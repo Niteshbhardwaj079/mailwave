@@ -18,21 +18,41 @@
 //
 // Yahan se sirf IMAGE jati hai — koi contact, koi setting, kuch aur nahi.
 // ---------------------------------------------------------------------------
+import { extname } from 'node:path';
+
 import { Router } from 'express';
 
 import { one } from '../db/client.js';
 import { asyncHandler, notFound } from '../lib/http.js';
+import { getObjectBuffer } from '../services/objectStorage.js';
 
 const router = Router();
 
 /** Sirf yahi tarah ki image bhejte hain. */
 const ALLOWED = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/svg+xml']);
+const EXT_TO_MIME = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp' };
 
 router.get(
   '/img/:id',
   asyncHandler(async (req, res) => {
-    const row = await one('SELECT url FROM images WHERE id = $1', [req.params.id]);
+    const row = await one('SELECT url, storage_provider, object_key FROM images WHERE id = $1', [req.params.id]);
     if (!row) throw notFound('Yeh image nahi mili');
+
+    // Client ka apna (private) bucket — yahan hi credentials se padhte hain,
+    // browser/mail-client ko kabhi bucket ka pata seedha nahi diya jaata.
+    if (row.storage_provider === 'object') {
+      if (!row.object_key) throw notFound('Yeh image padhi nahi ja saki');
+
+      const type = EXT_TO_MIME[extname(row.object_key).slice(1).toLowerCase()] || 'application/octet-stream';
+      const bytes = await getObjectBuffer(row.object_key);
+
+      res.setHeader('Content-Type', type);
+      res.setHeader('Content-Length', bytes.length);
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.send(bytes);
+      return;
+    }
 
     // Jo image kisi doosri website par padi hai (source: url), uske liye yahan
     // kuch karne ki zarurat hi nahi — wo apne asli pate se hi khulti hai.

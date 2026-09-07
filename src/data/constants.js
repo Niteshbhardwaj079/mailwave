@@ -8,9 +8,7 @@
 // calls, so it was deleted rather than carried forward — every export below
 // is still actually imported somewhere.
 
-export const templateCategories = ['All', 'Welcome', 'Promotional', 'Announcement', 'Offer', 'Festival', 'Reminder', 'Follow-up', 'Custom'];
-
-export const mergeVariables = ['name', 'email', 'company', 'phone', 'city', 'subscribe_url'];
+export const mergeVariables = ['name', 'email', 'company', 'phone', 'city', 'subscribe_url', 'unsubscribe_url'];
 
 export const appFields = [
   { value: 'name', labelKey: 'imp.field.name' },

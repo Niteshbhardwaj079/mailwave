@@ -22,6 +22,7 @@ const SubscribersPage = lazy(() => import('./pages/SubscribersPage'));
 const TemplatesPage = lazy(() => import('./pages/TemplatesPage'));
 const TemplateEditorPage = lazy(() => import('./pages/TemplateEditorPage'));
 const TemplatePreviewPage = lazy(() => import('./pages/TemplatePreviewPage'));
+const MediaLibraryPage = lazy(() => import('./pages/MediaLibraryPage'));
 const ReportsPage = lazy(() => import('./pages/ReportsPage'));
 const EmailAccountsPage = lazy(() => import('./pages/EmailAccountsPage'));
 const ConnectAccountPage = lazy(() => import('./pages/ConnectAccountPage'));
@@ -91,6 +92,7 @@ export default function App() {
             <Route element={<RequireModule module="templates" />}>
               <Route path="/templates" element={<TemplatesPage />} />
               <Route path="/templates/:templateId/edit" element={<TemplateEditorPage />} />
+              <Route path="/media" element={<MediaLibraryPage />} />
             </Route>
             <Route element={<RequireModule module="templates" action="create" />}>
               <Route path="/templates/new" element={<TemplateEditorPage />} />
