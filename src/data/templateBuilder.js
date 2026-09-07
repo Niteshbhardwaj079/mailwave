@@ -12,28 +12,46 @@
 // khaas API nahi. systemEmailTranslations.js jaisa hi convention.
 // ---------------------------------------------------------------------------
 
-/** Email clients (khaaskar Outlook) sirf yeh fonts bharose se render karte hain. */
-export const EMAIL_SAFE_FONTS = [
-  { value: 'Arial,Helvetica,sans-serif', label: 'Arial' },
-  { value: 'Georgia,\'Times New Roman\',serif', label: 'Georgia' },
-  { value: 'Verdana,Geneva,sans-serif', label: 'Verdana' },
-  { value: 'Tahoma,Geneva,sans-serif', label: 'Tahoma' },
-  { value: '\'Times New Roman\',Times,serif', label: 'Times New Roman' },
-  { value: '\'Courier New\',Courier,monospace', label: 'Courier New' },
+/**
+ * Har email client (khaaskar Outlook) sirf Arial jaisa system font bharose se
+ * render karta hai — isliye font ab client ke chunne ki cheez hi nahi hai,
+ * hamesha yehi lagta hai.
+ */
+export const EMAIL_SAFE_FONT = 'Arial,Helvetica,sans-serif';
+
+/**
+ * Social links ke liye jaana-pehchana platforms — client naam nahi likhta,
+ * bas ek icon chunta hai. Icon PNGs server/public/social-icons/<id>.png me
+ * committed hain (real files, koi external service ya icon-font/CSS nahi —
+ * email me wo bharose ke layak nahi hote).
+ */
+export const SOCIAL_PLATFORMS = [
+  { id: 'facebook', label: 'Facebook' },
+  { id: 'instagram', label: 'Instagram' },
+  { id: 'linkedin', label: 'LinkedIn' },
+  { id: 'youtube', label: 'YouTube' },
+  { id: 'twitter', label: 'X / Twitter' },
+  { id: 'whatsapp', label: 'WhatsApp' },
+  { id: 'other', label: 'Website / Other' },
 ];
+
+export function findSocialPlatform(id) {
+  return SOCIAL_PLATFORMS.find((p) => p.id === id) || SOCIAL_PLATFORMS[SOCIAL_PLATFORMS.length - 1];
+}
 
 export const DEFAULT_SCHEMA = {
   accentColor: '#4f46e5',
   backgroundColor: '#f4f5fa',
   cardColor: '#ffffff',
-  fontFamily: EMAIL_SAFE_FONTS[0].value,
+  fontFamily: EMAIL_SAFE_FONT,
   logoUrl: '',
-  brandName: '{{app_name}}',
+  brandName: '',
   heading: '',
   blocks: [{ type: 'paragraph', text: '' }],
-  footerText: '',
+  footerTexts: [],
+  mobileNumbers: [],
+  customLinks: [],
   socialLinks: [],
-  contactDetails: '',
   unsubscribeText: 'Unsubscribe from these emails',
 };
 
@@ -43,6 +61,45 @@ function esc(value) {
 
 function escAttr(value) {
   return esc(value).replace(/"/g, '&quot;');
+}
+
+/** "+91 98765 43210" -> "+919876543210" — sirf href="tel:" ke liye, dikhne wala text jaisa-ka-taisa rehta hai. */
+function telHref(value) {
+  return String(value ?? '').replace(/(?!^\+)[^\d]/g, '');
+}
+
+/**
+ * Purane (single-value) schema ko naye (multi-value) shape me badalta hai,
+ * bina kisi stored row ko chhue — sirf render/edit karte waqt, in-memory.
+ * Isliye purani templates (14 default samet) kabhi dobara save kiye bina bhi
+ * sahi dikhti/render hoti rehti hain.
+ */
+export function normalizeSchema(schemaInput) {
+  const schema = { ...DEFAULT_SCHEMA, ...schemaInput };
+
+  let footerTexts = Array.isArray(schema.footerTexts) ? schema.footerTexts : null;
+  if (!footerTexts) {
+    footerTexts = [];
+    if (typeof schema.footerText === 'string' && schema.footerText.trim()) footerTexts.push(schema.footerText);
+    if (typeof schema.contactDetails === 'string' && schema.contactDetails.trim()) footerTexts.push(schema.contactDetails);
+  }
+
+  const mobileNumbers = Array.isArray(schema.mobileNumbers) ? schema.mobileNumbers : [];
+  const customLinks = Array.isArray(schema.customLinks) ? schema.customLinks : [];
+
+  const socialLinks = (Array.isArray(schema.socialLinks) ? schema.socialLinks : []).map((link) => {
+    const known = SOCIAL_PLATFORMS.some((p) => p.id === link.platform);
+    return known ? link : { ...link, platform: 'other' };
+  });
+
+  return {
+    ...schema,
+    fontFamily: EMAIL_SAFE_FONT, // ab kabhi kuch aur nahi hota, purani value ho to bhi yahi jeetta hai
+    footerTexts,
+    mobileNumbers,
+    customLinks,
+    socialLinks,
+  };
 }
 
 function renderParagraph(text) {
@@ -65,25 +122,57 @@ function renderButton(label, url, accent) {
             </p>`;
 }
 
-function renderSocialLinks(links) {
-  if (!links?.length) return '';
-  const items = links
-    .filter((link) => link.url)
-    .map(
-      (link) =>
-        `<a href="${escAttr(link.url)}" style="color:#6b7280;text-decoration:none;margin:0 8px">${esc(link.platform || 'Link')}</a>`
-    )
-    .join(' · ');
-  return items ? `<div style="margin-top:8px">${items}</div>` : '';
+function renderFooterTexts(lines) {
+  return lines
+    .filter(Boolean)
+    .map((text) => `<p style="margin:0 0 4px">${esc(text)}</p>`)
+    .join('\n            ');
+}
+
+function renderMobileNumbers(numbers) {
+  const items = numbers.filter(Boolean);
+  if (!items.length) return '';
+  const links = items
+    .map((n) => `<a href="tel:${escAttr(telHref(n))}" style="color:#6b7280;text-decoration:none">${esc(n)}</a>`)
+    .join(' &middot; ');
+  return `<p style="margin:0 0 4px">${links}</p>`;
+}
+
+function renderCustomLinks(links) {
+  const items = links.filter((l) => l?.label && l?.url);
+  if (!items.length) return '';
+  const rendered = items
+    .map((l) => `<a href="${escAttr(l.url)}" style="color:#6b7280;text-decoration:underline">${esc(l.label)}</a>`)
+    .join(' &middot; ');
+  return `<p style="margin:0 0 4px">${rendered}</p>`;
+}
+
+/** `assetBase` diya ho to social icons ki absolute URL bana deta hai (email me relative URL kaam nahi karta). */
+function renderSocialLinks(links, assetBase) {
+  const items = links.filter((l) => l?.url);
+  if (!items.length) return '';
+  const icons = items
+    .map((l) => {
+      const platform = findSocialPlatform(l.platform);
+      const iconSrc = `${assetBase || ''}/social-icons/${platform.id}.png`;
+      return `<a href="${escAttr(l.url)}" style="display:inline-block;margin:0 6px;text-decoration:none"><img src="${escAttr(iconSrc)}" width="28" height="28" alt="${escAttr(platform.label)}" style="display:block;border:0;border-radius:6px" /></a>`;
+    })
+    .join('');
+  return `<div style="margin-top:10px">${icons}</div>`;
 }
 
 /**
  * Schema se poora, Outlook-safe 600px table-layout HTML banata hai.
  * {{var}} tokens jaise-ke-taise pass through hote hain — substitution send
  * time par (mergeVariables) hoti hai, yahan nahi.
+ *
+ * `assetBase` (jaise apiBase, `src/api/client.js` se) social icons ki
+ * absolute URL banane ke liye — kabhi stored schema me nahi baithta,
+ * har baar render karte waqt di jaati hai, taaki app ka domain badalne par
+ * bhi purani templates dobara sahi resolve ho jayein.
  */
-export function renderTemplateHtml(schemaInput) {
-  const schema = { ...DEFAULT_SCHEMA, ...schemaInput };
+export function renderTemplateHtml(schemaInput, { assetBase = '' } = {}) {
+  const schema = normalizeSchema(schemaInput);
   const accent = schema.accentColor || DEFAULT_SCHEMA.accentColor;
 
   const blocksHtml = (schema.blocks?.length ? schema.blocks : DEFAULT_SCHEMA.blocks)
@@ -100,12 +189,18 @@ export function renderTemplateHtml(schemaInput) {
     : `<span style="color:#ffffff;font-size:18px;font-weight:bold">${esc(schema.brandName)}</span>`;
 
   const headingHtml = schema.heading
-    ? `            <h1 style="margin:0 0 14px;font-size:22px;color:#111827;font-family:${schema.fontFamily}">${esc(schema.heading)}</h1>\n`
+    ? `            <h1 style="margin:0 0 14px;font-size:22px;color:#111827;font-family:${EMAIL_SAFE_FONT}">${esc(schema.heading)}</h1>\n`
     : '';
 
-  const footerParts = [esc(schema.footerText), esc(schema.contactDetails)].filter(Boolean).join(' · ');
+  const footerBits = [
+    renderFooterTexts(schema.footerTexts),
+    renderMobileNumbers(schema.mobileNumbers),
+    renderCustomLinks(schema.customLinks),
+  ]
+    .filter(Boolean)
+    .join('\n            ');
 
-  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${schema.backgroundColor};padding:24px 0;font-family:${schema.fontFamily}">
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${schema.backgroundColor};padding:24px 0;font-family:${EMAIL_SAFE_FONT}">
   <tr>
     <td align="center">
       <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background:${schema.cardColor};border-radius:10px;overflow:hidden">
@@ -115,14 +210,14 @@ export function renderTemplateHtml(schemaInput) {
           </td>
         </tr>
         <tr>
-          <td style="padding:32px;font-family:${schema.fontFamily}">
+          <td style="padding:32px;font-family:${EMAIL_SAFE_FONT}">
 ${headingHtml}${blocksHtml}
           </td>
         </tr>
         <tr>
           <td align="center" style="background:#f9fafb;padding:18px;font-size:12px;color:#6b7280">
-            ${footerParts}
-            ${renderSocialLinks(schema.socialLinks)}
+            ${footerBits}
+            ${renderSocialLinks(schema.socialLinks, assetBase)}
             <div style="margin-top:10px">
               <a href="{{unsubscribe_url}}" style="color:#6b7280">${esc(schema.unsubscribeText || DEFAULT_SCHEMA.unsubscribeText)}</a>
             </div>

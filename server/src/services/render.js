@@ -154,6 +154,17 @@ export function buildEmail({ campaign, recipient, links, company, unsubscribeTex
     phone: recipient.merge_data?.phone || '',
     city: recipient.merge_data?.city || '',
     subscribe_url: `${env.publicUrl}/t/s/${recipient.id}`,
+    // footer() below adds its OWN unsubscribe block regardless — this is
+    // only so a {{unsubscribe_url}} a client typed into the template body
+    // itself (Design tab's Dynamic Fields) resolves to the same real,
+    // per-recipient link instead of silently going blank.
+    unsubscribe_url: `${env.publicUrl}/t/u/${recipient.id}`,
+    // App-wide, not per-recipient — same for every email, sourced from the
+    // app's own brand config so a {{app_name}}/{{support_email}} a client
+    // inserts (default templates' header/footer use these) always resolves,
+    // instead of silently going blank.
+    app_name: env.brand.name,
+    support_email: env.brand.supportEmail,
     ...(recipient.merge_data || {}),
   };
 

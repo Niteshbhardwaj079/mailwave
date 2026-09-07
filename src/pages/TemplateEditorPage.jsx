@@ -8,20 +8,29 @@ import Sheet from '../components/ui/Sheet';
 import HtmlPreview from '../components/templates/HtmlPreview';
 import ImageLibrary from '../components/templates/ImageLibrary';
 import TemplateDesignEditor from '../components/templates/TemplateDesignEditor';
+import DynamicFieldPicker from '../components/templates/DynamicFieldPicker';
+import DynamicFieldManager from '../components/templates/DynamicFieldManager';
 import { useT } from '../i18n/I18nProvider';
 import { useWorkspace } from '../store/WorkspaceProvider';
+import { useToast } from '../components/ui/ToastProvider';
 import { BLANK_HTML, starterTemplates } from '../data/starterHtml';
-import { mergeVariables } from '../data/constants';
 import { DEFAULT_SCHEMA, renderTemplateHtml } from '../data/templateBuilder';
+import { combineDynamicFields, fillDynamicPreview } from '../data/dynamicFields';
 import { LANGUAGES } from '../i18n/languages';
-import { api } from '../api/client';
+import { api, apiBase, ApiError } from '../api/client';
+import { appConfig } from '../config/appConfig';
 
 function cloneSchema(schema) {
   return JSON.parse(JSON.stringify(schema));
 }
 
+function newSchemaForBlankTemplate() {
+  return { ...cloneSchema(DEFAULT_SCHEMA), brandName: appConfig.name };
+}
+
 export default function TemplateEditorPage() {
   const t = useT();
+  const toast = useToast();
   const { templateId } = useParams();
   const navigate = useNavigate();
   const { getTemplate, saveTemplate, duplicateTemplate, templates } = useWorkspace();
@@ -32,11 +41,11 @@ export default function TemplateEditorPage() {
   const [categories, setCategories] = useState([]);
   const [subject, setSubject] = useState(existing?.subject || '');
   const [schema, setSchema] = useState(
-    existing ? (existing.contentSchema ? cloneSchema(existing.contentSchema) : null) : cloneSchema(DEFAULT_SCHEMA)
+    existing ? (existing.contentSchema ? cloneSchema(existing.contentSchema) : null) : newSchemaForBlankTemplate()
   );
   const [html, setHtml] = useState(() => {
     if (existing) return existing.html || BLANK_HTML;
-    return renderTemplateHtml(DEFAULT_SCHEMA);
+    return renderTemplateHtml(newSchemaForBlankTemplate(), { assetBase: apiBase });
   });
   const [language, setLanguage] = useState(existing?.language || 'en');
   const [isDefault, setIsDefault] = useState(Boolean(existing?.isDefault));
@@ -45,6 +54,8 @@ export default function TemplateEditorPage() {
   const [savedId, setSavedId] = useState(existing?.id || null);
   const [savedOpen, setSavedOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [customFields, setCustomFields] = useState([]);
+  const [fieldsManagerOpen, setFieldsManagerOpen] = useState(false);
   const codeRef = useRef(null);
 
   useEffect(() => {
@@ -53,6 +64,36 @@ export default function TemplateEditorPage() {
       .then((data) => setCategories(data.categories ?? []))
       .catch(() => setCategories([]));
   }, []);
+
+  useEffect(() => {
+    api
+      .get('/api/settings')
+      .then((data) => setCustomFields(data.settings?.dynamicFields ?? []))
+      .catch(() => setCustomFields([]));
+  }, []);
+
+  const dynamicFields = useMemo(() => combineDynamicFields(customFields), [customFields]);
+
+  async function saveCustomFields(next) {
+    try {
+      await api.put('/api/settings/dynamicFields', next);
+      setCustomFields(next);
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : t('toast.networkError'));
+    }
+  }
+
+  function addDynamicField({ label, key }) {
+    saveCustomFields([...customFields, { id: `df_${Date.now().toString(36)}`, label, key }]);
+  }
+
+  function renameDynamicField(id, label) {
+    saveCustomFields(customFields.map((f) => (f.id === id ? { ...f, label } : f)));
+  }
+
+  function removeDynamicField(id) {
+    saveCustomFields(customFields.filter((f) => f.id !== id));
+  }
 
   // Workspace templates load asynchronously after sign-in, so on a direct
   // page load (a refresh while already on this URL, not a click from inside
@@ -103,6 +144,10 @@ export default function TemplateEditorPage() {
 
   const defaultStarters = useMemo(() => templates.filter((item) => item.isDefault), [templates]);
 
+  // Preview-only substitution — raw {{tokens}} kabhi screen par nahi dikhte,
+  // asli saved html/subject bilkul waisa hi rehta hai jaisa neeche save hota hai.
+  const previewHtml = useMemo(() => fillDynamicPreview(html, dynamicFields), [html, dynamicFields]);
+
   function handleName(event) {
     setName(event.target.value);
   }
@@ -121,7 +166,7 @@ export default function TemplateEditorPage() {
 
   function handleSchemaChange(nextSchema) {
     setSchema(nextSchema);
-    setHtml(renderTemplateHtml(nextSchema));
+    setHtml(renderTemplateHtml(nextSchema, { assetBase: apiBase }));
   }
 
   function handleHtml(event) {
@@ -149,10 +194,6 @@ export default function TemplateEditorPage() {
     });
   }
 
-  function insertVariable(event) {
-    insertAtCursor(`{{${event.currentTarget.dataset.name}}}`);
-  }
-
   function loadStarter(event) {
     const starter = starterTemplates.find((item) => item.key === event.currentTarget.dataset.key);
     if (!starter) return;
@@ -170,7 +211,7 @@ export default function TemplateEditorPage() {
     setSubject(source.subject);
     if (source.contentSchema) {
       setSchema(cloneSchema(source.contentSchema));
-      setHtml(renderTemplateHtml(source.contentSchema));
+      setHtml(renderTemplateHtml(source.contentSchema, { assetBase: apiBase }));
       setTab('design');
     } else {
       setSchema(null);
@@ -228,6 +269,10 @@ export default function TemplateEditorPage() {
         helpTopic="editor"
         actions={
           <>
+            <button type="button" className="btn btn-outline-secondary mw-btn-block-mobile" onClick={() => setFieldsManagerOpen(true)}>
+              <i className="bi bi-braces me-2" />
+              {t('dyn.manageFields')}
+            </button>
             {savedId ? (
               <a
                 className="btn btn-outline-secondary mw-hide-mobile"
@@ -331,7 +376,7 @@ export default function TemplateEditorPage() {
 
             {tab === 'design' ? (
               schema ? (
-                <TemplateDesignEditor schema={schema} onChange={handleSchemaChange} />
+                <TemplateDesignEditor schema={schema} onChange={handleSchemaChange} dynamicFields={dynamicFields} />
               ) : (
                 <div className="mw-stack--sm d-flex flex-column">
                   <Note tone="warning" icon="bi-exclamation-triangle">
@@ -357,19 +402,17 @@ export default function TemplateEditorPage() {
                 ) : null}
                 <div className="mb-3">
                   <span className="form-label d-block">{t('tpl.variables')}</span>
-                  <div className="mw-row mw-row--wrap">
-                    {mergeVariables.map((variable) => (
-                      <button
-                        key={variable}
-                        type="button"
-                        className="mw-var"
-                        data-name={variable}
-                        onClick={insertVariable}
-                      >
-                        {`{{${variable}}}`}
-                      </button>
-                    ))}
-                  </div>
+                  <DynamicFieldPicker
+                    fields={dynamicFields}
+                    getField={() => codeRef.current}
+                    value={html}
+                    onChange={(next) => {
+                      if (schema) setSchema(null);
+                      setHtml(next);
+                    }}
+                    className="form-select"
+                    ariaLabel={t('dyn.insertField')}
+                  />
                   <p className="form-text mt-2 mb-0">{t('tpl.variablesHelp')}</p>
                 </div>
 
@@ -458,7 +501,7 @@ export default function TemplateEditorPage() {
             }
           />
           <CardBody>
-            <HtmlPreview html={html} device={device} />
+            <HtmlPreview html={previewHtml} device={device} />
           </CardBody>
         </Card>
       </div>
@@ -498,6 +541,15 @@ export default function TemplateEditorPage() {
           </Link>
         </div>
       </Sheet>
+
+      <DynamicFieldManager
+        open={fieldsManagerOpen}
+        onClose={() => setFieldsManagerOpen(false)}
+        customFields={customFields}
+        onAdd={addDynamicField}
+        onRename={renameDynamicField}
+        onRemove={removeDynamicField}
+      />
     </div>
   );
 }

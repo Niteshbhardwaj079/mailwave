@@ -38,9 +38,16 @@ function btn(label, urlVar) {
   return { type: 'button', label, url: `{{${urlVar}}}` };
 }
 
+// `{{company}}` is real campaign merge data (recipient.merge_data.company) —
+// it resolves safely blank if a contact has none set, never breaks anything.
+// Mobile numbers / custom links are intentionally left empty here: a generic
+// default template cannot know any one business's own phone number or
+// policy links, so the client adds their own via the Design tab's footer
+// section (same "add your own" spirit as the placeholder images).
 const STANDARD_FOOTER = {
-  footerText: '{{company}}',
-  contactDetails: 'Questions? Write to {{support_email}}',
+  footerTexts: ['{{company}}'],
+  mobileNumbers: [],
+  customLinks: [],
   unsubscribeText: 'Unsubscribe from these emails',
 };
 

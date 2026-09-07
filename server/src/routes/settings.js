@@ -18,6 +18,7 @@ import { asyncHandler, badRequest } from '../lib/http.js';
 import { logActivity } from '../lib/activity.js';
 import { validate } from '../lib/validate.js';
 import { requireModule } from '../middleware/permissions.js';
+import { BUILTIN_DYNAMIC_FIELD_KEYS, isValidFieldKey } from '../../../src/data/dynamicFields.js';
 
 const router = Router();
 
@@ -45,6 +46,23 @@ const SCHEMAS = {
     confirmation: z.string().trim().min(1).max(500),
     oneClickHeader: z.boolean(),
   }),
+  // Client ke apne "Dynamic Fields" (WordPress custom-fields jaisa) — sirf
+  // CUSTOM fields yahan store hote hain, builtins (name/email/company/...)
+  // hamesha src/data/dynamicFields.js se aate hain, kabhi DB me nahi.
+  dynamicFields: z
+    .array(
+      z.object({
+        id: z.string().trim().min(1).max(50),
+        label: z.string().trim().min(1).max(80),
+        key: z.string().trim().refine(isValidFieldKey, 'Key sirf chhote akshar/ank/underscore, akshar se shuru'),
+      })
+    )
+    .max(200)
+    .refine((fields) => {
+      const keys = fields.map((f) => f.key);
+      if (keys.some((k) => BUILTIN_DYNAMIC_FIELD_KEYS.includes(k))) return false;
+      return new Set(keys).size === keys.length;
+    }, 'Ek key sirf ek hi field ke liye — koi builtin field ki key repeat ya duplicate nahi honi chahiye'),
 };
 
 router.get(

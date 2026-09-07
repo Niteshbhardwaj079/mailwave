@@ -117,6 +117,11 @@ export function createApp() {
   // hain.
   app.use('/template-placeholders', express.static(resolve(serverRoot, 'public/template-placeholders')));
 
+  // Social link icons (Design tab footer) — same reasoning as above: real
+  // committed PNGs, never an external icon service or CSS icon font (email
+  // clients cannot load those).
+  app.use('/social-icons', express.static(resolve(serverRoot, 'public/social-icons')));
+
   app.use(notFoundHandler);
   app.use(errorHandler);
 
