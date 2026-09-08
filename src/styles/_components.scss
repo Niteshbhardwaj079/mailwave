@@ -1218,6 +1218,79 @@
 }
 
 // ---------------------------------------------------------------------------
+// Full-screen loader — screen ke exact center mein, jab koi lambi background
+// cheez chal rahi ho (jaise campaign report generate hona). Toast (1080) ke
+// bhi upar, taaki har haal mein sabse upar dikhe.
+// ---------------------------------------------------------------------------
+.mw-fullloader {
+  position: fixed;
+  inset: 0;
+  z-index: 1090;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(15, 23, 42, 0.45);
+  animation: mw-fullloader-fade 0.15s ease-out;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+.mw-fullloader__card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  min-width: 15rem;
+  padding: 2.2rem 3rem;
+  border-radius: 1.2rem;
+  background-color: var(--mw-surface);
+  box-shadow: var(--mw-shadow-lg);
+  text-align: center;
+}
+
+.mw-fullloader__mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.4rem;
+  height: 3.4rem;
+  border-radius: 50%;
+  background: var(--mw-primary);
+  color: var(--mw-on-primary);
+  font-size: 1.5rem;
+  animation: mw-fullloader-pulse 1.3s ease-in-out infinite;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+.mw-fullloader__text {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 650;
+  color: var(--mw-ink);
+}
+
+.mw-fullloader__subtext {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--mw-muted);
+}
+
+@keyframes mw-fullloader-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes mw-fullloader-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.14); opacity: 0.82; }
+}
+
+// ---------------------------------------------------------------------------
 // Page loader — shown while a route's code-split chunk arrives
 // ---------------------------------------------------------------------------
 .mw-pageloader {

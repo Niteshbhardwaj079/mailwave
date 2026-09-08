@@ -16,6 +16,8 @@ import StatusPill from '../components/ui/StatusPill';
 import Sheet from '../components/ui/Sheet';
 import { useToast } from '../components/ui/ToastProvider';
 import { formatUserAgent, looksLikeUserAgent } from '../utils/userAgent';
+import { downloadCampaignReport } from '../utils/campaignReport';
+import FullScreenLoader from '../components/ui/FullScreenLoader';
 import PerformanceChart from '../components/charts/PerformanceChart';
 import { widthClass, formatDateTime, formatNumber, getActiveLocale, percent, percentValue } from '../utils/format';
 import { useApi } from '../api/useApi';
@@ -275,6 +277,7 @@ export default function CampaignAnalyticsPage() {
   );
 
   const [resendingTop, setResendingTop] = useState(false);
+  const [downloadingReport, setDownloadingReport] = useState(false);
 
   async function handleResendUnopened() {
     setResendingTop(true);
@@ -293,6 +296,21 @@ export default function CampaignAnalyticsPage() {
       toast.error(error instanceof ApiError ? error.message : t('toast.networkError'));
     } finally {
       setResendingTop(false);
+    }
+  }
+
+  async function handleDownloadReport() {
+    // Button khud disable ho jata hai jab tak download chal raha ho — ek
+    // click, ek hi report; dobara dabane se doosri request nahi jaati.
+    if (downloadingReport) return;
+    setDownloadingReport(true);
+    try {
+      await downloadCampaignReport(campaignId, campaign.name);
+      toast.success(t('toast.reportDownloaded'), campaign.name);
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : t('toast.networkError'));
+    } finally {
+      setDownloadingReport(false);
     }
   }
 
@@ -514,6 +532,10 @@ export default function CampaignAnalyticsPage() {
             <button type="button" className="btn btn-outline-primary" onClick={openAddRecipients}>
               <i className="bi bi-person-plus me-2" />
               {t('rec.addMore')}
+            </button>
+            <button type="button" className="btn btn-outline-primary" onClick={handleDownloadReport} disabled={downloadingReport}>
+              <i className="bi bi-download me-2" />
+              {t('camp.exportReport')}
             </button>
           </>
         }
@@ -1013,6 +1035,10 @@ export default function CampaignAnalyticsPage() {
           counting={addCounting}
         />
       </Sheet>
+
+      {downloadingReport ? (
+        <FullScreenLoader message={t('camp.generatingReport')} subtext={t('camp.generatingReportSub')} />
+      ) : null}
     </div>
   );
 }

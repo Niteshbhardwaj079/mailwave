@@ -16,6 +16,8 @@ import { useServerList } from '../api/useServerList';
 import { formatDate, formatNumber, percent } from '../utils/format';
 import { ApiError, api } from '../api/client';
 import { useToast } from '../components/ui/ToastProvider';
+import { downloadCampaignReport } from '../utils/campaignReport';
+import FullScreenLoader from '../components/ui/FullScreenLoader';
 
 const STATUSES = ['Sent', 'Sending', 'Scheduled', 'Paused', 'Draft'];
 
@@ -24,6 +26,7 @@ const ROW_ACTIONS = [
   { key: 'recipients', labelKey: 'camp.viewRecipients', icon: 'bi-people' },
   { key: 'resend', labelKey: 'camp.resendUnopened', icon: 'bi-arrow-repeat' },
   { key: 'failed', labelKey: 'camp.resendFailed', icon: 'bi-arrow-clockwise' },
+  { key: 'report', labelKey: 'camp.exportReport', icon: 'bi-download' },
 ];
 
 const SORTS = [
@@ -48,6 +51,7 @@ export default function CampaignsPage() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [resending, setResending] = useState(false);
+  const [downloadingReport, setDownloadingReport] = useState(false);
 
   /**
    * Search, filter aur sort — teenon server par lagte hain.
@@ -127,6 +131,23 @@ export default function CampaignsPage() {
       toast.error(error instanceof ApiError ? error.message : t('toast.networkError'));
     } finally {
       setResending(false);
+    }
+  }
+
+  async function handleDownloadReport() {
+    // Ek click, ek hi download — button khud disable ho jata hai, isliye
+    // dobara dabane se doosri request nahi jaati (server par bhi fazool
+    // load nahi, aur user ko do baar file bhi nahi milti).
+    if (!actionsFor || downloadingReport) return;
+    setDownloadingReport(true);
+    try {
+      await downloadCampaignReport(actionsFor.id, actionsFor.name);
+      toast.success(t('toast.reportDownloaded'), actionsFor.name);
+      closeActions();
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : t('toast.networkError'));
+    } finally {
+      setDownloadingReport(false);
     }
   }
 
@@ -387,6 +408,26 @@ export default function CampaignsPage() {
                   );
                 }
 
+                if (action.key === 'report') {
+                  return (
+                    <button
+                      key={action.key}
+                      type="button"
+                      className="list-group-item list-group-item-action d-flex align-items-center gap-3"
+                      onClick={handleDownloadReport}
+                      disabled={downloadingReport}
+                    >
+                      <i className={`bi ${action.icon} mw-fs-16 mw-text-primary`} />
+                      <span className="mw-fs-14 mw-fw-600">{t(action.labelKey)}</span>
+                      {downloadingReport ? (
+                        <span className="spinner-border spinner-border-sm ms-auto" role="status" aria-hidden="true" />
+                      ) : (
+                        <i className="bi bi-chevron-right ms-auto mw-fs-12 mw-text-muted-2" />
+                      )}
+                    </button>
+                  );
+                }
+
                 return (
                   <Link
                     key={action.key}
@@ -419,6 +460,10 @@ export default function CampaignsPage() {
           </>
         ) : null}
       </Sheet>
+
+      {downloadingReport ? (
+        <FullScreenLoader message={t('camp.generatingReport')} subtext={t('camp.generatingReportSub')} />
+      ) : null}
     </div>
   );
 }

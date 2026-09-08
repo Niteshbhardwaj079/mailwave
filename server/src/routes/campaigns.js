@@ -3,6 +3,10 @@
 // ---------------------------------------------------------------------------
 import { Router } from 'express';
 import { z } from 'zod';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { randomUUID } from 'node:crypto';
+import { writeFile, unlink } from 'node:fs/promises';
 
 import { many, one, query } from '../db/client.js';
 import { env } from '../env.js';
@@ -17,6 +21,7 @@ import { sendMail } from '../services/mailer.js';
 import { buildEmail } from '../services/render.js';
 import { LANGUAGE_CODES, DEFAULT_LANGUAGE } from '../lib/languages.js';
 import { providerPreset } from '../services/providers.js';
+import { buildCampaignReportWorkbook, reportFileName } from '../services/campaignReport.js';
 
 const router = Router();
 
@@ -409,6 +414,46 @@ router.get(
     }));
 
     res.json({ ...paginated(items, { page, limit }, totalRow?.n ?? 0), recipients: items });
+  })
+);
+
+// --- report (Excel, on-demand) -----------------------------------------------
+/**
+ * Poori campaign ka client-ready Excel report — button dabate hi taaza
+ * generate hota hai, existing data se. Kahin database me save nahi hota.
+ *
+ * Ek temp file me likha jata hai (kabhi memory me poora HTTP response ke
+ * saath nahi rehta), res.download() se bheja jata hai, aur bhejne ke turant
+ * baad — chahe safal ho ya na ho — mita diya jata hai.
+ */
+router.get(
+  '/:id/report',
+  requireModule('campaigns', 'export'),
+  asyncHandler(async (req, res) => {
+    const built = await buildCampaignReportWorkbook(req.params.id);
+    if (!built) throw notFound('Yeh campaign nahi mila');
+
+    const filename = reportFileName(built.campaignName);
+    const tempPath = join(tmpdir(), `mw-report-${randomUUID()}.xlsx`);
+
+    await writeFile(tempPath, built.buffer);
+
+    res.download(tempPath, filename, async (error) => {
+      // res.download khud hi headers/streaming sambhalta hai — hume sirf
+      // temp file saaf karni hai, chahe download safal hua ho ya beech me
+      // ruk gaya ho (jaise browser ne connection band kar diya).
+      await unlink(tempPath).catch(() => {});
+      if (error && !res.headersSent) {
+        console.error('[campaigns] report download fail hui', error);
+      }
+    });
+
+    await logActivity(req, {
+      action: 'exported',
+      module: 'campaigns',
+      item: built.campaignName,
+      detail: 'Campaign report download kiya gaya',
+    });
   })
 );
 
