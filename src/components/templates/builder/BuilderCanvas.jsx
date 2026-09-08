@@ -12,9 +12,9 @@ const LAYOUTS = [
 function LayoutPicker({ onPick }) {
   const t = useT();
   return (
-    <div className="mw-builder-layout">
+    <div className="mw-tplbuilder-layout">
       {LAYOUTS.map((layout) => (
-        <button key={layout.columns} type="button" className="mw-builder-layout__item" onClick={() => onPick(layout.columns)} aria-label={t(layout.key)} title={t(layout.key)}>
+        <button key={layout.columns} type="button" className="mw-tplbuilder-layout__item" onClick={() => onPick(layout.columns)} aria-label={t(layout.key)} title={t(layout.key)}>
           {layout.cols.map((_, i) => (
             <span key={i} aria-hidden="true" />
           ))}
@@ -53,7 +53,7 @@ export default function BuilderCanvas({
   }
 
   return (
-    <div className="mw-builder__canvas">
+    <div className="mw-tplbuilder__canvas">
       {schema.rows.map((row, index) => (
         <BuilderRow
           key={row.id}

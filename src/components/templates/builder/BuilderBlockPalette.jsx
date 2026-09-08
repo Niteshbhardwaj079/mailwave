@@ -24,12 +24,12 @@ export default function BuilderBlockPalette({ open, onClose, onPick }) {
 
   return (
     <Sheet open={open} title={t('tpl.builder.addBlock')} onClose={onClose}>
-      <div className="mw-builder-palette">
+      <div className="mw-tplbuilder-palette">
         {BLOCK_TYPES.map((type) => (
           <button
             key={type}
             type="button"
-            className="mw-builder-palette__item"
+            className="mw-tplbuilder-palette__item"
             onClick={() => {
               onPick(type);
               onClose();

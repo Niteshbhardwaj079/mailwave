@@ -1899,20 +1899,26 @@
 // ---------------------------------------------------------------------------
 // Drag & Drop template builder
 // ---------------------------------------------------------------------------
-.mw-builder {
+// Canvas ko preview se JYAADA jagah — multi-column rows (2/3 columns) edit
+// karne ke liye asli kaam ki jagah chahiye, preview sirf reference hai.
+// Pehle yahan ek fixed 38rem preview track tha jo canvas ko bahut chhota
+// (sirf jitna bacha) kar deta tha — client ne khud dekh kar bataya ki
+// canvas me "space hi nahi hai". Ab dono tracks flexible hain, canvas
+// jaan-boojh kar bada.
+.mw-tplbuilder {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 38rem;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
   gap: 1.6rem;
   align-items: start;
 }
 
-@media (max-width: 1100px) {
-  .mw-builder {
+@media (max-width: 1200px) {
+  .mw-tplbuilder {
     grid-template-columns: minmax(0, 1fr);
   }
 }
 
-.mw-builder__canvas {
+.mw-tplbuilder__canvas {
   padding: 1.6rem;
   border-radius: 1rem;
   background-color: var(--mw-surface-2);
@@ -1921,7 +1927,7 @@
   gap: 1.2rem;
 }
 
-.mw-builder-row {
+.mw-tplbuilder-row {
   position: relative;
   border: 1px dashed var(--mw-line-strong);
   border-radius: 0.8rem;
@@ -1929,20 +1935,20 @@
   padding: 0.8rem;
 }
 
-.mw-builder-row__toolbar {
+.mw-tplbuilder-row__toolbar {
   display: flex;
   justify-content: flex-end;
   gap: 0.4rem;
   margin-block-end: 0.6rem;
 }
 
-.mw-builder-row__cols {
+.mw-tplbuilder-row__cols {
   display: flex;
   gap: 0.8rem;
   align-items: stretch;
 }
 
-.mw-builder-col {
+.mw-tplbuilder-col {
   flex: 1 1 0;
   min-width: 0;
   border: 1px dashed var(--mw-line);
@@ -1954,7 +1960,7 @@
   background-color: var(--mw-surface);
 }
 
-.mw-builder-col__empty {
+.mw-tplbuilder-col__empty {
   padding: 1.6rem 0.8rem;
   text-align: center;
   color: var(--mw-muted);
@@ -1963,7 +1969,7 @@
   border-radius: 0.6rem;
 }
 
-.mw-builder-block {
+.mw-tplbuilder-block {
   position: relative;
   border: 1px solid transparent;
   border-radius: 0.5rem;
@@ -1976,12 +1982,12 @@
     background-color: var(--mw-primary-soft);
   }
 
-  &:hover .mw-builder-block__toolbar {
+  &:hover .mw-tplbuilder-block__toolbar {
     display: flex;
   }
 }
 
-.mw-builder-block__toolbar {
+.mw-tplbuilder-block__toolbar {
   display: none;
   position: absolute;
   inset-block-start: -1.4rem;
@@ -1995,7 +2001,7 @@
   z-index: 2;
 }
 
-.mw-builder-block__toolbar button {
+.mw-tplbuilder-block__toolbar button {
   border: none;
   background: none;
   width: 2.2rem;
@@ -2012,7 +2018,7 @@
   }
 }
 
-.mw-builder-block__preview {
+.mw-tplbuilder-block__preview {
   cursor: pointer;
   font-size: 1.2rem;
 
@@ -2025,13 +2031,13 @@
   }
 }
 
-.mw-builder-palette {
+.mw-tplbuilder-palette {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
   gap: 0.8rem;
 }
 
-.mw-builder-palette__item {
+.mw-tplbuilder-palette__item {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2055,12 +2061,12 @@
   }
 }
 
-.mw-builder-layout {
+.mw-tplbuilder-layout {
   display: flex;
   gap: 0.8rem;
 }
 
-.mw-builder-layout__item {
+.mw-tplbuilder-layout__item {
   flex: 1;
   display: flex;
   gap: 0.3rem;

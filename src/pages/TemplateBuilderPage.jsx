@@ -236,7 +236,7 @@ export default function TemplateBuilderPage() {
         </CardBody>
       </Card>
 
-      <div className="mw-builder">
+      <div className="mw-tplbuilder">
         <BuilderCanvas
           schema={schema}
           onAddRow={(columns) => setSchema((prev) => addRow(prev, columns))}

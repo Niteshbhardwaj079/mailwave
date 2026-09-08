@@ -15,7 +15,7 @@ export default function BuilderColumn({ rowId, col, onAddBlock, onEditBlock, onD
   const [draggingId, setDraggingId] = useState(null);
 
   return (
-    <div className="mw-builder-col">
+    <div className="mw-tplbuilder-col">
       {col.blocks.length ? (
         col.blocks.map((block, index) => (
           <BuilderBlock
@@ -42,7 +42,7 @@ export default function BuilderColumn({ rowId, col, onAddBlock, onEditBlock, onD
           />
         ))
       ) : (
-        <div className="mw-builder-col__empty">{t('tpl.builder.emptyColumn')}</div>
+        <div className="mw-tplbuilder-col__empty">{t('tpl.builder.emptyColumn')}</div>
       )}
 
       <button type="button" className="btn btn-outline-primary btn-sm" onClick={() => setPaletteOpen(true)}>

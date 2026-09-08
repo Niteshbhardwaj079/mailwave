@@ -11,8 +11,8 @@ export default function BuilderBlock({ block, onEdit, onDuplicate, onDelete, onM
   const html = compileBlockForPreview(block);
 
   return (
-    <div className="mw-builder-block" {...dragProps}>
-      <div className="mw-builder-block__toolbar">
+    <div className="mw-tplbuilder-block" {...dragProps}>
+      <div className="mw-tplbuilder-block__toolbar">
         <button type="button" onClick={onEdit} aria-label={t('tpl.builder.editBlock')} title={t('tpl.builder.editBlock')}>
           <i className="bi bi-pencil" />
         </button>
@@ -33,9 +33,9 @@ export default function BuilderBlock({ block, onEdit, onDuplicate, onDelete, onM
         </button>
       </div>
       {html ? (
-        <div className="mw-builder-block__preview" onClick={onEdit} dangerouslySetInnerHTML={{ __html: html }} />
+        <div className="mw-tplbuilder-block__preview" onClick={onEdit} dangerouslySetInnerHTML={{ __html: html }} />
       ) : (
-        <div className="mw-builder-block__preview mw-text-muted" onClick={onEdit}>
+        <div className="mw-tplbuilder-block__preview mw-text-muted" onClick={onEdit}>
           {t(`tpl.builder.block.${block.type}`)}…
         </div>
       )}

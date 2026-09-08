@@ -42,8 +42,8 @@ export default function BuilderRow({ row, canMoveUp, canMoveDown, onMoveUp, onMo
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   return (
-    <div className="mw-builder-row">
-      <div className="mw-builder-row__toolbar">
+    <div className="mw-tplbuilder-row">
+      <div className="mw-tplbuilder-row__toolbar">
         <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => setSettingsOpen(true)} aria-label={t('tpl.builder.rowSettings')}>
           <i className="bi bi-sliders" />
         </button>
@@ -57,7 +57,7 @@ export default function BuilderRow({ row, canMoveUp, canMoveDown, onMoveUp, onMo
           <i className="bi bi-trash3" />
         </button>
       </div>
-      <div className="mw-builder-row__cols">
+      <div className="mw-tplbuilder-row__cols">
         {row.columns.map((col) => (
           <BuilderColumn key={col.id} rowId={row.id} col={col} {...columnProps} />
         ))}
