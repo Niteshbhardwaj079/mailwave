@@ -2,6 +2,7 @@ import { useParams } from 'react-router-dom';
 
 import TemplateEditorPage from './TemplateEditorPage';
 import TemplateUploadPage from './TemplateUploadPage';
+import TemplateBuilderPage from './TemplateBuilderPage';
 import { useWorkspace } from '../store/WorkspaceProvider';
 
 /**
@@ -19,5 +20,6 @@ export default function TemplateEditRouterPage() {
   const existing = getTemplate(templateId);
 
   if (existing?.source === 'html_upload') return <TemplateUploadPage />;
+  if (existing?.source === 'builder') return <TemplateBuilderPage />;
   return <TemplateEditorPage />;
 }
