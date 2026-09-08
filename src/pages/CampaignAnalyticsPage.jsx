@@ -61,6 +61,16 @@ function pendingReasonKey(campaign) {
   return 'camp.pendingReasonUnknown';
 }
 
+// Suppression ab per-account hai — "Apply globally" (Settings > Unsubscribe)
+// chalu ho ya purana (account-scope se pehle wala) record ho, tabhi yeh
+// har sending account par lagu hota hai. Warna sirf isi account par.
+function suppressionNoteKey(row) {
+  if (row.suppressionReason === 'bounced' || row.suppressionReason === 'complaint') {
+    return 'camp.suppressedBouncedNote';
+  }
+  return row.suppressionIsGlobal ? 'camp.suppressedUnsubscribedGlobalNote' : 'camp.suppressedUnsubscribedAccountNote';
+}
+
 export default function CampaignAnalyticsPage() {
   const t = useT();
   const toast = useToast();
@@ -197,7 +207,20 @@ export default function CampaignAnalyticsPage() {
         name: row.name?.trim() || row.email,
         // Unsubscribe alag column hai, status nahi — isliye jab tak yahan na
         // jodein, table/filter me kabhi dikhta hi nahi ki kaun chhod gaya.
-        displayStatus: row.unsubscribed ? 'Unsubscribed' : row.status,
+        // `unsubscribed` = isi campaign ke link se. `suppressed` = global
+        // suppression list me hai — kisi PURANI campaign se unsubscribe ya
+        // manual block, isliye status abhi bhi 'Pending' hi hai (kabhi
+        // bheja hi nahi jayega). Dono ko yahan Status column me dikha dete
+        // hain, warna ek asal me kabhi na bheji jaane wali email hamesha
+        // "Pending" dikhti rehti — jaise ki wo bas apni baari ka intezaar
+        // kar rahi ho.
+        displayStatus: row.unsubscribed
+          ? 'Unsubscribed'
+          : row.suppressed
+            ? row.suppressionReason === 'bounced' || row.suppressionReason === 'complaint'
+              ? 'Bounced'
+              : 'Unsubscribed'
+            : row.status,
         // API se raw ISO timestamp aata hai — display ke liye alag se format
         // karte hain, par filtering (neeche) ke liye raw value bhi rakhte hain.
         firstOpenDisplay: row.firstOpen ? formatDateTime(row.firstOpen) : '—',
@@ -291,11 +314,20 @@ export default function CampaignAnalyticsPage() {
   async function handleBulkResend() {
     setBulkBusy(true);
     const ids = bulk.selectedIds;
-    const count = selectedRows.length;
-    const ok = await bulkRecipientAction('resend', ids, campaign.name);
+    const data = await bulkRecipientAction('resend', ids, campaign.name);
     setBulkBusy(false);
-    if (ok) {
-      const message = t('bulk.doneResend', { count });
+    if (data) {
+      // Jo already unsubscribed/suppressed hain unhe server ne khud hi
+      // resend se bahar kar diya — client ko yeh saaf batana zaroori hai,
+      // warna lagega ki resend ne unhe bhi bhej diya jabki asal me nahi bheja.
+      const affected = data.affected ?? 0;
+      const skipped = data.skipped ?? 0;
+      const message =
+        skipped === 0
+          ? t('bulk.doneResend', { count: affected })
+          : affected === 0
+            ? t('bulk.doneResendAllSkipped', { count: skipped })
+            : t('bulk.doneResendWithSkipped', { count: affected, skipped });
       setBulkDone(message);
       toast.success(message);
       bulk.clear();
@@ -883,6 +915,10 @@ export default function CampaignAnalyticsPage() {
             {logFor.displayStatus === 'Pending' ? (
               <Note tone="warning" icon="bi-hourglass-split">
                 {t(pendingReasonKey(campaign))}
+              </Note>
+            ) : logFor.suppressed ? (
+              <Note tone={logFor.suppressionReason === 'bounced' || logFor.suppressionReason === 'complaint' ? 'warning' : 'muted'} icon="bi-slash-circle">
+                {t(suppressionNoteKey(logFor), { sender: campaign.sender ?? '' })}
               </Note>
             ) : null}
 

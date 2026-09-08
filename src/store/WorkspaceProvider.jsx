@@ -782,9 +782,12 @@ export function WorkspaceProvider({ children }) {
   const bulkRecipientAction = useCallback(
     async (kind, ids, campaignName) => {
       try {
-        await api.post('/api/campaigns/recipients/bulk', { kind, ids, campaignName });
+        // `affected`/`skipped` ka istemal 'resend' karta hai — jo already
+        // unsubscribed ya suppressed hain unhe kabhi dobara nahi bheja
+        // jata, isliye caller ko asli, sahi ginti chahiye hoti hai.
+        const data = await api.post('/api/campaigns/recipients/bulk', { kind, ids, campaignName });
         refreshActivity();
-        return true;
+        return data;
       } catch (error) {
         return fail(error);
       }

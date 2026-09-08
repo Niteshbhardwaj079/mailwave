@@ -161,7 +161,12 @@ export default function SettingsPage() {
     if (serverSettings.sending && !sendingDraft) setSendingDraft(serverSettings.sending);
     if (serverSettings.tracking && !trackingDraft) setTrackingDraft(serverSettings.tracking);
     if (serverSettings.contacts && !contactsDraft) setContactsDraft(serverSettings.contacts);
-    if (serverSettings.unsubscribe && !unsubDraft) setUnsubDraft(serverSettings.unsubscribe);
+    if (serverSettings.unsubscribe && !unsubDraft) {
+      // Purane saved settings me `applyGlobally` nahi hoga — default false
+      // (per-account) rakhte hain taaki checkbox hamesha ek pakka boolean
+      // dikhaye, kabhi undefined nahi.
+      setUnsubDraft({ applyGlobally: false, ...serverSettings.unsubscribe });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serverSettings]);
 
@@ -896,6 +901,13 @@ export default function SettingsPage() {
                       desc={t('set.oneClickDesc')}
                       checked={unsubDraft.oneClickHeader}
                       onChange={(event) => setUnsubDraft((current) => ({ ...current, oneClickHeader: event.target.checked }))}
+                    />
+                    <SwitchRow
+                      id="u-global"
+                      title={t('set.unsubGlobalTitle')}
+                      desc={t('set.unsubGlobalDesc')}
+                      checked={Boolean(unsubDraft.applyGlobally)}
+                      onChange={(event) => setUnsubDraft((current) => ({ ...current, applyGlobally: event.target.checked }))}
                     />
                     <Note tone="success" icon="bi-shield-check">
                       {t('set.unsubNote')}

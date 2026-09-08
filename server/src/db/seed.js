@@ -157,9 +157,12 @@ async function seedContacts() {
     // Anyone already unsubscribed or bounced belongs on the suppression list
     // from the very first boot, not only after the next send.
     if (contact.status === 'Unsubscribed' || contact.status === 'Bounced') {
+      // account_id khaali chhod dete hain (column ka default '' hai) — demo
+      // data kisi ek asli sending account se juda nahi hai, isliye "sab
+      // accounts" hi sahi maayne rakhta hai yahan.
       await query(
         `INSERT INTO suppression (email, reason, detail) VALUES ($1,$2,$3)
-         ON CONFLICT (email) DO NOTHING`,
+         ON CONFLICT (account_id, email) DO NOTHING`,
         [contact.email, contact.status === 'Bounced' ? 'bounced' : 'unsubscribed', 'Imported with the seed data']
       );
     }
@@ -388,6 +391,7 @@ async function seedSettings() {
       linkText: 'Unsubscribe from these emails',
       confirmation: 'You have been removed from our mailing list.',
       oneClickHeader: true,
+      applyGlobally: false,
     },
     // url/secret khaali — koi bhi event bhejta hi nahi jab tak admin apna
     // URL na daale aur chalu na kare.

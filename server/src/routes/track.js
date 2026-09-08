@@ -168,6 +168,15 @@ async function unsubscribe(req, res) {
     return;
   }
 
+  // Suppression ab PER SENDING ACCOUNT hai — is campaign ka account jaan
+  // lete hain, taaki dusre accounts se aage bhi mail ja sake. Settings >
+  // Unsubscribe me "Apply globally" chalu ho to purane wale global behaviour
+  // par wapas — '' (khaali) account_id ka matlab "sab accounts par lagu".
+  const campaign = await one('SELECT account_id FROM campaigns WHERE id = $1', [recipient.campaign_id]);
+  const unsubSettings = await one("SELECT value FROM settings WHERE key = 'unsubscribe'");
+  const applyGlobally = Boolean(unsubSettings?.value?.applyGlobally);
+  const suppressionAccountId = applyGlobally ? '' : campaign?.account_id ?? '';
+
   // All five writes below must land together or not at all — a crash between
   // them used to risk marking someone unsubscribed on this one recipient row
   // without ever reaching the suppression list, which is exactly the record
@@ -191,11 +200,13 @@ async function unsubscribe(req, res) {
       `UPDATE subscribers SET status = 'Left later' WHERE lower(email) = lower($1)`,
       [recipient.email]
     );
-    // Suppression list = pakki rok. Ab koi bhi campaign ise nahi bhejega.
+    // Suppression list = pakki rok — is sending account se ab koi bhi
+    // campaign ise nahi bhejega (dusre accounts se ja sakti hai, jab tak
+    // "Apply globally" chalu na ho).
     await query(
-      `INSERT INTO suppression (email, reason, detail) VALUES ($1,'unsubscribed',$2)
-       ON CONFLICT (email) DO NOTHING`,
-      [recipient.email, `Unsubscribed from campaign ${recipient.campaign_id}`]
+      `INSERT INTO suppression (account_id, email, reason, detail) VALUES ($1,$2,'unsubscribed',$3)
+       ON CONFLICT (account_id, email) DO NOTHING`,
+      [suppressionAccountId, recipient.email, `Unsubscribed from campaign ${recipient.campaign_id}`]
     );
     await recordEvent(recipient.campaign_id, recipientId, 'unsubscribe', req);
   });

@@ -47,6 +47,10 @@ const SCHEMAS = {
     linkText: z.string().trim().min(1).max(200),
     confirmation: z.string().trim().min(1).max(500),
     oneClickHeader: z.boolean(),
+    // Default false: unsubscribing from one sending account only blocks
+    // future sends from THAT account, not every account in the workspace.
+    // true = old behaviour — one unsubscribe blocks every account.
+    applyGlobally: z.boolean().default(false),
   }),
   // Client ke apne "Dynamic Fields" (WordPress custom-fields jaisa) — sirf
   // CUSTOM fields yahan store hote hain, builtins (name/email/company/...)

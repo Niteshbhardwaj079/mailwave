@@ -302,17 +302,25 @@ async function run(campaign, account, controller, company) {
 
     const take = Math.min(batchSize, remainingToday);
 
-    // Sirf wahi log jinhe abhi tak nahi bheja, aur jo suppression list me nahi hain.
+    // Sirf wahi log jinhe abhi tak nahi bheja, aur jo IS ACCOUNT ke liye
+    // suppression list me nahi hain — '' wala row har account par lagu hota
+    // hai (purana global record, ya "Apply globally" chalu hone par naya).
+    // NOT EXISTS istemal karte hain, LEFT JOIN nahi — ek email ke liye ab EK
+    // se zyada suppression row ho sakti hai (account-specific + global dono
+    // saath), aur JOIN se wahi recipient DO baar aa jata — matlab EK hi
+    // insaan ko galti se do baar mail chali jaati.
     const batch = await many(
       `SELECT r.id, r.email, r.name, r.merge_data
          FROM campaign_recipients r
-    LEFT JOIN suppression s ON lower(s.email) = lower(r.email)
         WHERE r.campaign_id = $1
           AND r.status = 'Pending'
-          AND s.email IS NULL
+          AND NOT EXISTS (
+                SELECT 1 FROM suppression s
+                 WHERE lower(s.email) = lower(r.email) AND s.account_id IN ($3, '')
+              )
         ORDER BY r.id
         LIMIT $2`,
-      [campaign.id, take]
+      [campaign.id, take, campaign.account_id]
     );
 
     if (batch.length === 0) {
@@ -424,10 +432,20 @@ async function run(campaign, account, controller, company) {
       }
     }
 
-    // Sab bhej diya to aur intezaar mat karo.
+    // Sab bhej diya to aur intezaar mat karo. Is account ke liye suppressed
+    // rows ko yahan bhi chhod dete hain — warna wo hamesha 'Pending' hi
+    // rehti hain (kabhi bheji hi nahi jatin, upar wali batch-query bhi unhe
+    // kabhi nahi uthati), aur sirf unki wajah se campaign poori tarah bhej
+    // chuke hone par bhi ek poora batch-delay ruk jati — bina kisi fayde ke.
     const left = await one(
-      `SELECT count(*)::int AS n FROM campaign_recipients WHERE campaign_id = $1 AND status = 'Pending'`,
-      [campaign.id]
+      `SELECT count(*)::int AS n
+         FROM campaign_recipients r
+        WHERE r.campaign_id = $1 AND r.status = 'Pending'
+          AND NOT EXISTS (
+                SELECT 1 FROM suppression s
+                 WHERE lower(s.email) = lower(r.email) AND s.account_id IN ($2, '')
+              )`,
+      [campaign.id, campaign.account_id]
     );
     if ((left?.n ?? 0) === 0) continue;
 

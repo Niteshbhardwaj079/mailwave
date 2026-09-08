@@ -140,6 +140,22 @@ CREATE TABLE IF NOT EXISTS suppression (
   created_at  timestamptz NOT NULL DEFAULT now()
 );
 
+-- Suppression ab PER SENDING ACCOUNT hai, poori workspace ke liye nahi:
+-- agar customer@gmail.com ne noreply@gowebkart.in se unsubscribe kiya hai,
+-- to sales@gowebkart.in se use ab bhi mail ja sakti hai — jab tak Settings
+-- > Unsubscribe me "Apply globally" chalu na ho. '' (khali string) ka
+-- matlab "sab accounts par lagu" — isi se PURANE records (jab account-scope
+-- tha hi nahi) apna asar kabhi nahi khote, chahe kisi bhi account se send
+-- ho.
+ALTER TABLE suppression ADD COLUMN IF NOT EXISTS account_id text NOT NULL DEFAULT '';
+-- Purani PK sirf `email` thi (ek email = ek hi row). Ab ek email ke liye
+-- alag-alag account ke against alag rows chahiye, isliye PK badal kar
+-- (account_id, email) kar dete hain. Drop-then-recreate hone ki wajah se
+-- yeh baar-baar (har server boot par) chalne par bhi safe hai — hamesha
+-- usi sahi shape par pahunchta hai.
+ALTER TABLE suppression DROP CONSTRAINT IF EXISTS suppression_pkey;
+ALTER TABLE suppression ADD CONSTRAINT suppression_pkey PRIMARY KEY (account_id, email);
+
 CREATE TABLE IF NOT EXISTS segments (
   id          text PRIMARY KEY,
   name        text NOT NULL,

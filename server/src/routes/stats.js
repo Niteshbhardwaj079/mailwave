@@ -223,7 +223,11 @@ router.get(
     // nahi — kyunki campaign delete hote hi uske recipient rows CASCADE se
     // mit jate hain, aur unsubscribed=true flag bhi unke saath chala jata,
     // jaise ek insaan ki ginti chupke se 0 ho jaati thi.
-    const unsubRow = await one(`SELECT count(*)::int AS n FROM suppression WHERE reason = 'unsubscribed'`);
+    // DISTINCT email isliye ki ab ek email account ke hisaab se ek se zyada
+    // baar suppression me aa sakta hai (alag-alag sending account se
+    // unsubscribe) — yahan "kitne ASAL insaan ne chhoda" ginna hai, "kitni
+    // suppression rows hain" nahi.
+    const unsubRow = await one(`SELECT count(DISTINCT email)::int AS n FROM suppression WHERE reason = 'unsubscribed'`);
 
     const t = totals ?? {};
     const sentChange = change(t.sent ?? 0, t.sent_before ?? 0);
@@ -303,7 +307,9 @@ router.get(
         (SELECT count(*)::int FROM campaign_recipients WHERE status = 'Bounced') AS bounced,
         -- Suppression = pakka, permanent record. campaign_recipients.unsubscribed
         -- campaign delete hone par CASCADE se mit jata hai (dekho /dashboard ka comment).
-        (SELECT count(*)::int FROM suppression WHERE reason = 'unsubscribed') AS unsubscribed
+        -- DISTINCT email: ek insaan ab alag-alag account se multiple baar
+        -- suppression me aa sakta hai — asal insaan ginte hain, rows nahi.
+        (SELECT count(DISTINCT email)::int FROM suppression WHERE reason = 'unsubscribed') AS unsubscribed
     `);
 
     // "Sent" hi bolte hain, "Delivered" nahi — hume kabhi pata nahi chalta ki

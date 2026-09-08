@@ -148,12 +148,32 @@ const SELECT = `
   SELECT c.*, a.email AS account_email, a.provider AS account_provider, t.name AS template_name,
          (SELECT count(*)::int FROM campaign_recipients r WHERE r.campaign_id = c.id) AS recipients,
          (SELECT count(*)::int FROM campaign_recipients r WHERE r.campaign_id = c.id AND r.status = 'Sent') AS sent,
-         (SELECT count(*)::int FROM campaign_recipients r WHERE r.campaign_id = c.id AND r.status = 'Pending') AS pending,
+         -- 'Pending' yahan sirf wahi ginta hai jo SACH me abhi bhejne ka
+         -- intezaar kar rahe hain. Jo IS CAMPAIGN KE ACCOUNT ke liye
+         -- suppression list me hain (usi account se pehle unsubscribe, ya
+         -- "Apply globally" wala '' record) unhe kabhi bheja hi nahi jayega
+         -- — unhe neeche 'unsubscribed' me gina jata hai, warna "Pending"
+         -- hamesha ke liye ek jhoothi ginti dikhata rehta.
+         -- NOT EXISTS/EXISTS istemal karte hain, LEFT JOIN nahi — ek email
+         -- ke liye ab EK se zyada suppression row ho sakti hai (account-
+         -- specific + global dono saath), aur JOIN se ginti galti se
+         -- doubled ho jaati.
+         (SELECT count(*)::int FROM campaign_recipients r
+           WHERE r.campaign_id = c.id AND r.status = 'Pending'
+             AND NOT EXISTS (
+                   SELECT 1 FROM suppression s
+                    WHERE lower(s.email) = lower(r.email) AND s.account_id IN (c.account_id, '')
+                 )) AS pending,
          (SELECT count(*)::int FROM campaign_recipients r WHERE r.campaign_id = c.id AND r.status = 'Failed') AS failed,
          (SELECT count(*)::int FROM campaign_recipients r WHERE r.campaign_id = c.id AND r.open_count > 0) AS opened,
          (SELECT count(*)::int FROM campaign_recipients r WHERE r.campaign_id = c.id AND r.click_count > 0) AS clicked,
          (SELECT count(*)::int FROM campaign_recipients r WHERE r.campaign_id = c.id AND r.status = 'Bounced') AS bounced,
-         (SELECT count(*)::int FROM campaign_recipients r WHERE r.campaign_id = c.id AND r.unsubscribed) AS unsubscribed
+         (SELECT count(*)::int FROM campaign_recipients r
+           WHERE r.campaign_id = c.id
+             AND (r.unsubscribed OR (r.status = 'Pending' AND EXISTS (
+                   SELECT 1 FROM suppression s
+                    WHERE lower(s.email) = lower(r.email) AND s.account_id IN (c.account_id, '')
+                 )))) AS unsubscribed
     FROM campaigns c
     LEFT JOIN email_accounts a ON a.id = c.account_id
     LEFT JOIN templates t ON t.id = c.template_id
@@ -312,26 +332,41 @@ router.get(
     // zyada zaroori hai. Status se filter bhi kar sakte ho (?status=Failed).
     const status = String(req.query.status ?? '').trim();
     const params = [req.params.id];
-    let clause = 'WHERE campaign_id = $1';
+    let plainClause = 'WHERE campaign_id = $1';
+    let joinedClause = 'WHERE r.campaign_id = $1';
 
     if (status && status !== 'all') {
       params.push(status);
-      clause += ` AND status = $${params.length}`;
+      plainClause += ` AND status = $${params.length}`;
+      joinedClause += ` AND r.status = $${params.length}`;
     }
 
     const totalRow = await one(
-      `SELECT count(*)::int AS n FROM campaign_recipients ${clause}`,
+      `SELECT count(*)::int AS n FROM campaign_recipients ${plainClause}`,
       params
     );
     const { page, limit, offset } = pagination(req, { defaultLimit: 50, maxLimit: 500 });
 
     const rows = await many(
-      `SELECT id, email, name, status, error, sent_at, open_count, first_open_at,
-              last_open_at, click_count, last_click_at, unsubscribed,
-              send_count, last_attempted_at
-         FROM campaign_recipients
-        ${clause}
-        ORDER BY sent_at DESC NULLS LAST, email
+      `SELECT r.id, r.email, r.name, r.status, r.error, r.sent_at, r.open_count, r.first_open_at,
+              r.last_open_at, r.click_count, r.last_click_at, r.unsubscribed,
+              r.send_count, r.last_attempted_at, sup.reason AS suppression_reason,
+              sup.is_global AS suppression_is_global
+         FROM campaign_recipients r
+         JOIN campaigns c ON c.id = r.campaign_id
+         -- Ek email ke liye ab EK se zyada suppression row ho sakti hai
+         -- (account-specific + global dono saath) — LATERAL + LIMIT 1 se
+         -- sirf ek hi (account-specific ko pehle) uthate hain, warna plain
+         -- LEFT JOIN se yeh recipient row DO baar aa jaati.
+         LEFT JOIN LATERAL (
+           SELECT s.reason, (s.account_id = '') AS is_global
+             FROM suppression s
+            WHERE lower(s.email) = lower(r.email) AND s.account_id IN (c.account_id, '')
+            ORDER BY (s.account_id = c.account_id) DESC
+            LIMIT 1
+         ) sup ON true
+        ${joinedClause}
+        ORDER BY r.sent_at DESC NULLS LAST, r.email
         LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
       [...params, limit, offset]
     );
@@ -351,6 +386,16 @@ router.get(
       clickCount: r.click_count,
       lastClick: r.last_click_at,
       unsubscribed: r.unsubscribed,
+      // Suppression list me hai kya — is CAMPAIGN KE ACCOUNT ke liye, chahe
+      // unsubscribe isi campaign se na hui ho, usi account ki kisi PURANI
+      // campaign ya manual block se ho sakti hai. `unsubscribed` (upar)
+      // sirf ISI campaign ke link-click ko batata hai; yeh batata hai ki
+      // asal me bheja hi nahi jayega, waja chahe kuch ho.
+      suppressed: Boolean(r.suppression_reason),
+      suppressionReason: r.suppression_reason,
+      // true = "Apply globally" se ya purane (account-scope se pehle wale)
+      // record se — har account par lagu. false = sirf isi account se.
+      suppressionIsGlobal: Boolean(r.suppression_is_global),
       // Kitni baar bhejne ki koshish hui — pehla bhejna + har resend/retry.
       sendCount: r.send_count,
       lastAttemptAt: r.last_attempted_at,
@@ -901,20 +946,26 @@ router.post(
   requireModule('campaigns', 'edit'),
   validate(z.object({ target: z.enum(['unopened', 'failed']) })),
   asyncHandler(async (req, res) => {
-    const campaign = await one('SELECT id, name FROM campaigns WHERE id = $1', [req.params.id]);
+    const campaign = await one('SELECT id, name, account_id FROM campaigns WHERE id = $1', [req.params.id]);
     if (!campaign) throw notFound('Yeh campaign nahi mila');
 
-    // Jo unsubscribe kar chuka hai use dobara bhejne ki koshish bhi nahi
-    // karte — sender khud bhi use suppression list se rok deta, lekin isse
-    // pehle hi uska asli "Sent" record (kab bheja tha) mit jaata, jo galat hai.
+    // Jo unsubscribe kar chuka hai (isi campaign se, YA is CAMPAIGN KE
+    // ACCOUNT se pehle kisi aur campaign/manual block se — dusre accounts
+    // se ab bhi ja sakti hai) use dobara bhejne ki koshish bhi nahi karte —
+    // sender khud bhi use suppression list se rok deta, lekin isse pehle hi
+    // uska asli "Sent" record (kab bheja tha) mit jaata, jo galat hai.
+    const notSuppressed = `NOT EXISTS (
+      SELECT 1 FROM suppression s
+       WHERE lower(s.email) = lower(campaign_recipients.email) AND s.account_id IN ($2, '')
+    )`;
     const clause =
       req.body.target === 'failed'
-        ? `campaign_id = $1 AND status = 'Failed' AND unsubscribed = false`
-        : `campaign_id = $1 AND status IN ('Sent','Delivered') AND open_count = 0 AND unsubscribed = false`;
+        ? `campaign_id = $1 AND status = 'Failed' AND unsubscribed = false AND ${notSuppressed}`
+        : `campaign_id = $1 AND status IN ('Sent','Delivered') AND open_count = 0 AND unsubscribed = false AND ${notSuppressed}`;
 
     const result = await query(
       `UPDATE campaign_recipients SET status = 'Pending', error = NULL, sent_at = NULL WHERE ${clause}`,
-      [campaign.id]
+      [campaign.id, campaign.account_id]
     );
     const affected = result.affectedRows ?? result.rowCount ?? 0;
 
@@ -963,17 +1014,35 @@ router.post(
   asyncHandler(async (req, res) => {
     const { kind, ids, campaignName } = req.body;
 
+    // EXISTS istemal karte hain, LEFT JOIN nahi — ek email ke liye ab EK se
+    // zyada suppression row ho sakti hai (account-specific + global dono
+    // saath), aur JOIN se yeh recipient row DO baar aa jaati (matlab bulk
+    // action usi par do baar chal jata).
     const rows = await many(
-      'SELECT id, email, campaign_id, unsubscribed FROM campaign_recipients WHERE id = ANY($1)',
+      `SELECT r.id, r.email, r.campaign_id, r.unsubscribed, c.account_id,
+              EXISTS (
+                SELECT 1 FROM suppression s
+                 WHERE lower(s.email) = lower(r.email) AND s.account_id IN (c.account_id, '')
+              ) AS suppressed
+         FROM campaign_recipients r
+         JOIN campaigns c ON c.id = r.campaign_id
+        WHERE r.id = ANY($1)`,
       [ids]
     );
     if (rows.length === 0) throw badRequest('Inme se koi recipient nahi mila');
 
+    let skipped = 0;
+
     if (kind === 'resend') {
-      // Jo unsubscribe kar chuka hai use dobara bhejne ki koshish nahi
-      // karte — warna uska asli "kab bheja tha" record mit jaata, aur
-      // sender khud bhi use suppression list se rok dega.
-      const resendIds = rows.filter((row) => !row.unsubscribed).map((row) => row.id);
+      // Jo unsubscribe kar chuka hai — isi campaign se (unsubscribed) YA
+      // kisi bhi purani campaign/manual block se (global suppression list)
+      // — use dobara bhejne ki koshish nahi karte. Warna uska asli "kab
+      // bheja tha" record mit jaata, aur sender khud bhi use suppression
+      // list se rok dega (yahan na rokna sirf status ko wapas 'Pending' me
+      // hamesha ke liye fasa deta, bina kabhi bheje).
+      const eligible = rows.filter((row) => !row.unsubscribed && !row.suppressed);
+      const resendIds = eligible.map((row) => row.id);
+      skipped = rows.length - resendIds.length;
 
       // 'Pending' kar dene se sender inhe agli baar wapas utha lega — LEKIN
       // agar campaign pehle hi poori ho chuki hai (status 'Sent'/'Failed'),
@@ -988,7 +1057,7 @@ router.post(
         );
       }
 
-      const campaignIds = [...new Set(rows.filter((row) => !row.unsubscribed).map((row) => row.campaign_id))];
+      const campaignIds = [...new Set(eligible.map((row) => row.campaign_id))];
       for (const cid of campaignIds) {
         await startCampaign(cid, { company: env.brand.company });
       }
@@ -999,23 +1068,31 @@ router.post(
     }
 
     if (kind === 'suppress') {
-      // Suppression list ka matlab: in par aage koi bhi campaign nahi jayega.
-      // Ek hi statement — `ids` already capped at 2000 by the schema above,
-      // so this never risks an unbounded number of placeholders.
+      // Suppression ka matlab: is CAMPAIGN KE ACCOUNT se in par aage koi
+      // mail nahi jayega (dusre accounts se abhi bhi ja sakti hai) — jab tak
+      // Settings > Unsubscribe me "Apply globally" chalu na ho, tab '' (sab
+      // accounts) use karte hain. Ek hi statement — `ids` already capped at
+      // 2000 by the schema above, so this never risks an unbounded number
+      // of placeholders.
+      const unsubSettings = await one("SELECT value FROM settings WHERE key = 'unsubscribe'");
+      const applyGlobally = Boolean(unsubSettings?.value?.applyGlobally);
+
       const detailText = `Campaign report se haath se joda gaya: ${campaignName}`;
       const values = [];
       const params = [];
       rows.forEach((row, index) => {
-        const base = index * 2;
-        values.push(`($${base + 1},'manual',$${base + 2})`);
-        params.push(row.email, detailText);
+        const base = index * 3;
+        values.push(`($${base + 1},$${base + 2},'manual',$${base + 3})`);
+        params.push(applyGlobally ? '' : row.account_id, row.email, detailText);
       });
       await query(
-        `INSERT INTO suppression (email, reason, detail) VALUES ${values.join(',')}
-         ON CONFLICT (email) DO NOTHING`,
+        `INSERT INTO suppression (account_id, email, reason, detail) VALUES ${values.join(',')}
+         ON CONFLICT (account_id, email) DO NOTHING`,
         params
       );
     }
+
+    const affected = kind === 'resend' ? rows.length - skipped : rows.length;
 
     const detail = {
       resend: 'Dobara bhejne ke liye lagaya',
@@ -1028,10 +1105,13 @@ router.post(
       action: kind === 'export' ? 'exported' : kind === 'remove' ? 'deleted' : 'updated',
       module: 'campaigns',
       item: campaignName || rows[0]?.campaign_id || '—',
-      detail: `${detail} (${rows.length})`,
+      detail:
+        kind === 'resend' && skipped > 0
+          ? `${detail} (${affected}), ${skipped} chhod diye (pehle se unsubscribed/suppressed)`
+          : `${detail} (${affected})`,
     });
 
-    res.json({ ok: true, affected: rows.length });
+    res.json({ ok: true, affected, skipped });
   })
 );
 
