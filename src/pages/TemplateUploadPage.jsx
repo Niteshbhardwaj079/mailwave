@@ -6,6 +6,7 @@ import { Card, CardBody, CardHead } from '../components/ui/Card';
 import { Note, Segmented } from '../components/ui/Controls';
 import Sheet from '../components/ui/Sheet';
 import HtmlPreview from '../components/templates/HtmlPreview';
+import ImageLibrary from '../components/templates/ImageLibrary';
 import TemplateSourceBadge from '../components/templates/TemplateSourceBadge';
 import { useT } from '../i18n/I18nProvider';
 import { useWorkspace } from '../store/WorkspaceProvider';
@@ -33,7 +34,9 @@ export default function TemplateUploadPage() {
   const [savedId, setSavedId] = useState(existing?.id || null);
   const [savedOpen, setSavedOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [imageLibraryOpen, setImageLibraryOpen] = useState(false);
   const fileInputRef = useRef(null);
+  const codeRef = useRef(null);
 
   useEffect(() => {
     api
@@ -101,6 +104,30 @@ export default function TemplateUploadPage() {
 
   function openFilePicker() {
     fileInputRef.current?.click();
+  }
+
+  // TemplateEditorPage ke Code tab jaisa hi — cursor jahan ho wahin image ka
+  // snippet insert hota hai, poori HTML ko dobara likhna nahi padta.
+  function insertAtCursor(snippet) {
+    const field = codeRef.current;
+    if (!field) {
+      setHtml((current) => current + snippet);
+      return;
+    }
+    const start = field.selectionStart ?? html.length;
+    const end = field.selectionEnd ?? html.length;
+    const next = `${html.slice(0, start)}${snippet}${html.slice(end)}`;
+    setHtml(next);
+    window.requestAnimationFrame(() => {
+      field.focus();
+      field.selectionStart = start + snippet.length;
+      field.selectionEnd = start + snippet.length;
+    });
+  }
+
+  function handleImageInsert(snippet) {
+    insertAtCursor(snippet);
+    setImageLibraryOpen(false);
   }
 
   async function handleSave() {
@@ -297,12 +324,30 @@ export default function TemplateUploadPage() {
               </div>
             ) : null}
 
-            {html ? (
-              <div className="mt-3">
-                <label className="form-label">{t('tpl.upload.rawPreview')}</label>
-                <textarea className="mw-codearea" value={html} readOnly spellCheck="false" />
+            <div className="mt-3">
+              <div className="mw-row mw-row--wrap" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                <label className="form-label mb-0" htmlFor="tplu-html">
+                  {t('tpl.html')}
+                </label>
+                <button type="button" className="btn btn-outline-secondary btn-sm" onClick={() => setImageLibraryOpen(true)}>
+                  <i className="bi bi-image me-2" />
+                  {t('tpl.upload.insertImage')}
+                </button>
               </div>
-            ) : null}
+              <textarea
+                id="tplu-html"
+                ref={codeRef}
+                className="mw-codearea"
+                value={html}
+                onChange={(e) => setHtml(e.target.value)}
+                spellCheck="false"
+              />
+              <p className="form-text">{t('tpl.unsavedNote')}</p>
+            </div>
+
+            <Sheet open={imageLibraryOpen} title={t('img.title')} onClose={() => setImageLibraryOpen(false)}>
+              <ImageLibrary onInsert={handleImageInsert} />
+            </Sheet>
           </CardBody>
         </Card>
 
