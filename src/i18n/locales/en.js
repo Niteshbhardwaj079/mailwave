@@ -231,6 +231,7 @@ export default {
   'tpl.html': 'Email HTML',
   'tpl.htmlHelp': 'Paste your ready HTML here, or write your own. Tables work best in email.',
   'tpl.livePreview': 'Live preview',
+  'tpl.previewButton': 'Preview Template',
   'tpl.openPreview': 'Open preview in new tab',
   'tpl.copyLink': 'Copy preview link',
   'tpl.saved': 'Template saved',

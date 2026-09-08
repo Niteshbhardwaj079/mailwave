@@ -306,6 +306,16 @@
   box-shadow: none;
 }
 
+// `--full` aur `--mobile` dono classes ek saath lagti hain jab full-screen
+// preview mobile view par ho — is compound selector ki specificity dono
+// akele-akele rules se jyaada hai, isliye yahan mobile ka 38rem hamesha
+// jeetta hai (warna `--full` ka `max-width: none` upar jeet jaata, phone-size
+// dikhna hi band ho jaata).
+.mw-framewrap--full.mw-framewrap--mobile .mw-framewrap__inner {
+  max-width: 38rem;
+  margin-inline: auto;
+}
+
 // Real HTML thumbnail on the templates page
 .mw-tpl__thumb--frame {
   padding: 0;

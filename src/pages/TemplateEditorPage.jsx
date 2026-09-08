@@ -11,6 +11,7 @@ import TemplateDesignEditor from '../components/templates/TemplateDesignEditor';
 import DynamicFieldPicker from '../components/templates/DynamicFieldPicker';
 import DynamicFieldManager from '../components/templates/DynamicFieldManager';
 import TemplateSourceBadge from '../components/templates/TemplateSourceBadge';
+import TemplateFullPreview from '../components/templates/TemplateFullPreview';
 import { useT } from '../i18n/I18nProvider';
 import { useWorkspace } from '../store/WorkspaceProvider';
 import { useToast } from '../components/ui/ToastProvider';
@@ -66,6 +67,7 @@ export default function TemplateEditorPage() {
   const [copied, setCopied] = useState(false);
   const [customFields, setCustomFields] = useState([]);
   const [fieldsManagerOpen, setFieldsManagerOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const codeRef = useRef(null);
 
   useEffect(() => {
@@ -321,6 +323,12 @@ export default function TemplateEditorPage() {
     setSavedOpen(false);
   }
 
+  /** Preview ke andar se Save dabane par bhi wahi save chalta hai; save ke baad preview band kar dete hain taaki neeche ka "Template saved" sheet dikh sake. */
+  async function handlePreviewSave() {
+    await handleSave();
+    setPreviewOpen(false);
+  }
+
   /** Makes a completely independent copy of whatever template is currently open, then edits that copy. */
   async function handleDuplicate() {
     if (!savedId) return;
@@ -357,6 +365,10 @@ export default function TemplateEditorPage() {
             <button type="button" className="btn btn-outline-secondary mw-btn-block-mobile" onClick={() => setFieldsManagerOpen(true)}>
               <i className="bi bi-braces me-2" />
               {t('dyn.manageFields')}
+            </button>
+            <button type="button" className="btn btn-outline-secondary mw-btn-block-mobile" onClick={() => setPreviewOpen(true)}>
+              <i className="bi bi-eye me-2" />
+              {t('tpl.previewButton')}
             </button>
             {savedId ? (
               <a
@@ -617,6 +629,17 @@ export default function TemplateEditorPage() {
         onRename={renameDynamicField}
         onRemove={removeDynamicField}
       />
+
+      <TemplateFullPreview
+        open={previewOpen}
+        title={name}
+        device={device}
+        onDeviceChange={setDevice}
+        onClose={() => setPreviewOpen(false)}
+        onSave={handlePreviewSave}
+      >
+        <HtmlPreview html={previewHtml} device={device} full title={name} />
+      </TemplateFullPreview>
     </div>
   );
 }

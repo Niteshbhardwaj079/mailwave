@@ -12,6 +12,17 @@
   background-color: var(--mw-bg);
 }
 
+// Full-screen template preview (Custom/Upload/Builder editors) — same
+// `.mw-shell`/`.mw-topbar`/`.mw-main` look as the standalone share-link
+// preview page, but as an overlay on top of the editor instead of a route,
+// so unsaved changes can be shown and Save stays reachable.
+.mw-shell--overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1060;
+  overflow-y: auto;
+}
+
 // --- Sidebar ---------------------------------------------------------------
 .mw-sidebar {
   position: fixed;

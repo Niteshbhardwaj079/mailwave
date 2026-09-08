@@ -8,6 +8,7 @@ import Sheet from '../components/ui/Sheet';
 import HtmlPreview from '../components/templates/HtmlPreview';
 import ImageLibrary from '../components/templates/ImageLibrary';
 import TemplateSourceBadge from '../components/templates/TemplateSourceBadge';
+import TemplateFullPreview from '../components/templates/TemplateFullPreview';
 import { useT } from '../i18n/I18nProvider';
 import { useWorkspace } from '../store/WorkspaceProvider';
 import { useToast } from '../components/ui/ToastProvider';
@@ -35,6 +36,7 @@ export default function TemplateUploadPage() {
   const [savedOpen, setSavedOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [imageLibraryOpen, setImageLibraryOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const fileInputRef = useRef(null);
   const codeRef = useRef(null);
 
@@ -163,6 +165,11 @@ export default function TemplateUploadPage() {
     setSavedOpen(false);
   }
 
+  async function handlePreviewSave() {
+    await handleSave();
+    setPreviewOpen(false);
+  }
+
   async function handleDuplicate() {
     if (!savedId) return;
     const copy = await duplicateTemplate(savedId);
@@ -195,6 +202,10 @@ export default function TemplateUploadPage() {
         helpTopic="editor"
         actions={
           <>
+            <button type="button" className="btn btn-outline-secondary mw-btn-block-mobile" onClick={() => setPreviewOpen(true)}>
+              <i className="bi bi-eye me-2" />
+              {t('tpl.previewButton')}
+            </button>
             {savedId ? (
               <a
                 className="btn btn-outline-secondary mw-hide-mobile"
@@ -407,6 +418,17 @@ export default function TemplateUploadPage() {
           </Link>
         </div>
       </Sheet>
+
+      <TemplateFullPreview
+        open={previewOpen}
+        title={name}
+        device={device}
+        onDeviceChange={setDevice}
+        onClose={() => setPreviewOpen(false)}
+        onSave={handlePreviewSave}
+      >
+        <HtmlPreview html={html} device={device} full title={name} />
+      </TemplateFullPreview>
     </div>
   );
 }

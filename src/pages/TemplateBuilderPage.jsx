@@ -6,6 +6,7 @@ import { Card, CardBody, CardHead } from '../components/ui/Card';
 import { Note, Segmented } from '../components/ui/Controls';
 import Sheet from '../components/ui/Sheet';
 import TemplateSourceBadge from '../components/templates/TemplateSourceBadge';
+import TemplateFullPreview from '../components/templates/TemplateFullPreview';
 import BuilderCanvas from '../components/templates/builder/BuilderCanvas';
 import BuilderBlockSettings from '../components/templates/builder/BuilderBlockSettings';
 import BuilderDevicePreview from '../components/templates/builder/BuilderDevicePreview';
@@ -56,6 +57,7 @@ export default function TemplateBuilderPage() {
   const [copied, setCopied] = useState(false);
   const [customFields, setCustomFields] = useState([]);
   const [editing, setEditing] = useState(null); // { rowId, colId, blockId }
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   useEffect(() => {
     api
@@ -143,6 +145,11 @@ export default function TemplateBuilderPage() {
     setSavedOpen(false);
   }
 
+  async function handlePreviewSave() {
+    await handleSave();
+    setPreviewOpen(false);
+  }
+
   async function handleDuplicate() {
     if (!savedId) return;
     const copy = await duplicateTemplate(savedId);
@@ -174,6 +181,10 @@ export default function TemplateBuilderPage() {
         helpTopic="editor"
         actions={
           <>
+            <button type="button" className="btn btn-outline-secondary mw-btn-block-mobile" onClick={() => setPreviewOpen(true)}>
+              <i className="bi bi-eye me-2" />
+              {t('tpl.previewButton')}
+            </button>
             {savedId ? (
               <a className="btn btn-outline-secondary mw-hide-mobile" href={`/templates/${savedId}/preview`} target="_blank" rel="noreferrer">
                 <i className="bi bi-box-arrow-up-right me-2" />
@@ -309,6 +320,17 @@ export default function TemplateBuilderPage() {
           </Link>
         </div>
       </Sheet>
+
+      <TemplateFullPreview
+        open={previewOpen}
+        title={name}
+        device={device}
+        onDeviceChange={setDevice}
+        onClose={() => setPreviewOpen(false)}
+        onSave={handlePreviewSave}
+      >
+        <BuilderDevicePreview schema={schema} dynamicFields={dynamicFields} device={device} full />
+      </TemplateFullPreview>
     </div>
   );
 }
