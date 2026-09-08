@@ -176,12 +176,18 @@ export default function SettingsPage() {
       // dikhaye, kabhi undefined nahi.
       setUnsubDraft({ applyGlobally: false, ...serverSettings.unsubscribe });
     }
-    if (serverSettings.templateSources && !templateSourcesDraft) {
-      setTemplateSourcesDraft(serverSettings.templateSources);
-      setTemplateSourcesSaved(serverSettings.templateSources);
+    // Row abhi tak DB me na bhi ho (is setting ke aane se pehle ki production
+    // database) — tab bhi sab `true` maan kar dikhate hain, backend ka
+    // enabledTemplateSources() bhi isi tarah default karta hai. Isliye
+    // `settingsCall.loading` khatam hone ka intezaar karte hain, `.templateSources`
+    // ke maujood hone ka nahi — warna spinner hamesha ke liye ghoomta reh jaata.
+    if (!settingsCall.loading && !templateSourcesDraft) {
+      const value = { custom: true, html_upload: true, builder: true, ...(serverSettings.templateSources || {}) };
+      setTemplateSourcesDraft(value);
+      setTemplateSourcesSaved(value);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [serverSettings]);
+  }, [serverSettings, settingsCall.loading]);
 
   const isTemplateSourcesDirty =
     templateSourcesDraft && templateSourcesSaved && JSON.stringify(templateSourcesDraft) !== JSON.stringify(templateSourcesSaved);
