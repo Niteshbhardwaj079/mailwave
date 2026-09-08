@@ -6,7 +6,9 @@ const BADGE_CLASS = {
   builder: 'bg-success',
 };
 
-const LABEL_KEY = {
+export const TEMPLATE_SOURCE_ORDER = ['custom', 'html_upload', 'builder'];
+
+export const LABEL_KEY = {
   custom: 'tpl.source.custom',
   html_upload: 'tpl.source.htmlUpload',
   builder: 'tpl.source.builder',

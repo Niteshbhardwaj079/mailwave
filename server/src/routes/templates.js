@@ -88,6 +88,18 @@ const SELECT = `
     LEFT JOIN users u ON u.id = t.created_by
 `;
 
+/**
+ * Settings ("Template Options") me kaunsa source (custom/html_upload/builder)
+ * abhi allowed hai — har request par fresh DB read (koi caching nahi, isliye
+ * Settings save karte hi agli request se turant asar dikhta hai). Row
+ * missing (purani DB) ya value adhoori ho to bhi sab `true` maana jaata hai
+ * — kabhi galti se kuch hide nahi hota.
+ */
+async function enabledTemplateSources() {
+  const row = await one('SELECT value FROM settings WHERE key = $1', ['templateSources']);
+  return { custom: true, html_upload: true, builder: true, ...(row?.value || {}) };
+}
+
 /** `template_categories` me naya naam pehli baar dikhte hi jud jaata hai — yehi "custom category" banana hai. */
 async function ensureCategory(name, userId) {
   const trimmed = String(name || '').trim();
@@ -150,6 +162,28 @@ router.get(
       conditions.push(`t.language = $${params.length}`);
     }
 
+    // Settings-disabled source kabhi bhi nahi dikhta — client (ya is page ka
+    // apna Template Type dropdown) kuch bhi request kare, yehi asli, single
+    // source of truth hai. Client kuch request na kare to default "sab
+    // enabled sources" hota hai.
+    const enabledSources = await enabledTemplateSources();
+    const enabledList = Object.entries(enabledSources)
+      .filter(([, allowed]) => allowed)
+      .map(([key]) => key);
+    const requestedSources = String(req.query.source || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const effectiveSources = requestedSources.length
+      ? requestedSources.filter((s) => enabledList.includes(s))
+      : enabledList;
+
+    // Khaali array `= ANY($n)` me hamesha "kuch bhi match nahi" hi karta hai
+    // (Postgres semantics) — yahan sirf spelled out kar rahe hain taaki agla
+    // padhne wala isse behavior maan ke na chale.
+    params.push(effectiveSources.length ? effectiveSources : ['__none__']);
+    conditions.push(`t.source = ANY($${params.length})`);
+
     const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
     const totalRow = await one(`SELECT count(*)::int AS n FROM templates t ${where}`, params);
@@ -184,12 +218,19 @@ router.post(
   validate(templateInput),
   asyncHandler(async (req, res) => {
     const { name, category, subject, html, language, contentSchema, source } = req.body;
+    const resolvedSource = source ?? 'custom';
+
+    const enabledSources = await enabledTemplateSources();
+    if (enabledSources[resolvedSource] === false) {
+      throw badRequest('Yeh template type abhi Settings me disabled hai — pehle usse chalu karo.');
+    }
+
     const id = newId('tpl');
 
     await query(
       `INSERT INTO templates (id, name, category, subject, html, language, content_schema, source, created_by)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-      [id, name, category, subject, html, language, contentSchema ? JSON.stringify(contentSchema) : null, source ?? 'custom', req.user.id]
+      [id, name, category, subject, html, language, contentSchema ? JSON.stringify(contentSchema) : null, resolvedSource, req.user.id]
     );
     await ensureCategory(category, req.user.id);
 

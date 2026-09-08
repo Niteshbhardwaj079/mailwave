@@ -54,6 +54,59 @@
 }
 
 // ---------------------------------------------------------------------------
+// Template Type multi-select filter dropdown
+// ---------------------------------------------------------------------------
+.mw-typefilter {
+  position: relative;
+}
+
+.mw-typefilter__btn {
+  display: flex;
+  align-items: center;
+  text-align: start;
+  cursor: pointer;
+}
+
+.mw-typefilter__btntext {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mw-typefilter__menu {
+  position: absolute;
+  inset-block-start: calc(100% + 0.6rem);
+  inset-inline-start: 0;
+  z-index: 1050;
+  width: 24rem;
+  padding: 0.6rem;
+  background-color: var(--mw-surface);
+  border: 1px solid var(--mw-line);
+  border-radius: 1.2rem;
+  box-shadow: var(--mw-shadow-lg);
+}
+
+.mw-typefilter__item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+  padding: 1rem 1.2rem;
+  border-radius: 0.9rem;
+  font-size: 1.35rem;
+  color: var(--mw-ink);
+  cursor: pointer;
+
+  &:hover {
+    background-color: var(--mw-hover);
+  }
+
+  input {
+    margin: 0;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Language picker
 // ---------------------------------------------------------------------------
 .mw-langbtn {

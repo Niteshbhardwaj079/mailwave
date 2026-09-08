@@ -13,6 +13,7 @@ import StatusPill from '../components/ui/StatusPill';
 import Sheet from '../components/ui/Sheet';
 import EmptyState from '../components/ui/EmptyState';
 import { useAuth } from '../store/AuthProvider';
+import { useWorkspace } from '../store/WorkspaceProvider';
 import { useApi } from '../api/useApi';
 import { ApiError, api, apiBase } from '../api/client';
 import { useToast } from '../components/ui/ToastProvider';
@@ -27,6 +28,7 @@ const SECTIONS = [
   { key: 'accounts', labelKey: 'nav.accounts', icon: 'bi-envelope-at' },
   { key: 'sending', labelKey: 'set.sending', icon: 'bi-send' },
   { key: 'tracking', labelKey: 'set.tracking', icon: 'bi-eye' },
+  { key: 'templates', labelKey: 'set.templateOptions', icon: 'bi-file-earmark-text' },
   { key: 'contacts', labelKey: 'nav.contacts', icon: 'bi-people' },
   { key: 'unsubscribe', labelKey: 'set.unsubscribe', icon: 'bi-box-arrow-right' },
   { key: 'storage', labelKey: 'set.storage', icon: 'bi-hdd-network' },
@@ -72,6 +74,8 @@ export default function SettingsPage() {
 
   // Jo abhi sign in hai uski apni detail — profile isi ko badalti hai.
   const { user, reloadSession } = useAuth();
+  const { can } = useWorkspace();
+  const canEditSettings = can('settings', 'edit');
 
   // --- profile ---------------------------------------------------------------
   const [profileName, setProfileName] = useState(user?.name ?? '');
@@ -155,6 +159,11 @@ export default function SettingsPage() {
   const [trackingDraft, setTrackingDraft] = useState(null);
   const [contactsDraft, setContactsDraft] = useState(null);
   const [unsubDraft, setUnsubDraft] = useState(null);
+  // templateSourcesSaved = aakhri baar server par jo save hua tha (Cancel
+  // isi par wapas jaata hai); templateSourcesDraft = abhi-abhi ho raha edit,
+  // jab tak Save na dabaya jaaye kabhi server tak nahi jaata.
+  const [templateSourcesDraft, setTemplateSourcesDraft] = useState(null);
+  const [templateSourcesSaved, setTemplateSourcesSaved] = useState(null);
   const [savingKey, setSavingKey] = useState('');
 
   useEffect(() => {
@@ -167,19 +176,38 @@ export default function SettingsPage() {
       // dikhaye, kabhi undefined nahi.
       setUnsubDraft({ applyGlobally: false, ...serverSettings.unsubscribe });
     }
+    if (serverSettings.templateSources && !templateSourcesDraft) {
+      setTemplateSourcesDraft(serverSettings.templateSources);
+      setTemplateSourcesSaved(serverSettings.templateSources);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serverSettings]);
 
+  const isTemplateSourcesDirty =
+    templateSourcesDraft && templateSourcesSaved && JSON.stringify(templateSourcesDraft) !== JSON.stringify(templateSourcesSaved);
+
+  function cancelTemplateSourcesDraft() {
+    setTemplateSourcesDraft(templateSourcesSaved);
+  }
+
+  /** Returns true on success — kuch callers (jaise Template Options) ko save ke baad apna "last saved" snapshot bhi update karna hota hai. */
   async function saveWorkspaceSetting(key, value) {
     setSavingKey(key);
     try {
       await api.put(`/api/settings/${key}`, value);
       toast.success(t('toast.settingsSaved'));
+      return true;
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : t('toast.networkError'));
+      return false;
     } finally {
       setSavingKey('');
     }
+  }
+
+  async function saveTemplateSources() {
+    const ok = await saveWorkspaceSetting('templateSources', templateSourcesDraft);
+    if (ok) setTemplateSourcesSaved(templateSourcesDraft);
   }
 
   // --- API keys ---------------------------------------------------------------
@@ -798,6 +826,69 @@ export default function SettingsPage() {
                   disabled={!trackingDraft || savingKey === 'tracking'}
                 >
                   {savingKey === 'tracking' ? t('common.loading') : t('common.saveChanges')}
+                </button>
+              </CardFoot>
+            </Card>
+          ) : null}
+
+          {section === 'templates' ? (
+            <Card>
+              <CardHead title={t('set.templateOptions')} subtitle={t('set.templateOptionsSub')} />
+              <CardBody>
+                {!templateSourcesDraft ? (
+                  <div className="p-3 text-center mw-text-muted">
+                    <div className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" />
+                    {t('common.loading')}
+                  </div>
+                ) : (
+                  <>
+                    <SwitchRow
+                      id="ts-custom"
+                      title={t('set.tplSrcCustomTitle')}
+                      desc={t('set.tplSrcCustomDesc')}
+                      checked={templateSourcesDraft.custom}
+                      disabled={!canEditSettings}
+                      onChange={(event) => setTemplateSourcesDraft((current) => ({ ...current, custom: event.target.checked }))}
+                    />
+                    <SwitchRow
+                      id="ts-upload"
+                      title={t('set.tplSrcUploadTitle')}
+                      desc={t('set.tplSrcUploadDesc')}
+                      checked={templateSourcesDraft.html_upload}
+                      disabled={!canEditSettings}
+                      onChange={(event) => setTemplateSourcesDraft((current) => ({ ...current, html_upload: event.target.checked }))}
+                    />
+                    <SwitchRow
+                      id="ts-builder"
+                      title={t('set.tplSrcBuilderTitle')}
+                      desc={t('set.tplSrcBuilderDesc')}
+                      checked={templateSourcesDraft.builder}
+                      disabled={!canEditSettings}
+                      onChange={(event) => setTemplateSourcesDraft((current) => ({ ...current, builder: event.target.checked }))}
+                    />
+
+                    <Note tone="info" icon="bi-info-circle">
+                      {t('set.templateOptionsNote')}
+                    </Note>
+                  </>
+                )}
+              </CardBody>
+              <CardFoot className="d-flex gap-2">
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={saveTemplateSources}
+                  disabled={!canEditSettings || !isTemplateSourcesDirty || savingKey === 'templateSources'}
+                >
+                  {savingKey === 'templateSources' ? t('common.loading') : t('common.saveChanges')}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary"
+                  onClick={cancelTemplateSourcesDraft}
+                  disabled={!isTemplateSourcesDirty || savingKey === 'templateSources'}
+                >
+                  {t('common.cancel')}
                 </button>
               </CardFoot>
             </Card>

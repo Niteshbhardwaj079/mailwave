@@ -259,6 +259,11 @@ export default {
   'tpl.source.htmlUpload': 'HTML Upload',
   'tpl.source.builder': 'Drag & Drop',
 
+  // --- Template Type filter (Templates page) --------------------------------
+  'tpl.typeFilter.label': 'Template Type',
+  'tpl.typeFilter.allLabel': 'All types',
+  'tpl.typeFilter.nSelected': '{n} selected',
+
   // --- New-template chooser -------------------------------------------------
   'tpl.chooser.title': 'How do you want to create this template?',
   'tpl.chooser.subtitle': 'Pick one — you can always start over with a different method later.',
@@ -1361,6 +1366,15 @@ export default {
   'set.locationDesc': 'The IP address is already always stored — this switch does not yet turn a country name on or off, because no lookup step exists yet.',
   'set.openEstimateNote': 'Open counts are always an estimate. Image blocking hides real opens, and privacy proxies create opens that never happened. We label every open as “Open detected” for this reason.',
   'set.trackingNote': 'Open and click tracking defaults genuinely apply to every new campaign (you can still override per campaign). Device and location are saved as a preference only for now — the raw user-agent and IP are recorded on every open regardless of these two switches.',
+  'set.templateOptions': 'Template Options',
+  'set.templateOptionsSub': 'Choose which template creation methods are available',
+  'set.templateOptionsNote': 'Turning a method off only hides it — new templates, and everywhere they list — nothing is ever deleted. Existing templates of that type stay safe and reappear the moment you turn it back on.',
+  'set.tplSrcCustomTitle': 'Custom Editor',
+  'set.tplSrcCustomDesc': 'Create templates using the Design + Code editor.',
+  'set.tplSrcUploadTitle': 'HTML Upload',
+  'set.tplSrcUploadDesc': 'Upload your own HTML email template.',
+  'set.tplSrcBuilderTitle': 'Drag & Drop Builder',
+  'set.tplSrcBuilderDesc': 'Create templates visually using drag-and-drop blocks.',
   'set.contactsTitle': 'Contact settings',
   'set.contactsSub': 'How new contacts are handled',
   'set.dedupeTitle': 'Remove duplicates on import',

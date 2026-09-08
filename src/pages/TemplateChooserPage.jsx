@@ -2,17 +2,21 @@ import { useNavigate } from 'react-router-dom';
 
 import PageHeader from '../components/ui/PageHeader';
 import { useT } from '../i18n/I18nProvider';
+import { useApi } from '../api/useApi';
 
 const OPTIONS = [
-  { key: 'custom', icon: 'bi-code-square', to: '/templates/new/custom', titleKey: 'tpl.chooser.customTitle', descKey: 'tpl.chooser.customDesc' },
-  { key: 'upload', icon: 'bi-file-earmark-arrow-up', to: '/templates/new/upload', titleKey: 'tpl.chooser.uploadTitle', descKey: 'tpl.chooser.uploadDesc' },
-  { key: 'builder', icon: 'bi-columns-gap', to: '/templates/new/builder', titleKey: 'tpl.chooser.builderTitle', descKey: 'tpl.chooser.builderDesc' },
+  { key: 'custom', source: 'custom', icon: 'bi-code-square', to: '/templates/new/custom', titleKey: 'tpl.chooser.customTitle', descKey: 'tpl.chooser.customDesc' },
+  { key: 'upload', source: 'html_upload', icon: 'bi-file-earmark-arrow-up', to: '/templates/new/upload', titleKey: 'tpl.chooser.uploadTitle', descKey: 'tpl.chooser.uploadDesc' },
+  { key: 'builder', source: 'builder', icon: 'bi-columns-gap', to: '/templates/new/builder', titleKey: 'tpl.chooser.builderTitle', descKey: 'tpl.chooser.builderDesc' },
 ];
 
-/** Naya template banate waqt 3 tareeke choose karne ka pehla step. */
+/** Naya template banate waqt 3 tareeke choose karne ka pehla step. Settings me disabled kiya gaya tareeka yahan dikhta hi nahi. */
 export default function TemplateChooserPage() {
   const t = useT();
   const navigate = useNavigate();
+  const settingsCall = useApi('/api/settings');
+  const templateSources = settingsCall.data?.settings?.templateSources;
+  const visibleOptions = OPTIONS.filter((option) => templateSources?.[option.source] !== false);
 
   function handleChoose(event) {
     const option = OPTIONS.find((item) => item.key === event.currentTarget.dataset.key);
@@ -28,7 +32,7 @@ export default function TemplateChooserPage() {
       />
 
       <div className="mw-optiongrid">
-        {OPTIONS.map((option) => (
+        {visibleOptions.map((option) => (
           <button key={option.key} type="button" data-key={option.key} onClick={handleChoose} className="mw-option">
             <span className="mw-option__icon" aria-hidden="true">
               <i className={`bi ${option.icon}`} />

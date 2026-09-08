@@ -405,6 +405,9 @@ async function seedSettings() {
       oneClickHeader: true,
       applyGlobally: false,
     },
+    // Sab shuru me ON — kisi purani database me yeh feature aane se pehle
+    // kuch bhi hidden nahi tha, isliye default bhi wahi hona chahiye.
+    templateSources: { custom: true, html_upload: true, builder: true },
     // url/secret khaali — koi bhi event bhejta hi nahi jab tak admin apna
     // URL na daale aur chalu na kare.
     webhooks: { url: '', secret: '', enabled: false },

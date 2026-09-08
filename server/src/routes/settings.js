@@ -1,16 +1,19 @@
 // ---------------------------------------------------------------------------
-// Workspace-wide settings — sending, tracking, contacts, unsubscribe.
+// Workspace-wide settings — sending, tracking, contacts, unsubscribe,
+// templateSources.
 //
-// Yeh chaar hi keys chalti hain, aur har ek ka apna shape hai (Zod se
-// jaancha jata hai) — isliye koi apni marzi ka naya key ya galat shape wala
-// data nahi daal sakta.
+// Har key ka apna shape hai (Zod se jaancha jata hai) — isliye koi apni
+// marzi ka naya key ya galat shape wala data nahi daal sakta.
 //
-// Do rows asal me KAAM karti hain: 'unsubscribe' — sender.js ismein se
-// unsubscribe link ka text padhta hai jab bhi koi campaign bhejta hai — aur
-// 'sending' ka `retryOnce` — sender.js har campaign khatam hone par ismein
-// se padh kar failed recipients ko ek baar khud-ba-khud dobara bhejta hai.
-// 'sending' ka `quietHours`, aur 'tracking'/'contacts' poori tarah, abhi
-// sirf save/load hote hain; inhe real logic se jodna alag kaam hai.
+// Kaam karne wali keys: 'unsubscribe' — sender.js ismein se unsubscribe link
+// ka text padhta hai jab bhi koi campaign bhejta hai; 'sending' ka
+// `retryOnce` — sender.js har campaign khatam hone par ismein se padh kar
+// failed recipients ko ek baar khud-ba-khud dobara bhejta hai; aur
+// 'templateSources' — server/src/routes/templates.js har naya template
+// banate waqt aur Templates list dikhate waqt ismein se padhta hai (kaunsa
+// source — custom/html_upload/builder — abhi allowed hai). 'sending' ka
+// `quietHours`, aur 'tracking'/'contacts' poori tarah, abhi sirf save/load
+// hote hain; inhe real logic se jodna alag kaam hai.
 // ---------------------------------------------------------------------------
 import { Router } from 'express';
 import { z } from 'zod';
@@ -51,6 +54,14 @@ const SCHEMAS = {
     // future sends from THAT account, not every account in the workspace.
     // true = old behaviour — one unsubscribe blocks every account.
     applyGlobally: z.boolean().default(false),
+  }),
+  // Kaunsa template-creation tareeka (source) abhi allowed hai — OFF karne
+  // se sirf HIDE hota hai (naya banana + Library me dikhna), DELETE kabhi
+  // nahi. templates.js is exact shape ko padhta hai.
+  templateSources: z.object({
+    custom: z.boolean(),
+    html_upload: z.boolean(),
+    builder: z.boolean(),
   }),
   // Client ke apne "Dynamic Fields" (WordPress custom-fields jaisa) — sirf
   // CUSTOM fields yahan store hote hain, builtins (name/email/company/...)

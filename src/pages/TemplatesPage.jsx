@@ -9,10 +9,12 @@ import FilterSelect, { FilterBar } from '../components/ui/FilterSelect';
 import Pagination from '../components/ui/Pagination';
 import EmptyState from '../components/ui/EmptyState';
 import Sheet from '../components/ui/Sheet';
-import TemplateSourceBadge from '../components/templates/TemplateSourceBadge';
+import TemplateSourceBadge, { TEMPLATE_SOURCE_ORDER } from '../components/templates/TemplateSourceBadge';
+import TemplateTypeDropdown from '../components/templates/TemplateTypeDropdown';
 import { useT } from '../i18n/I18nProvider';
 import { useWorkspace } from '../store/WorkspaceProvider';
 import { useServerList } from '../api/useServerList';
+import { useApi } from '../api/useApi';
 import { api } from '../api/client';
 import { formatDate } from '../utils/format';
 import { findLanguage, LANGUAGES } from '../i18n/languages';
@@ -28,6 +30,8 @@ export default function TemplatesPage() {
   const search = useDebouncedValue(query, 200);
   const [confirmFor, setConfirmFor] = useState(null);
   const [categories, setCategories] = useState([]);
+  // Koi selection nahi = "sab enabled sources dikhao" (default state).
+  const [selectedSources, setSelectedSources] = useState([]);
 
   useEffect(() => {
     api
@@ -36,9 +40,18 @@ export default function TemplatesPage() {
       .catch(() => setCategories([]));
   }, []);
 
+  // Settings me kaunsa source (custom/html_upload/builder) abhi allowed hai —
+  // dropdown me sirf yehi options dikhte hain ("Source dropdown se
+  // inaccessible" jab tak Settings se dobara ON na ho). Server bhi isi
+  // setting ko khud padh kar list filter karta hai — yeh sirf dropdown ke
+  // options tay karne ke liye hai, koi alag enforcement nahi.
+  const settingsCall = useApi('/api/settings');
+  const templateSourcesSetting = settingsCall.data?.settings?.templateSources;
+  const enabledSources = TEMPLATE_SOURCE_ORDER.filter((source) => templateSourcesSetting?.[source] !== false);
+
   const pager = useServerList('/api/templates', {
     key: 'templates',
-    params: { search, category, language },
+    params: { search, category, language, source: selectedSources.join(',') },
     limit: 24,
   });
 
@@ -73,6 +86,7 @@ export default function TemplatesPage() {
     setCategory('All');
     setLanguage('All');
     setQuery('');
+    setSelectedSources([]);
   }
 
   const categoryChips = useMemo(
@@ -116,6 +130,7 @@ export default function TemplatesPage() {
             onChange={setLanguage}
             options={languageOptions}
           />
+          <TemplateTypeDropdown enabledSources={enabledSources} selected={selectedSources} onChange={setSelectedSources} />
         </FilterBar>
 
         <div className="mw-card__body">
