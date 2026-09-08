@@ -830,9 +830,9 @@ export default {
   'guide.c3.tip': 'Every column you import becomes a variable you can use in an email, such as {{city}} or {{course}}.',
 
   'guide.c4.lede': 'A template is your email design, written in HTML and saved with a name.',
-  'guide.c4.s1': 'Open Templates and press Create template.',
+  'guide.c4.s1': 'Open Templates and press Create template — choose Custom Editor, HTML Upload, or Drag & Drop Builder.',
   'guide.c4.s2': 'Give it a name you will recognise later, for example “Diwali Offer 2026”.',
-  'guide.c4.s3': 'If you do not have HTML ready, press one of the starting points and change the words.',
+  'guide.c4.s3': 'Not sure where to start? There are 22 ready-made templates across all three methods — pick one and change the words. Each always reopens in the editor that built it.',
   'guide.c4.s4': 'To add a picture, open the Images tab, upload the file, then press Insert — a ready image tag is added for you.',
   'guide.c4.s5': 'Watch the right-hand side while you type. That is exactly what the recipient will see.',
   'guide.c4.s6': 'Press Save. Your template now appears in the campaign wizard.',

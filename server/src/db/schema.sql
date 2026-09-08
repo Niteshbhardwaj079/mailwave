@@ -183,10 +183,12 @@ CREATE TABLE IF NOT EXISTS templates (
 -- Batata hai template ka content kis language me likha gaya hai.
 ALTER TABLE templates ADD COLUMN IF NOT EXISTS language text NOT NULL DEFAULT 'en';
 
--- Default (master) templates: 14 ready-made templates jo seed karte hain.
--- Inhe seedha edit/delete nahi kiya ja sakta — "Use this template" duplicate
--- bana kar copy par edit karwata hai, taaki master hamesha wahi rahe jo
--- app ke saath aaya tha.
+-- Default (master) templates: 22 ready-made templates jo seed karte hain
+-- (6 Custom / 6 HTML Upload / 10 Builder — src/data/defaultTemplates.js).
+-- Edit-in-place allowed hai (Save seedha isi row ko update karta hai,
+-- hamesha ke liye) — sirf DELETE block hai, dono UI aur API level par.
+-- "Duplicate" se ek bilkul alag, non-default copy bhi kabhi bhi banai ja
+-- sakti hai, jo is master se poori tarah independent hoti hai.
 ALTER TABLE templates ADD COLUMN IF NOT EXISTS is_default boolean NOT NULL DEFAULT false;
 
 -- Structured editor ("Design" tab) ka form-data — logo, heading, blocks,

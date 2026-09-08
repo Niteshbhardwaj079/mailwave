@@ -11,8 +11,9 @@
 // Ek file samajh li, toh baaki sab samajh aa jayengi.
 //
 // Default (is_default) templates ek chhoti si istisna hain: DELETE unhe
-// kabhi nahi chhoo sakta — app ke saath aaye 14 master templates hamesha
-// maujood rehte hain. PUT (edit) allowed hai — Super Admin inhe seedha
+// kabhi nahi chhoo sakta — app ke saath aaye 22 master templates (6 Custom /
+// 6 HTML Upload / 10 Builder) hamesha maujood rehte hain. PUT (edit) allowed
+// hai — Super Admin inhe seedha
 // sudhaar sakta hai, aur wo edit hamesha ke liye usi row me save hoti hai.
 // /:id/duplicate se ek bilkul alag, independent copy bhi kabhi bhi banai ja
 // sakti hai — us copy par baad me kiya gaya kaam is master ko kabhi nahi
@@ -48,7 +49,18 @@ const templateInput = z.object({
   // Drag & Drop builder. Naya template banate waqt frontend apne aap sahi
   // value bhejta hai; PUT (edit) me bhi wahi tool apni value bhejta hai jo
   // usne pehle load ki thi, isliye type kabhi apne aap nahi badalta.
-  source: z.enum(TEMPLATE_SOURCES).default('custom'),
+  //
+  // Deliberately `.optional()`, NOT `.default('custom')` — a default here
+  // would mean any PUT call that simply forgets to include `source` silently
+  // RESETS an html_upload/builder template's source back to 'custom' (Zod
+  // fills the default in before the handler ever sees the request), breaking
+  // the "source never changes on its own" guarantee for anything except the
+  // one frontend code path that happens to always send it today. POST/PUT
+  // handlers below apply the right fallback explicitly instead — POST
+  // defaults a missing source to 'custom' (correct for a brand-new
+  // template), PUT falls back to the EXISTING row's source (never a fixed
+  // default), so the invariant holds structurally, not just by convention.
+  source: z.enum(TEMPLATE_SOURCES).optional(),
 });
 
 /** Database ki row ko us shape me badalta hai jo frontend padhta hai. */
@@ -177,7 +189,7 @@ router.post(
     await query(
       `INSERT INTO templates (id, name, category, subject, html, language, content_schema, source, created_by)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-      [id, name, category, subject, html, language, contentSchema ? JSON.stringify(contentSchema) : null, source, req.user.id]
+      [id, name, category, subject, html, language, contentSchema ? JSON.stringify(contentSchema) : null, source ?? 'custom', req.user.id]
     );
     await ensureCategory(category, req.user.id);
 
@@ -202,16 +214,22 @@ router.put(
     // Default (master) templates CAN be edited in place — unlike delete, this
     // is intentional: a Super Admin can correct/improve a built-in template
     // and have it save permanently. Only delete stays blocked (below).
-    const existing = await one('SELECT id, name FROM templates WHERE id = $1', [req.params.id]);
+    const existing = await one('SELECT id, name, source FROM templates WHERE id = $1', [req.params.id]);
     if (!existing) throw notFound('Yeh template nahi mila');
 
     const { name, category, subject, html, language, contentSchema, source } = req.body;
+    // Client hamesha apni value bhejta hai — par agar kabhi na bheje (jaise
+    // koi purana/bahar ka API caller), to row ka MAUJOODA source hi jeetta
+    // hai, kabhi 'custom' default nahi — warna ek html_upload/builder
+    // template chup-chaap 'custom' me badal jaati, aur agli baar galat
+    // editor me khulti.
+    const resolvedSource = source ?? existing.source;
 
     await query(
       `UPDATE templates
           SET name = $1, category = $2, subject = $3, html = $4, language = $5, content_schema = $6, source = $7, updated_at = now()
         WHERE id = $8`,
-      [name, category, subject, html, language, contentSchema ? JSON.stringify(contentSchema) : null, source, req.params.id]
+      [name, category, subject, html, language, contentSchema ? JSON.stringify(contentSchema) : null, resolvedSource, req.params.id]
     );
     await ensureCategory(category, req.user.id);
 

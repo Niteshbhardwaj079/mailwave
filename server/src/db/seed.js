@@ -18,6 +18,7 @@ import { allSeedTranslations } from '../../../src/data/systemEmailTranslations.j
 import {
   DEFAULT_TEMPLATES,
   DEFAULT_TEMPLATE_CATEGORIES,
+  DEFAULT_TEMPLATE_IDS,
   renderDefaultTemplateHtml,
   resolveDefaultTemplateSchema,
 } from '../../../src/data/defaultTemplates.js';
@@ -209,11 +210,20 @@ async function seedTemplates() {
 }
 
 /**
- * 14 ready-made master templates + unke categories. `ON CONFLICT (id) DO
- * NOTHING` — dobara seed chalne se na inka content overwrite hota hai, na
- * (is_default rows hain hi immutable) kisi ka kiya hua kaam.
+ * 22 ready-made master templates (6 Custom / 6 HTML Upload / 10 Builder) +
+ * unke categories. Purani/stale default rows (jinka id ab DEFAULT_TEMPLATE_IDS
+ * me nahi hai) pehle DELETE hoti hain — sirf `is_default = true` rows, kabhi
+ * kisi user-created ya starter template ko nahi chhuta (wo hamesha
+ * is_default = false hoti hain, aur is column ko API se set karna hi possible
+ * nahi — dekho server/src/routes/templates.js). Uske baad `ON CONFLICT (id)
+ * DO NOTHING` se insert — dobara seed chalne se na kisi maujooda default ka
+ * content overwrite hota hai, na kisi doosri table ka kaam.
  */
 async function seedDefaultTemplates() {
+  if (DEFAULT_TEMPLATE_IDS.length !== 22) {
+    throw new Error(`seedDefaultTemplates: expected exactly 22 default templates, got ${DEFAULT_TEMPLATE_IDS.length} — refusing to touch is_default rows`);
+  }
+
   for (const [index, name] of DEFAULT_TEMPLATE_CATEGORIES.entries()) {
     await query(
       `INSERT INTO template_categories (id, name, sort_order) VALUES ($1,$2,$3)
@@ -222,6 +232,8 @@ async function seedDefaultTemplates() {
     );
   }
 
+  await query(`DELETE FROM templates WHERE is_default = true AND id <> ALL($1::text[])`, [DEFAULT_TEMPLATE_IDS]);
+
   const placeholderBase = `${env.publicUrl}/template-placeholders`;
 
   for (const entry of DEFAULT_TEMPLATES) {
@@ -229,10 +241,10 @@ async function seedDefaultTemplates() {
     const html = renderDefaultTemplateHtml(entry, placeholderBase);
 
     await query(
-      `INSERT INTO templates (id, name, category, subject, html, language, is_default, content_schema, created_by)
-       VALUES ($1,$2,$3,$4,$5,'en',true,$6,null)
+      `INSERT INTO templates (id, name, category, subject, html, language, is_default, content_schema, source, created_by)
+       VALUES ($1,$2,$3,$4,$5,'en',true,$6,$7,null)
        ON CONFLICT (id) DO NOTHING`,
-      [entry.id, entry.name, entry.category, entry.subject, html, JSON.stringify(schema)]
+      [entry.id, entry.name, entry.category, entry.subject, html, schema ? JSON.stringify(schema) : null, entry.source]
     );
   }
 }
