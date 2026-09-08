@@ -27,7 +27,7 @@ export const guideChapters = [
     number: 4,
     key: 'c4',
     icon: 'bi-code-square',
-    steps: ['s1', 's2', 's3', 's4', 's5', 's6'],
+    steps: ['s1', 's2', 's3', 's4', 's5', 's6', 's7'],
     minutes: 4,
     link: { to: '/templates/new', labelKey: 'tpl.create' },
   },

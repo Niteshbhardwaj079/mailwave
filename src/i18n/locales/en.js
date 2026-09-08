@@ -749,6 +749,7 @@ export default {
   'guide.c4.s4': 'To add a picture, open the Images tab, upload the file, then press Insert — a ready image tag is added for you.',
   'guide.c4.s5': 'Watch the right-hand side while you type. That is exactly what the recipient will see.',
   'guide.c4.s6': 'Press Save. Your template now appears in the campaign wizard.',
+  'guide.c4.s7': '“Insert Dynamic Field” drops in a placeholder like {{name}} or {{company}} wherever your cursor is — it fills in with each recipient’s own details when sent. If you build your own Footer with an unsubscribe link, that is the real, working link — {app} never adds a second one on top of it.',
   'guide.c4.tip': 'Write {{name}} where you want each person’s own name. When sending, {app} puts their real name there.',
 
   'guide.c5.lede': 'A campaign is one send: these people, this email, at this time.',

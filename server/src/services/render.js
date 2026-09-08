@@ -78,8 +78,17 @@ export function openPixel(recipientId) {
  * Yeh marzi ki cheez nahi hai. Bulk email me unsubscribe link na ho to Gmail
  * aur Outlook aapko spam me daal dete hain, aur kai deshon me yeh gair-kanooni
  * bhi hai.
+ *
+ * `skipComplianceBlock: true` — jab template ka apna Design-tab "Footer"
+ * (company/address/unsubscribe sab kuch) pehle se hi is recipient ka ASLI
+ * unsubscribe link bana chuka ho (buildEmail() yeh khud check karta hai).
+ * Tab yahan sirf Subscribe button chahiye to wahi jodte hain — poora company/
+ * unsubscribe block dobara NAHI, warna email ke neeche do-do footer aur do-do
+ * "Unsubscribe" link dikhte (client ne khud dekha, confusing lagta hai).
+ * Jab template ka apna unsubscribe link NA ho (purane/freeform templates),
+ * yeh hamesha false rehta hai — poora, compliant footer kabhi nahi chhutta.
  */
-export function footer({ recipientId, company, unsubscribeText, subscribeButton }) {
+export function footer({ recipientId, company, unsubscribeText, subscribeButton, skipComplianceBlock = false }) {
   const unsubUrl = `${env.publicUrl}/t/u/${recipientId}`;
   const subUrl = `${env.publicUrl}/t/s/${recipientId}`;
 
@@ -89,6 +98,15 @@ export function footer({ recipientId, company, unsubscribeText, subscribeButton 
             text-decoration:none;border-radius:6px;font-size:14px">Subscribe</a>
        </p>`
     : '';
+
+  if (skipComplianceBlock) {
+    if (!subscribeBlock) return '';
+    return `
+      <div style="margin-top:16px;text-align:center">
+        ${subscribeBlock}
+      </div>
+    `;
+  }
 
   // Company, pata, support email, website — sab brand.config.js se.
   // Yeh sirf dikhane ke liye nahi hai: bulk email me bhejne wale ki pehchaan
@@ -154,10 +172,11 @@ export function buildEmail({ campaign, recipient, links, company, unsubscribeTex
     phone: recipient.merge_data?.phone || '',
     city: recipient.merge_data?.city || '',
     subscribe_url: `${env.publicUrl}/t/s/${recipient.id}`,
-    // footer() below adds its OWN unsubscribe block regardless — this is
-    // only so a {{unsubscribe_url}} a client typed into the template body
-    // itself (Design tab's Dynamic Fields) resolves to the same real,
-    // per-recipient link instead of silently going blank.
+    // Agar client ne apna khud ka Footer banaya hai (Design tab), to usme
+    // {{unsubscribe_url}} pehle se hota hai — yahan asli, per-recipient link
+    // resolve hota hai. Neeche footer() ko yeh batane ke liye ki template ka
+    // apna unsubscribe link pehle se mojood hai ya nahi, isi value se check
+    // karte hain — taaki poora system-wala footer dobara na jud jaye.
     unsubscribe_url: `${env.publicUrl}/t/u/${recipient.id}`,
     // App-wide, not per-recipient — same for every email, sourced from the
     // app's own brand config so a {{app_name}}/{{support_email}} a client
@@ -170,6 +189,17 @@ export function buildEmail({ campaign, recipient, links, company, unsubscribeTex
 
   let html = mergeVariables(campaign.html, data);
 
+  // Template ka apna Footer (Design tab) is recipient ka ASLI unsubscribe
+  // link pehle se jod chuka hai kya — {{unsubscribe_url}} merge hone ke
+  // baad, uska raw text yahin dikhega agar template ne kahin bhi istemal
+  // kiya tha. Agar haan, to neeche system-wala poora footer (company/pata/
+  // ek aur "Unsubscribe" link) dobara nahi jodte — do-do footer/unsubscribe
+  // link dikhna client ko ajeeb aur unprofessional lagta hai. Agar nahi
+  // (purane ya freeform Code-tab templates jinme kabhi {{unsubscribe_url}}
+  // istemal hi nahi hua), poora, compliant footer hamesha jodte hain — yeh
+  // kabhi nahi chhutta, warna spam/legal issue ban jata.
+  const hasOwnUnsubscribeLink = html.includes(escapeHtml(data.unsubscribe_url));
+
   if (campaign.click_tracking && links?.size) {
     html = rewriteLinks(html, { links, recipientId: recipient.id });
   }
@@ -179,6 +209,7 @@ export function buildEmail({ campaign, recipient, links, company, unsubscribeTex
     company,
     unsubscribeText,
     subscribeButton: campaign.subscribe_button,
+    skipComplianceBlock: hasOwnUnsubscribeLink,
   });
 
   if (campaign.open_tracking) {
