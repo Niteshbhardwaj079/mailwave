@@ -20,7 +20,10 @@ const ImportContactsPage = lazy(() => import('./pages/ImportContactsPage'));
 const SegmentsPage = lazy(() => import('./pages/SegmentsPage'));
 const SubscribersPage = lazy(() => import('./pages/SubscribersPage'));
 const TemplatesPage = lazy(() => import('./pages/TemplatesPage'));
+const TemplateChooserPage = lazy(() => import('./pages/TemplateChooserPage'));
 const TemplateEditorPage = lazy(() => import('./pages/TemplateEditorPage'));
+const TemplateUploadPage = lazy(() => import('./pages/TemplateUploadPage'));
+const TemplateEditRouterPage = lazy(() => import('./pages/TemplateEditRouterPage'));
 const TemplatePreviewPage = lazy(() => import('./pages/TemplatePreviewPage'));
 const MediaLibraryPage = lazy(() => import('./pages/MediaLibraryPage'));
 const ReportsPage = lazy(() => import('./pages/ReportsPage'));
@@ -91,11 +94,13 @@ export default function App() {
 
             <Route element={<RequireModule module="templates" />}>
               <Route path="/templates" element={<TemplatesPage />} />
-              <Route path="/templates/:templateId/edit" element={<TemplateEditorPage />} />
+              <Route path="/templates/:templateId/edit" element={<TemplateEditRouterPage />} />
               <Route path="/media" element={<MediaLibraryPage />} />
             </Route>
             <Route element={<RequireModule module="templates" action="create" />}>
-              <Route path="/templates/new" element={<TemplateEditorPage />} />
+              <Route path="/templates/new" element={<TemplateChooserPage />} />
+              <Route path="/templates/new/custom" element={<TemplateEditorPage />} />
+              <Route path="/templates/new/upload" element={<TemplateUploadPage />} />
             </Route>
 
             <Route element={<RequireModule module="reports" />}>

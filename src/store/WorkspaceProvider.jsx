@@ -166,6 +166,7 @@ export function WorkspaceProvider({ children }) {
         html: template.html ?? '',
         language: template.language ?? 'en',
         contentSchema: template.contentSchema ?? null,
+        source: template.source ?? 'custom',
       };
 
       try {
@@ -210,6 +211,8 @@ export function WorkspaceProvider({ children }) {
               subject: found.subject,
               html: found.html,
               language: found.language,
+              contentSchema: found.contentSchema ?? null,
+              source: found.source ?? 'custom',
             });
             setTemplates((current) => [data.template, ...current]);
             refreshActivity();

@@ -9,6 +9,7 @@ import FilterSelect, { FilterBar } from '../components/ui/FilterSelect';
 import Pagination from '../components/ui/Pagination';
 import EmptyState from '../components/ui/EmptyState';
 import Sheet from '../components/ui/Sheet';
+import TemplateSourceBadge from '../components/templates/TemplateSourceBadge';
 import { useT } from '../i18n/I18nProvider';
 import { useWorkspace } from '../store/WorkspaceProvider';
 import { useServerList } from '../api/useServerList';
@@ -156,6 +157,7 @@ export default function TemplatesPage() {
                   <div className="mw-tpl__body">
                     <h3 className="mw-tpl__name">
                       {template.name}
+                      <TemplateSourceBadge source={template.source} className="ms-2" />
                       {template.isDefault ? <span className="badge bg-secondary ms-2">{t('tpl.defaultBadge')}</span> : null}
                     </h3>
                     <p className="mw-tpl__meta mb-0">

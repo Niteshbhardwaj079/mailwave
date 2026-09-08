@@ -10,6 +10,7 @@ import ImageLibrary from '../components/templates/ImageLibrary';
 import TemplateDesignEditor from '../components/templates/TemplateDesignEditor';
 import DynamicFieldPicker from '../components/templates/DynamicFieldPicker';
 import DynamicFieldManager from '../components/templates/DynamicFieldManager';
+import TemplateSourceBadge from '../components/templates/TemplateSourceBadge';
 import { useT } from '../i18n/I18nProvider';
 import { useWorkspace } from '../store/WorkspaceProvider';
 import { useToast } from '../components/ui/ToastProvider';
@@ -309,6 +310,7 @@ export default function TemplateEditorPage() {
       html,
       language,
       contentSchema: schema,
+      source: 'custom',
     });
     if (!record) return;
     setSavedId(record.id);
@@ -341,7 +343,12 @@ export default function TemplateEditorPage() {
   return (
     <div className="mw-stack">
       <PageHeader
-        title={existing ? t('tpl.editTemplate') : t('tpl.newTemplate')}
+        title={
+          <>
+            {existing ? t('tpl.editTemplate') : t('tpl.newTemplate')}
+            <TemplateSourceBadge source="custom" className="ms-2 align-middle" />
+          </>
+        }
         subtitle={t('tpl.htmlHelp')}
         breadcrumb={[{ label: t('nav.templates'), to: '/templates' }, { label: name || t('tpl.newTemplate') }]}
         helpTopic="editor"

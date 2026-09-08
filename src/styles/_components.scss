@@ -783,6 +783,16 @@
     border-color: var(--mw-primary);
     background-color: var(--mw-primary-soft);
   }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+
+    &:hover {
+      border-color: var(--mw-line);
+      box-shadow: none;
+    }
+  }
 }
 
 .mw-option__icon {

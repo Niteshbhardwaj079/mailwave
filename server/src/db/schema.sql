@@ -196,6 +196,14 @@ ALTER TABLE templates ADD COLUMN IF NOT EXISTS is_default boolean NOT NULL DEFAU
 -- ka bharosa nahi kiya ja sakta).
 ALTER TABLE templates ADD COLUMN IF NOT EXISTS content_schema jsonb;
 
+-- Template kis tareeke se banayi gayi — 'custom' (Design+Code editor),
+-- 'html_upload' (client ne apni .html file upload ki), ya 'builder' (naya
+-- Drag & Drop visual builder). DEFAULT 'custom' har purani row ko bina kisi
+-- alag UPDATE ke apne aap 'custom' bana deta hai — koi existing template
+-- kabhi apne aap dusre type me nahi badalti, aur edit karne par hamesha usi
+-- tool me wapas khulti hai jisne use banaya tha.
+ALTER TABLE templates ADD COLUMN IF NOT EXISTS source text NOT NULL DEFAULT 'custom';
+
 -- Naam sirf yahan track hote hain (tabs/dropdown ke liye) — templates.category
 -- ab bhi free text hi rehta hai, taaki purana data/route na tootein. Naya naam
 -- template save karte waqt yahan apne aap jud jata hai.

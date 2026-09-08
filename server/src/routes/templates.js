@@ -33,6 +33,8 @@ const router = Router();
 
 // Zod schema = "aane wale data ka form". Galat data yahin ruk jata hai,
 // database tak pahunchta hi nahi.
+const TEMPLATE_SOURCES = ['custom', 'html_upload', 'builder'];
+
 const templateInput = z.object({
   name: z.string().trim().min(1, 'Template ko ek naam do').max(120),
   category: z.string().trim().max(60).default('Custom'),
@@ -42,6 +44,11 @@ const templateInput = z.object({
   // "Design" tab ka form-data — raw "Code" tab se edit karne par frontend
   // isse null bhejta hai (structured fields ab bharose ke layak nahi rahe).
   contentSchema: z.record(z.any()).nullable().optional(),
+  // Template kis tareeke se banayi gayi — Custom editor, HTML Upload, ya
+  // Drag & Drop builder. Naya template banate waqt frontend apne aap sahi
+  // value bhejta hai; PUT (edit) me bhi wahi tool apni value bhejta hai jo
+  // usne pehle load ki thi, isliye type kabhi apne aap nahi badalta.
+  source: z.enum(TEMPLATE_SOURCES).default('custom'),
 });
 
 /** Database ki row ko us shape me badalta hai jo frontend padhta hai. */
@@ -55,6 +62,7 @@ function toApi(row) {
     language: row.language,
     isDefault: Boolean(row.is_default),
     contentSchema: row.content_schema ?? null,
+    source: row.source || 'custom',
     createdBy: row.created_by_name ?? null,
     updated: row.updated_at,
     created: row.created_at,
@@ -62,7 +70,7 @@ function toApi(row) {
 }
 
 const SELECT = `
-  SELECT t.id, t.name, t.category, t.subject, t.html, t.language, t.is_default, t.content_schema,
+  SELECT t.id, t.name, t.category, t.subject, t.html, t.language, t.is_default, t.content_schema, t.source,
          t.created_at, t.updated_at, u.name AS created_by_name
     FROM templates t
     LEFT JOIN users u ON u.id = t.created_by
@@ -163,13 +171,13 @@ router.post(
   requireModule('templates', 'create'),
   validate(templateInput),
   asyncHandler(async (req, res) => {
-    const { name, category, subject, html, language, contentSchema } = req.body;
+    const { name, category, subject, html, language, contentSchema, source } = req.body;
     const id = newId('tpl');
 
     await query(
-      `INSERT INTO templates (id, name, category, subject, html, language, content_schema, created_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-      [id, name, category, subject, html, language, contentSchema ? JSON.stringify(contentSchema) : null, req.user.id]
+      `INSERT INTO templates (id, name, category, subject, html, language, content_schema, source, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+      [id, name, category, subject, html, language, contentSchema ? JSON.stringify(contentSchema) : null, source, req.user.id]
     );
     await ensureCategory(category, req.user.id);
 
@@ -197,13 +205,13 @@ router.put(
     const existing = await one('SELECT id, name FROM templates WHERE id = $1', [req.params.id]);
     if (!existing) throw notFound('Yeh template nahi mila');
 
-    const { name, category, subject, html, language, contentSchema } = req.body;
+    const { name, category, subject, html, language, contentSchema, source } = req.body;
 
     await query(
       `UPDATE templates
-          SET name = $1, category = $2, subject = $3, html = $4, language = $5, content_schema = $6, updated_at = now()
-        WHERE id = $7`,
-      [name, category, subject, html, language, contentSchema ? JSON.stringify(contentSchema) : null, req.params.id]
+          SET name = $1, category = $2, subject = $3, html = $4, language = $5, content_schema = $6, source = $7, updated_at = now()
+        WHERE id = $8`,
+      [name, category, subject, html, language, contentSchema ? JSON.stringify(contentSchema) : null, source, req.params.id]
     );
     await ensureCategory(category, req.user.id);
 
@@ -226,23 +234,24 @@ router.post(
   '/:id/duplicate',
   requireModule('templates', 'create'),
   asyncHandler(async (req, res) => {
-    const source = await one('SELECT * FROM templates WHERE id = $1', [req.params.id]);
-    if (!source) throw notFound('Yeh template nahi mila');
+    const original = await one('SELECT * FROM templates WHERE id = $1', [req.params.id]);
+    if (!original) throw notFound('Yeh template nahi mila');
 
     const id = newId('tpl');
-    const name = source.is_default ? source.name : `${source.name} (copy)`;
+    const name = original.is_default ? original.name : `${original.name} (copy)`;
 
     await query(
-      `INSERT INTO templates (id, name, category, subject, html, language, content_schema, created_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+      `INSERT INTO templates (id, name, category, subject, html, language, content_schema, source, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
       [
         id,
         name,
-        source.category,
-        source.subject,
-        source.html,
-        source.language,
-        source.content_schema ? JSON.stringify(source.content_schema) : null,
+        original.category,
+        original.subject,
+        original.html,
+        original.language,
+        original.content_schema ? JSON.stringify(original.content_schema) : null,
+        original.source || 'custom',
         req.user.id,
       ]
     );
@@ -251,7 +260,7 @@ router.post(
       action: 'created',
       module: 'templates',
       item: name,
-      detail: source.is_default ? 'Default template se apni copy banayi' : 'Purani template se copy bani',
+      detail: original.is_default ? 'Default template se apni copy banayi' : 'Purani template se copy bani',
     });
 
     const row = await one(`${SELECT} WHERE t.id = $1`, [id]);

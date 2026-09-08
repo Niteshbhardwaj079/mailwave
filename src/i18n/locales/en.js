@@ -253,6 +253,37 @@ export default {
   'tpl.defaultBadge': 'Default',
   'tpl.defaultEditNote': 'This is a default template, shared as a starting point for everyone. Saving here changes it permanently for every future "Use this template" and everyone who already has it open. Press Duplicate first if you want to keep the original as-is and work on your own independent copy instead.',
 
+  // --- Template source (which tool created it) -----------------------------
+  'tpl.source.custom': 'Custom',
+  'tpl.source.htmlUpload': 'HTML Upload',
+  'tpl.source.builder': 'Drag & Drop',
+
+  // --- New-template chooser -------------------------------------------------
+  'tpl.chooser.title': 'How do you want to create this template?',
+  'tpl.chooser.subtitle': 'Pick one — you can always start over with a different method later.',
+  'tpl.chooser.customTitle': 'Custom Editor',
+  'tpl.chooser.customDesc': 'Design fields plus a raw HTML/Code tab. Best if you already know HTML or want full control.',
+  'tpl.chooser.uploadTitle': 'Upload HTML',
+  'tpl.chooser.uploadDesc': 'Already have a ready .html file? Upload it as-is and use it in campaigns right away.',
+  'tpl.chooser.builderTitle': 'Drag & Drop Builder',
+  'tpl.chooser.builderDesc': 'Build visually with blocks — no HTML needed. Best for non-technical users.',
+  'tpl.chooser.comingSoon': 'Coming soon',
+
+  // --- Upload HTML template ---------------------------------------------------
+  'tpl.upload.title': 'Upload HTML template',
+  'tpl.upload.editTitle': 'Edit uploaded template',
+  'tpl.upload.dropHint': 'Drag and drop a .html file here, or click to choose one',
+  'tpl.upload.chooseFile': 'Choose file',
+  'tpl.upload.replaceFile': 'Replace file',
+  'tpl.upload.selectedFile': 'Selected file',
+  'tpl.upload.rawPreview': 'Raw HTML',
+  'tpl.upload.noFile': 'Choose a .html file before saving.',
+  'tpl.upload.readError': 'Could not read that file. Please choose a valid .html file.',
+  'tpl.upload.warnNoUnsubscribe': 'This template has no unsubscribe link — MailWave will still add one automatically before sending, but consider adding your own for a better look.',
+  'tpl.upload.warnNoTable': "This template doesn't use table-based layout — it may not render correctly in Outlook.",
+  'tpl.upload.warnDataUri': 'This template embeds images directly instead of linking them — this can trigger spam filters and makes every email larger. Consider uploading images to the Media Library and linking them instead.',
+  'tpl.upload.warnLargeFile': 'This is a large template file — consider optimizing images (link them instead of embedding) to avoid spam filters and slow loading.',
+
   // --- Template designer (structured "Design" tab) ------------------------
   'tpl.design.tab': 'Design',
   'tpl.design.header': 'Header',
