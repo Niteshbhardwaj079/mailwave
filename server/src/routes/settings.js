@@ -63,6 +63,14 @@ const SCHEMAS = {
     html_upload: z.boolean(),
     builder: z.boolean(),
   }),
+  // Naya image upload/edit kis backend me jaaye — apni DB me, ya connected
+  // external provider me. OFF karne se sirf naye uploads us backend par
+  // jaana band hote hain — purani images/rows kabhi nahi chhuti (dekho
+  // server/src/routes/images.js ka resolveImageStorageMode()).
+  imageStorage: z.object({
+    db: z.boolean(),
+    external: z.boolean(),
+  }),
   // Client ke apne "Dynamic Fields" (WordPress custom-fields jaisa) — sirf
   // CUSTOM fields yahan store hote hain, builtins (name/email/company/...)
   // hamesha src/data/dynamicFields.js se aate hain, kabhi DB me nahi.

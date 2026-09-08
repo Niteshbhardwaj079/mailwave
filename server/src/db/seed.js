@@ -408,6 +408,9 @@ async function seedSettings() {
     // Sab shuru me ON — kisi purani database me yeh feature aane se pehle
     // kuch bhi hidden nahi tha, isliye default bhi wahi hona chahiye.
     templateSources: { custom: true, html_upload: true, builder: true },
+    // Dono ON — bilkul aaj (is feature se pehle) ka hardcoded rule jaisa hi:
+    // external configured ho to wahi, warna DB. Koi behavior nahi badalta.
+    imageStorage: { db: true, external: true },
     // url/secret khaali — koi bhi event bhejta hi nahi jab tak admin apna
     // URL na daale aur chalu na kare.
     webhooks: { url: '', secret: '', enabled: false },

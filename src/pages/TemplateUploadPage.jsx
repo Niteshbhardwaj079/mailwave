@@ -202,6 +202,10 @@ export default function TemplateUploadPage() {
         helpTopic="editor"
         actions={
           <>
+            <Link to="/templates" className="btn btn-outline-secondary mw-btn-block-mobile">
+              <i className="bi bi-arrow-left me-2" />
+              {t('common.back')}
+            </Link>
             <button type="button" className="btn btn-outline-secondary mw-btn-block-mobile" onClick={() => setPreviewOpen(true)}>
               <i className="bi bi-eye me-2" />
               {t('tpl.previewButton')}

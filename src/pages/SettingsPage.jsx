@@ -32,6 +32,7 @@ const SECTIONS = [
   { key: 'contacts', labelKey: 'nav.contacts', icon: 'bi-people' },
   { key: 'unsubscribe', labelKey: 'set.unsubscribe', icon: 'bi-box-arrow-right' },
   { key: 'storage', labelKey: 'set.storage', icon: 'bi-hdd-network' },
+  { key: 'imageStorage', labelKey: 'set.imageStorageTitle', icon: 'bi-images' },
   { key: 'security', labelKey: 'topbar.security', icon: 'bi-shield-lock' },
   { key: 'api', labelKey: 'set.api', icon: 'bi-code-slash' },
   { key: 'webhooks', labelKey: 'set.webhooks', icon: 'bi-broadcast' },
@@ -164,6 +165,11 @@ export default function SettingsPage() {
   // jab tak Save na dabaya jaaye kabhi server tak nahi jaata.
   const [templateSourcesDraft, setTemplateSourcesDraft] = useState(null);
   const [templateSourcesSaved, setTemplateSourcesSaved] = useState(null);
+  // imageStorageSaved/Draft — bilkul templateSources jaisa hi pattern (Cancel
+  // aakhri saved value par wapas jaata hai, Save na dabaya ho to server tak
+  // kuch nahi jaata).
+  const [imageStorageDraft, setImageStorageDraft] = useState(null);
+  const [imageStorageSaved, setImageStorageSaved] = useState(null);
   const [savingKey, setSavingKey] = useState('');
 
   useEffect(() => {
@@ -186,6 +192,15 @@ export default function SettingsPage() {
       setTemplateSourcesDraft(value);
       setTemplateSourcesSaved(value);
     }
+    // Row missing ho (aaj production ka haal, is setting ke aane se pehle)
+    // to bhi dono `true` maan kar dikhate hain — backend ka
+    // resolveImageStorageMode() bhi isi tarah default karta hai, aur yehi
+    // aaj (is feature se pehle) ka asli behavior bhi hai.
+    if (!settingsCall.loading && !imageStorageDraft) {
+      const value = { db: true, external: true, ...(serverSettings.imageStorage || {}) };
+      setImageStorageDraft(value);
+      setImageStorageSaved(value);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serverSettings, settingsCall.loading]);
 
@@ -194,6 +209,13 @@ export default function SettingsPage() {
 
   function cancelTemplateSourcesDraft() {
     setTemplateSourcesDraft(templateSourcesSaved);
+  }
+
+  const isImageStorageDirty =
+    imageStorageDraft && imageStorageSaved && JSON.stringify(imageStorageDraft) !== JSON.stringify(imageStorageSaved);
+
+  function cancelImageStorageDraft() {
+    setImageStorageDraft(imageStorageSaved);
   }
 
   /** Returns true on success — kuch callers (jaise Template Options) ko save ke baad apna "last saved" snapshot bhi update karna hota hai. */
@@ -214,6 +236,11 @@ export default function SettingsPage() {
   async function saveTemplateSources() {
     const ok = await saveWorkspaceSetting('templateSources', templateSourcesDraft);
     if (ok) setTemplateSourcesSaved(templateSourcesDraft);
+  }
+
+  async function saveImageStorage() {
+    const ok = await saveWorkspaceSetting('imageStorage', imageStorageDraft);
+    if (ok) setImageStorageSaved(imageStorageDraft);
   }
 
   // --- API keys ---------------------------------------------------------------
@@ -1179,6 +1206,61 @@ export default function SettingsPage() {
                 </button>
                 <button type="button" className="btn btn-primary" onClick={saveStorageSettings} disabled={storageSaving}>
                   {storageSaving ? t('common.loading') : t('common.saveChanges')}
+                </button>
+              </CardFoot>
+            </Card>
+          ) : null}
+
+          {section === 'imageStorage' ? (
+            <Card>
+              <CardHead title={t('set.imageStorageTitle')} subtitle={t('set.imageStorageSub')} />
+              <CardBody>
+                {!imageStorageDraft ? (
+                  <div className="p-3 text-center mw-text-muted">
+                    <div className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" />
+                    {t('common.loading')}
+                  </div>
+                ) : (
+                  <>
+                    <SwitchRow
+                      id="is-db"
+                      title={t('set.imgStoreDbTitle')}
+                      desc={t('set.imgStoreDbDesc')}
+                      checked={imageStorageDraft.db}
+                      disabled={!canEditSettings}
+                      onChange={(event) => setImageStorageDraft((current) => ({ ...current, db: event.target.checked }))}
+                    />
+                    <SwitchRow
+                      id="is-external"
+                      title={t('set.imgStoreExternalTitle')}
+                      desc={t('set.imgStoreExternalDesc')}
+                      checked={imageStorageDraft.external}
+                      disabled={!canEditSettings}
+                      onChange={(event) => setImageStorageDraft((current) => ({ ...current, external: event.target.checked }))}
+                    />
+
+                    <Note tone="info" icon="bi-info-circle">
+                      {t('set.imageStorageNote')}
+                    </Note>
+                  </>
+                )}
+              </CardBody>
+              <CardFoot className="d-flex gap-2">
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={saveImageStorage}
+                  disabled={!canEditSettings || !isImageStorageDirty || savingKey === 'imageStorage'}
+                >
+                  {savingKey === 'imageStorage' ? t('common.loading') : t('common.saveChanges')}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary"
+                  onClick={cancelImageStorageDraft}
+                  disabled={!isImageStorageDirty || savingKey === 'imageStorage'}
+                >
+                  {t('common.cancel')}
                 </button>
               </CardFoot>
             </Card>

@@ -122,8 +122,30 @@ router.get(
   })
 );
 
-/** Optimize kar ke aur (agar object storage connected hai) usme daal kar row insert karta hai. */
+/**
+ * Naya upload/edit kis backend me jayega — 'db' | 'object' | null (dono
+ * Settings me band). Har call par fresh DB read (koi caching nahi), isliye
+ * Settings save karte hi agli request se turant asar dikhta hai. Row missing
+ * (purani DB) ho to bhi dono `true` maane jaate hain — aaj (is feature se
+ * pehle) ka hardcoded "external configured ho to wahi, warna DB" rule
+ * bilkul wahi ka wahi rehta hai.
+ */
+async function resolveImageStorageMode() {
+  const row = await one('SELECT value FROM settings WHERE key = $1', ['imageStorage']);
+  const dbEnabled = row?.value?.db !== false;
+  const externalEnabled = row?.value?.external !== false;
+  if (externalEnabled && (await objectStorageConfigured())) return 'object';
+  if (dbEnabled) return 'db';
+  return null;
+}
+
+/** Optimize kar ke aur (Settings me jo bhi backend allowed hai usme) daal kar row insert karta hai. */
 async function persistUploadedImage({ name, dataUrl, userId }) {
+  const mode = await resolveImageStorageMode();
+  if (!mode) {
+    throw badRequest('No image storage is enabled. Please enable DB Image Storage or configure an external Image Storage provider in Settings.');
+  }
+
   const match = String(dataUrl).match(/^data:([^;,]+);base64,(.*)$/s);
   if (!match) throw badRequest('Yeh image ka format samajh nahi aaya');
 
@@ -155,9 +177,8 @@ async function persistUploadedImage({ name, dataUrl, userId }) {
   if (buffer.length > MAX_BYTES) throw badRequest('Optimize karne ke baad bhi image 2 MB se badi hai');
 
   const id = newId('img');
-  const useObjectStorage = await objectStorageConfigured();
 
-  if (useObjectStorage) {
+  if (mode === 'object') {
     const objectKey = `images/${id}.${ext}`;
     await uploadObject(objectKey, buffer, finalMime);
     await query(

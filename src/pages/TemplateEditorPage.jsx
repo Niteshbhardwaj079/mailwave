@@ -362,6 +362,10 @@ export default function TemplateEditorPage() {
         helpTopic="editor"
         actions={
           <>
+            <Link to="/templates" className="btn btn-outline-secondary mw-btn-block-mobile">
+              <i className="bi bi-arrow-left me-2" />
+              {t('common.back')}
+            </Link>
             <button type="button" className="btn btn-outline-secondary mw-btn-block-mobile" onClick={() => setFieldsManagerOpen(true)}>
               <i className="bi bi-braces me-2" />
               {t('dyn.manageFields')}

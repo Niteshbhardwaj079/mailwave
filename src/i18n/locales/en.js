@@ -1462,6 +1462,14 @@ export default {
   'set.storageDisconnectConfirmTitle': 'Disconnect Image Storage?',
   'set.storageDisconnectConfirmText': 'This only removes the saved credentials — images already uploaded are never deleted. New uploads will go back to this app’s own database until you connect storage again.',
 
+  'set.imageStorageTitle': 'Image Storage',
+  'set.imageStorageSub': 'Choose where new image uploads are allowed to go',
+  'set.imgStoreDbTitle': 'DB Image Storage',
+  'set.imgStoreDbDesc': 'Store new uploaded images directly in this app’s own database.',
+  'set.imgStoreExternalTitle': 'External Image Storage',
+  'set.imgStoreExternalDesc': 'Use your connected external storage provider (configured above, under Storage) for new uploads.',
+  'set.imageStorageNote': 'Turning both off blocks new uploads with a clear message — existing images are never deleted, moved, or changed either way. Connect a provider under Storage before relying on External here.',
+
   'set.webhooksSub': 'Send other tools a message the moment something happens — no developer needed',
   'set.webhooksIntro': 'Every time an email is sent, opened, clicked, or someone unsubscribes, {app} can send a small message to a web address you choose, the instant it happens.',
   'set.webhooksNoCodeTitle': 'Easiest way — no coding at all:',
