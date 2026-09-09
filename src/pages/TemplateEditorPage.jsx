@@ -479,7 +479,6 @@ export default function TemplateEditorPage() {
               <TemplateDesignEditor
                 schema={schema}
                 onChange={handleSchemaChange}
-                dynamicFields={allInsertableFields}
                 ownFieldKeys={dynamicFields.map((f) => f.key)}
               />
             ) : null}

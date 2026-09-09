@@ -4,7 +4,6 @@ import { useT } from '../../i18n/I18nProvider';
 import Sheet from '../ui/Sheet';
 import ImageLibrary from './ImageLibrary';
 import RichTextEditor from './RichTextEditor';
-import DynamicFieldPicker from './DynamicFieldPicker';
 import {
   SOCIAL_PLATFORMS,
   allTemplateFieldKeys,
@@ -32,7 +31,7 @@ import { uniqueFieldKey } from '../../data/dynamicFields';
  * controls jaan-boojh kar yahan nahi hain — font hamesha Arial hai, colors
  * template ke saath pehle se set hain.
  */
-export default function TemplateDesignEditor({ schema, onChange, dynamicFields, ownFieldKeys }) {
+export default function TemplateDesignEditor({ schema, onChange, ownFieldKeys }) {
   const t = useT();
   const [pickerFor, setPickerFor] = useState(null); // 'logo' | { fieldId }
   const headingRefs = useRef({});
@@ -257,14 +256,6 @@ export default function TemplateDesignEditor({ schema, onChange, dynamicFields, 
 
               {field.type === 'heading' ? (
                 <>
-                  <div className="d-flex justify-content-end mb-1">
-                    <DynamicFieldPicker
-                      fields={dynamicFields}
-                      getField={() => headingRefs.current[field.id]}
-                      value={field.value}
-                      onChange={(next) => setField(field.id, { value: next })}
-                    />
-                  </div>
                   <input
                     ref={(el) => (headingRefs.current[field.id] = el)}
                     type="text"
@@ -280,7 +271,6 @@ export default function TemplateDesignEditor({ schema, onChange, dynamicFields, 
                 <RichTextEditor
                   value={field.value}
                   onChange={(next) => setField(field.id, { value: next })}
-                  dynamicFields={dynamicFields}
                   placeholder={t('tpl.design.paragraphPlaceholder')}
                 />
               ) : null}
@@ -383,12 +373,6 @@ export default function TemplateDesignEditor({ schema, onChange, dynamicFields, 
                   />
                   <span className="mw-fs-12 mw-text-muted mw-mono">{`{{${item.key}}}`}</span>
                 </div>
-                <DynamicFieldPicker
-                  fields={dynamicFields}
-                  getField={() => footerTextRefs.current[index]}
-                  value={item.value}
-                  onChange={(next) => setFooterText(item.id, next)}
-                />
                 <button type="button" className="btn btn-outline-danger" onClick={() => removeFooterText(item.id)}>
                   <i className="bi bi-trash3" />
                 </button>
