@@ -288,6 +288,12 @@ export default {
   'tpl.upload.warnNoTable': "This template doesn't use table-based layout — it may not render correctly in Outlook.",
   'tpl.upload.warnDataUri': 'This template embeds images directly instead of linking them — this can trigger spam filters and makes every email larger. Consider uploading images to the Media Library and linking them instead.',
   'tpl.upload.warnLargeFile': 'This is a large template file — consider optimizing images (link them instead of embedding) to avoid spam filters and slow loading.',
+  'tpl.warnUnclosedTag': "Some tags in this HTML don't look closed properly — this can break the layout in parts of the email.",
+  'tpl.warnMismatchedTag': "Some closing tags don't match their opening tags — double-check the HTML structure.",
+  'tpl.htmlIssuesTitle': 'Check this template before saving',
+  'tpl.htmlIssuesIntro': "This template's HTML has a few things worth checking:",
+  'tpl.htmlIssuesFix': 'Go back and fix',
+  'tpl.htmlIssuesSaveAnyway': 'Save anyway',
 
   // --- Drag & Drop template builder ------------------------------------------
   'tpl.builder.title': 'Drag & Drop builder',

@@ -12,7 +12,7 @@ import TemplateFullPreview from '../components/templates/TemplateFullPreview';
 import { useT } from '../i18n/I18nProvider';
 import { useWorkspace } from '../store/WorkspaceProvider';
 import { useToast } from '../components/ui/ToastProvider';
-import { lintUploadedHtml } from '../data/htmlUploadLint';
+import { lintTemplateHtml } from '../data/templateHtmlLint';
 import { LANGUAGES } from '../i18n/languages';
 import { api } from '../api/client';
 
@@ -37,6 +37,7 @@ export default function TemplateUploadPage() {
   const [copied, setCopied] = useState(false);
   const [imageLibraryOpen, setImageLibraryOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [pendingHtmlIssues, setPendingHtmlIssues] = useState(null);
   const fileInputRef = useRef(null);
   const codeRef = useRef(null);
 
@@ -76,7 +77,7 @@ export default function TemplateUploadPage() {
     [t]
   );
 
-  const warnings = useMemo(() => lintUploadedHtml(html), [html]);
+  const warnings = useMemo(() => lintTemplateHtml(html), [html]);
 
   function readFile(file) {
     if (!file) return;
@@ -132,6 +133,22 @@ export default function TemplateUploadPage() {
     setImageLibraryOpen(false);
   }
 
+  async function performSave() {
+    const record = await saveTemplate({
+      id: savedId || undefined,
+      name: name.trim(),
+      category: category.trim(),
+      subject,
+      html,
+      language,
+      contentSchema: null,
+      source: 'html_upload',
+    });
+    if (!record) return;
+    setSavedId(record.id);
+    setSavedOpen(true);
+  }
+
   async function handleSave() {
     if (!name.trim()) {
       toast.error(t('tpl.nameRequired'));
@@ -146,19 +163,14 @@ export default function TemplateUploadPage() {
       return;
     }
 
-    const record = await saveTemplate({
-      id: savedId || undefined,
-      name: name.trim(),
-      category: category.trim(),
-      subject,
-      html,
-      language,
-      contentSchema: null,
-      source: 'html_upload',
-    });
-    if (!record) return;
-    setSavedId(record.id);
-    setSavedOpen(true);
+    // `warnings` (upar, useMemo se) yahi lintTemplateHtml() ka result hai —
+    // dobara compute nahi karte, wahi list confirm-popup me dikhate hain.
+    if (warnings.length) {
+      setPendingHtmlIssues(warnings);
+      return;
+    }
+
+    await performSave();
   }
 
   function closeSaved() {
@@ -421,6 +433,36 @@ export default function TemplateUploadPage() {
             {t('common.preview')}
           </Link>
         </div>
+      </Sheet>
+
+      <Sheet
+        open={Boolean(pendingHtmlIssues)}
+        title={t('tpl.htmlIssuesTitle')}
+        onClose={() => setPendingHtmlIssues(null)}
+        footer={
+          <>
+            <button type="button" className="btn btn-outline-secondary flex-fill" onClick={() => setPendingHtmlIssues(null)}>
+              {t('tpl.htmlIssuesFix')}
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary flex-fill"
+              onClick={() => {
+                setPendingHtmlIssues(null);
+                performSave();
+              }}
+            >
+              {t('tpl.htmlIssuesSaveAnyway')}
+            </button>
+          </>
+        }
+      >
+        <p className="mw-fs-14 mw-text-muted mb-2">{t('tpl.htmlIssuesIntro')}</p>
+        <ul className="mw-fs-14 mw-text-muted mb-0">
+          {(pendingHtmlIssues || []).map((key) => (
+            <li key={key}>{t(key)}</li>
+          ))}
+        </ul>
       </Sheet>
 
       <TemplateFullPreview

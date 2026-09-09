@@ -18,6 +18,7 @@ import { useToast } from '../components/ui/ToastProvider';
 import { BLANK_HTML, starterTemplates } from '../data/starterHtml';
 import { DEFAULT_SCHEMA, findSocialPlatform, normalizeSchema, renderTemplateHtml, resolveTemplateFieldTokens } from '../data/templateBuilder';
 import { combineDynamicFields, fillDynamicPreview } from '../data/dynamicFields';
+import { lintTemplateHtml } from '../data/templateHtmlLint';
 import { LANGUAGES } from '../i18n/languages';
 import { api, ApiError } from '../api/client';
 import { appConfig } from '../config/appConfig';
@@ -68,6 +69,7 @@ export default function TemplateEditorPage() {
   const [customFields, setCustomFields] = useState([]);
   const [fieldsManagerOpen, setFieldsManagerOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [pendingHtmlIssues, setPendingHtmlIssues] = useState(null);
   const codeRef = useRef(null);
 
   useEffect(() => {
@@ -279,6 +281,33 @@ export default function TemplateEditorPage() {
     setTab(source.contentSchema ? 'design' : 'code');
   }
 
+  // {{heading_two}}/{{logo_url}}/{{website_url}}-jaise apne-hi-template
+  // tokens ko YAHAN resolve NAHI karte — save/reload ke baad bhi Code tab
+  // me wahi token dikhna chahiye jo type kiya tha ("Code variables remain
+  // valid after save/reload"). Yeh {{unsubscribe_url}} jaise recipient/
+  // global tokens jaisa hi tareeka hai: template me hamesha token hi rehta
+  // hai, asli value SIRF campaign me use hote waqt bharti hai (dekho
+  // StepTemplate.jsx ka resolveTemplateFieldTokens() call) — waisa hi jaisa
+  // asli send par server/src/services/render.js karta hai.
+  //
+  // Default templates save in place too now — the master row itself is
+  // updated, permanently. Only DELETE stays blocked for them (server-side).
+  async function performSave() {
+    const record = await saveTemplate({
+      id: savedId || undefined,
+      name: name.trim(),
+      category: category.trim(),
+      subject,
+      html,
+      language,
+      contentSchema: schema,
+      source: 'custom',
+    });
+    if (!record) return;
+    setSavedId(record.id);
+    setSavedOpen(true);
+  }
+
   async function handleSave() {
     // Template Name aur Category — sirf yehi do fields hard-required hain
     // (Email Language hamesha bhara hota hai, ek controlled <select> hai).
@@ -293,30 +322,16 @@ export default function TemplateEditorPage() {
       return;
     }
 
-    // {{heading_two}}/{{logo_url}}/{{website_url}}-jaise apne-hi-template
-    // tokens ko YAHAN resolve NAHI karte — save/reload ke baad bhi Code tab
-    // me wahi token dikhna chahiye jo type kiya tha ("Code variables remain
-    // valid after save/reload"). Yeh {{unsubscribe_url}} jaise recipient/
-    // global tokens jaisa hi tareeka hai: template me hamesha token hi rehta
-    // hai, asli value SIRF campaign me use hote waqt bharti hai (dekho
-    // StepTemplate.jsx ka resolveTemplateFieldTokens() call) — waisa hi jaisa
-    // asli send par server/src/services/render.js karta hai.
+    // HTML me koi jaana-pehchana risk (unclosed tag, koi table nahi, ...) ho
+    // to Save se pehle client ko batate hain aur confirm karwate hain —
+    // "Save anyway" chunte hi seedha performSave() (neeche) chalta hai.
+    const issues = lintTemplateHtml(html);
+    if (issues.length) {
+      setPendingHtmlIssues(issues);
+      return;
+    }
 
-    // Default templates save in place too now — the master row itself is
-    // updated, permanently. Only DELETE stays blocked for them (server-side).
-    const record = await saveTemplate({
-      id: savedId || undefined,
-      name: name.trim(),
-      category: category.trim(),
-      subject,
-      html,
-      language,
-      contentSchema: schema,
-      source: 'custom',
-    });
-    if (!record) return;
-    setSavedId(record.id);
-    setSavedOpen(true);
+    await performSave();
   }
 
   function closeSaved() {
@@ -622,6 +637,36 @@ export default function TemplateEditorPage() {
             {t('common.preview')}
           </Link>
         </div>
+      </Sheet>
+
+      <Sheet
+        open={Boolean(pendingHtmlIssues)}
+        title={t('tpl.htmlIssuesTitle')}
+        onClose={() => setPendingHtmlIssues(null)}
+        footer={
+          <>
+            <button type="button" className="btn btn-outline-secondary flex-fill" onClick={() => setPendingHtmlIssues(null)}>
+              {t('tpl.htmlIssuesFix')}
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary flex-fill"
+              onClick={() => {
+                setPendingHtmlIssues(null);
+                performSave();
+              }}
+            >
+              {t('tpl.htmlIssuesSaveAnyway')}
+            </button>
+          </>
+        }
+      >
+        <p className="mw-fs-14 mw-text-muted mb-2">{t('tpl.htmlIssuesIntro')}</p>
+        <ul className="mw-fs-14 mw-text-muted mb-0">
+          {(pendingHtmlIssues || []).map((key) => (
+            <li key={key}>{t(key)}</li>
+          ))}
+        </ul>
       </Sheet>
 
       <DynamicFieldManager
