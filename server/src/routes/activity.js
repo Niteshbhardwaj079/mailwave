@@ -129,7 +129,7 @@ router.delete(
     } else {
       const built = buildFilter(req.body ?? {});
       if (!built.clause && req.body?.confirmAll !== true) {
-        throw badRequest('Kam se kam ek filter chuno, ya poora log ek saath saaf karne ke liye confirm karo.');
+        throw badRequest('Choose at least one filter, or confirm to clear the whole log at once.');
       }
       clause = built.clause;
       params = built.params;

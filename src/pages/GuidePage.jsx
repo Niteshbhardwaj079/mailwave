@@ -8,7 +8,7 @@ import { useT } from '../i18n/I18nProvider';
 import { guideChapters } from '../data/guideChapters';
 
 // Steps beyond s5 are optional — some chapters have 6, most have 5.
-const MAX_STEPS = 6;
+const MAX_STEPS = 9;
 
 export default function GuidePage() {
   const t = useT();

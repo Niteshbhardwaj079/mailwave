@@ -842,6 +842,8 @@ export default {
   'guide.c4.s5': 'Watch the right-hand side while you type. That is exactly what the recipient will see.',
   'guide.c4.s6': 'Press Save. Your template now appears in the campaign wizard.',
   'guide.c4.s7': '“Insert Dynamic Field” drops in a placeholder like {{name}} or {{company}} wherever your cursor is — it fills in with each recipient’s own details when sent. If you build your own Footer with an unsubscribe link, that is the real, working link — {app} never adds a second one on top of it.',
+  'guide.c4.s8': 'Preview Template (next to Save) opens a full-screen, comfortable view of exactly what you have right now — unsaved changes included — with its own Desktop/Mobile toggle and a Save button. This is separate from the small Live preview panel next to the editor; neither one changes the other.',
+  'guide.c4.s9': 'On the Templates list, use the Template Type filter to show only Custom, HTML Upload, or Drag & Drop templates. Leave nothing checked to see every type your admin currently allows — see Settings for how an admin turns a creation method off workspace-wide.',
   'guide.c4.tip': 'Write {{name}} where you want each person’s own name. When sending, {app} puts their real name there.',
 
   'guide.c5.lede': 'A campaign is one send: these people, this email, at this time.',
@@ -947,6 +949,8 @@ export default {
   'guide.c16.s3': 'Sending: set a default batch size and delay between batches — new campaigns start with these numbers already filled in, though you can still change them per campaign.',
   'guide.c16.s4': 'Tracking, Contacts and Unsubscribe: set the defaults for open/click tracking, importing behaviour, and your unsubscribe page wording. "Apply globally" in Unsubscribe controls whether opting out of one sending account blocks just that account (the default) or every account in the workspace.',
   'guide.c16.s5': 'API keys and Webhooks live in their own sections further down this same page — see the Connect other tools chapter for those.',
+  'guide.c16.s6': 'Template Options: turn any of the three template-creation methods — Custom Editor, HTML Upload, Drag & Drop Builder — off for the whole workspace. This only hides that option and its existing templates; nothing is ever deleted, and turning it back on brings everything back immediately.',
+  'guide.c16.s7': 'Image Storage: choose whether new image uploads go into {app}’s own database, or your connected external storage (set up just above, under Storage). Turn both off and new uploads are blocked with a clear message — images already uploaded are never moved or deleted either way.',
   'guide.c16.tip': 'Every default you set here is just a starting point — the campaign wizard always lets you override it for one specific send.',
 
   'guide.c17.lede': 'Most errors have a plain reason. Here are the ones people run into most, and exactly why they happen.',
@@ -959,13 +963,15 @@ export default {
   'guide.c17.tip': 'The Activity Log records every important action with a timestamp — it is often the fastest way to see exactly what happened right before an error appeared.',
 
   'guide.c18.title': 'Sending emails in other languages',
-  'guide.c18.lede': 'Every email {app} sends — the campaigns you write and the automatic ones like password resets — can go out in more than English. Nothing is translated for you; you type each language yourself, and English is always the safe fallback.',
+  'guide.c18.lede': 'Two separate things, both covered here: the language {app}\'s own dashboard is shown in (yours to pick, any time), and the language the emails you write and the automatic ones like password resets go out in. Nothing in either is translated for you — you type or choose each language yourself, and English is always the safe fallback.',
   'guide.c18.s1': 'Open any template and pick its Email Language from the dropdown near the top. This just labels what language you typed the content in, so you and your team can tell templates apart when building a campaign.',
   'guide.c18.s2': 'When you build a campaign, whichever template you choose sets that campaign\'s language automatically — you will see it as a badge on the Review & Send screen before you send.',
   'guide.c18.s3': 'Open System Emails (Super Admin only) and use the language dropdown at the top. Each language has its own independent subject and HTML — editing Spanish never touches English, or any other language.',
   'guide.c18.s4': 'If a language has nothing saved yet, the editor shows you the English content so you are not starting from a blank page — edit it and press Save to create that language\'s own version.',
   'guide.c18.s5': 'Set your own preferred email language from Settings > Profile, or set it for someone else from Users & Roles when adding or editing them. This decides which language real emails — invites, password resets and similar — arrive in for that person.',
   'guide.c18.s6': 'If a person\'s preferred language has no saved version for a particular system email, they simply get the English one — nothing ever fails or looks broken because a translation is missing.',
+  'guide.c18.s7': 'Separately from all of that: {app}\'s own dashboard can run in your team\'s own language too. 21 interface languages are supported today — several Indian regional languages, plus Spanish, French, German, Portuguese, Chinese, Russian, Thai, Japanese, Korean and Arabic (with full right-to-left layout).',
+  'guide.c18.s8': 'Switch it any time from the globe icon in the top bar, or Settings > Language. This is a personal choice for whoever is signed in, and is completely separate from email content language — switching your own dashboard to French does not change what language a campaign actually sends in.',
   'guide.c18.tip': 'Test any system email in a specific language without waiting for a real trigger — open its language tab and press Send test. The email you receive matches exactly what is open on screen.',
   'guide.c18.warn': '{app} never translates anything automatically — every language version has to be typed by a person. Only fill in the languages your audience actually needs.',
 
@@ -977,6 +983,7 @@ export default {
   'guide.c19.s4': 'Press Crop on any image to trim it — drag the corners to choose the area, or just press Save to keep the area already selected for you. This replaces the image everywhere it is already used, so every template updates automatically.',
   'guide.c19.s5': 'Before deleting an image, {app} tells you if it is still used in any saved template or in a campaign already sent, so you never break something by accident.',
   'guide.c19.s6': 'Search and sort (recent, name, size, last used) to find an older image quickly once your library grows.',
+  'guide.c19.s7': 'Where a new upload actually lands — {app}’s own database, or your connected external storage — is controlled from Settings → Image Storage. Editing or cropping an existing image always uses whichever one is active right now; images already uploaded are never automatically moved.',
   'guide.c19.tip': 'Copy Link on any image gives you a ready web address you can paste anywhere — not just inside {app}.',
 
   // --- Bulk selection & clean-up (Update 5) ---

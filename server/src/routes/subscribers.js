@@ -81,12 +81,12 @@ router.get(
 router.post(
   '/delete',
   requireModule('contacts', 'delete'),
-  validate(z.object({ ids: z.array(z.string()).min(1, 'Kam se kam ek chuno').max(1000) })),
+  validate(z.object({ ids: z.array(z.string()).min(1, 'Choose at least one').max(1000) })),
   asyncHandler(async (req, res) => {
     const { ids } = req.body;
 
     const rows = await many('SELECT id, email FROM subscribers WHERE id = ANY($1)', [ids]);
-    if (rows.length === 0) throw badRequest('Inme se koi subscriber nahi mila');
+    if (rows.length === 0) throw badRequest('None of these subscribers were found');
 
     await query('DELETE FROM subscribers WHERE id = ANY($1)', [ids]);
 
@@ -113,7 +113,7 @@ router.post(
   validate(
     z.object({
       name: z.string().trim().max(120).default(''),
-      email: z.string().trim().email('Sahi email daalo').max(200),
+      email: z.string().trim().email('Enter a valid email address').max(200),
       company: z.string().trim().max(120).default(''),
       city: z.string().trim().max(120).default(''),
       campaignId: z.string().trim().max(60).optional(),

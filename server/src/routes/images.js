@@ -36,11 +36,11 @@ const MAX_DIMENSION = 1600;
 const MIME_TO_EXT = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif' };
 
 const imageInput = z.object({
-  name: z.string().trim().min(1, 'Image ko ek naam do').max(200),
+  name: z.string().trim().min(1, 'Give this image a name').max(200),
   // Do tarah ki image chalti hai: upload ki hui (data: URL) ya kisi website
   // ka seedha link (https:).
-  url: z.string().trim().min(1, 'Image ka data ya link chahiye').max(4_000_000),
-  size: z.number().int().min(0).max(MAX_BYTES, 'Image 2 MB se choti honi chahiye').default(0),
+  url: z.string().trim().min(1, 'Image data or a link is required').max(4_000_000),
+  size: z.number().int().min(0).max(MAX_BYTES, 'The image must be smaller than 2 MB').default(0),
   source: z.enum(['upload', 'url']).default('upload'),
 });
 
@@ -147,7 +147,7 @@ async function persistUploadedImage({ name, dataUrl, userId }) {
   }
 
   const match = String(dataUrl).match(/^data:([^;,]+);base64,(.*)$/s);
-  if (!match) throw badRequest('Yeh image ka format samajh nahi aaya');
+  if (!match) throw badRequest('This image format was not recognised');
 
   const [, mime, base64] = match;
   const original = Buffer.from(base64, 'base64');
@@ -174,7 +174,7 @@ async function persistUploadedImage({ name, dataUrl, userId }) {
   const finalMime = keepFormat ? mime : 'image/jpeg';
   const ext = MIME_TO_EXT[finalMime] || 'jpg';
 
-  if (buffer.length > MAX_BYTES) throw badRequest('Optimize karne ke baad bhi image 2 MB se badi hai');
+  if (buffer.length > MAX_BYTES) throw badRequest('The image is still larger than 2 MB even after optimising');
 
   const id = newId('img');
 
@@ -208,13 +208,13 @@ router.post(
     // Sirf yehi do tarah ke link chalenge. javascript: jaisa kuch template me
     // ghus gaya to wo email kholne wale ke browser me chal sakta hai.
     if (!/^data:image\//i.test(url) && !/^https:\/\//i.test(url)) {
-      throw badRequest('Sirf uploaded image ya https:// wala link chalega');
+      throw badRequest('Only an uploaded image or an https:// link is allowed');
     }
 
     // data: URL me asli size text ki lambai se pata chalta hai — bhejne wale
     // ke bataye size par bharosa nahi karte.
     const realSize = url.startsWith('data:') ? Math.round((url.length * 3) / 4) : size;
-    if (realSize > MAX_BYTES) throw badRequest('Image 2 MB se choti honi chahiye');
+    if (realSize > MAX_BYTES) throw badRequest('The image must be smaller than 2 MB');
 
     let id;
     if (source === 'upload' && url.startsWith('data:')) {
@@ -267,7 +267,7 @@ router.get(
   requireModule('templates', 'view'),
   asyncHandler(async (req, res) => {
     const row = await one('SELECT id, url, storage_provider FROM images WHERE id = $1', [req.params.id]);
-    if (!row) throw notFound('Yeh image nahi mili');
+    if (!row) throw notFound('This image was not found');
 
     // Jo link user ne copy kiya tha wahi HTML me pada hoga.
     const link = publicUrl(row);
@@ -298,11 +298,11 @@ router.put(
   requireModule('templates', 'edit'),
   asyncHandler(async (req, res) => {
     const existing = await one('SELECT id, name FROM images WHERE id = $1', [req.params.id]);
-    if (!existing) throw notFound('Yeh image nahi mili');
+    if (!existing) throw notFound('This image was not found');
 
     const { name, url } = req.body || {};
     if (url) {
-      if (!/^data:image\//i.test(url)) throw badRequest('Sirf edited image ka data bheja ja sakta hai');
+      if (!/^data:image\//i.test(url)) throw badRequest('Only edited image data can be sent');
 
       const oldRow = await one('SELECT object_key FROM images WHERE id = $1', [req.params.id]);
       const { deleteObject } = await import('../services/objectStorage.js');
@@ -351,7 +351,7 @@ router.delete(
   requireModule('templates', 'delete'),
   asyncHandler(async (req, res) => {
     const existing = await one('SELECT id, name, object_key FROM images WHERE id = $1', [req.params.id]);
-    if (!existing) throw notFound('Yeh image nahi mili');
+    if (!existing) throw notFound('This image was not found');
 
     await query('DELETE FROM images WHERE id = $1', [req.params.id]);
 

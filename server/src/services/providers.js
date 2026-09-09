@@ -25,14 +25,14 @@ export const PROVIDERS = {
     needsAppPassword: true,
     dailyLimitHint: 500,
     help: {
-      title: 'Gmail ke liye App Password chahiye',
-      why: 'Google ne normal password se SMTP band kar diya hai. App Password ek alag 16-akshar ka password hota hai jo sirf is app ke liye banta hai — aur jab chaho band kar sakte ho.',
+      title: 'Gmail needs an App Password',
+      why: 'Google has disabled SMTP with your normal password. An App Password is a separate 16-character password generated just for this app — you can revoke it any time.',
       steps: [
-        'myaccount.google.com/security kholo',
-        '2-Step Verification chalu karo (bina iske App Password ka option nahi aayega)',
-        'Usi page par "App passwords" par jao',
-        `App me "Mail" chuno, device me "Other" — naam ${brandName} likh do`,
-        'Jo 16 akshar ka password mile, wo yahan paste kar do (space hata do)',
+        'Open myaccount.google.com/security',
+        'Turn on 2-Step Verification (the App Password option will not appear without this)',
+        'On that same page, go to "App passwords"',
+        `Choose "Mail" as the app and "Other" as the device — enter ${brandName} as the name`,
+        'Paste the 16-character password you get here (remove the spaces)',
       ],
       link: 'https://myaccount.google.com/apppasswords',
     },
@@ -47,14 +47,14 @@ export const PROVIDERS = {
     needsAppPassword: true,
     dailyLimitHint: 300,
     help: {
-      title: 'Outlook ke liye App Password chahiye',
-      why: 'Microsoft ne bhi normal password se SMTP band kar diya hai. Agar aapka account company ka Microsoft 365 hai, to ho sakta hai admin ne SMTP hi band kar rakha ho — us haal me admin se "SMTP AUTH" chalu karne ko kaho.',
+      title: 'Outlook needs an App Password',
+      why: 'Microsoft has also disabled SMTP with your normal password. If this is a company Microsoft 365 account, the admin may have disabled SMTP entirely — in that case, ask them to turn on "SMTP AUTH".',
       steps: [
-        'account.microsoft.com/security kholo',
-        'Two-step verification chalu karo',
-        '"App passwords" par jao aur naya password banao',
-        'Wo password yahan paste karo (apna roz wala password nahi)',
-        'Company ka account hai aur phir bhi na chale, to admin se SMTP AUTH chalu karwao',
+        'Open account.microsoft.com/security',
+        'Turn on two-step verification',
+        'Go to "App passwords" and create a new one',
+        'Paste that password here (not your everyday password)',
+        'If this is a company account and it still does not work, ask your admin to enable SMTP AUTH',
       ],
       link: 'https://account.microsoft.com/security',
     },
@@ -70,11 +70,11 @@ export const PROVIDERS = {
     dailyLimitHint: 2000,
     help: {
       title: 'Microsoft 365 business account',
-      why: 'Company ke Microsoft 365 me SMTP by default band hota hai. Ise sirf aapka IT admin chalu kar sakta hai.',
+      why: 'SMTP is disabled by default on company Microsoft 365 accounts. Only your IT admin can turn it on.',
       steps: [
-        'IT admin se kaho: is mailbox ke liye "Authenticated SMTP" chalu kar do',
-        'Admin center → Users → user chuno → Mail → Manage email apps → Authenticated SMTP par tick',
-        'Uske baad email aur password (ya App Password) yahan daalo',
+        'Ask your IT admin to enable "Authenticated SMTP" for this mailbox',
+        'Admin center → Users → select the user → Mail → Manage email apps → tick Authenticated SMTP',
+        'Then enter the email and password (or App Password) here',
       ],
       link: 'https://learn.microsoft.com/exchange/clients-and-mobile-in-exchange-online/authenticated-client-smtp-submission',
     },
@@ -89,12 +89,12 @@ export const PROVIDERS = {
     needsAppPassword: true,
     dailyLimitHint: 500,
     help: {
-      title: 'Yahoo ke liye App Password chahiye',
-      why: 'Yahoo bhi normal password se SMTP nahi chalne deta.',
+      title: 'Yahoo needs an App Password',
+      why: 'Yahoo also does not allow SMTP with your normal password.',
       steps: [
-        'login.yahoo.com/account/security kholo',
-        '"Generate app password" par jao',
-        `Naam ${brandName} likh kar password banao aur yahan paste karo`,
+        'Open login.yahoo.com/account/security',
+        'Go to "Generate app password"',
+        `Enter ${brandName} as the name, generate the password, and paste it here`,
       ],
       link: 'https://login.yahoo.com/account/security',
     },
@@ -110,11 +110,11 @@ export const PROVIDERS = {
     dailyLimitHint: 1000,
     help: {
       title: 'Zoho Mail',
-      why: 'Zoho me bhi App Password banana padta hai.',
+      why: 'Zoho also requires an App Password.',
       steps: [
         'accounts.zoho.com → Security → App Passwords',
-        'Naya App Password banao aur yahan paste karo',
-        'India ka account ho to host smtp.zoho.in bhi ho sakta hai — na chale to wo try karo',
+        'Create a new App Password and paste it here',
+        'On an India account the host may instead be smtp.zoho.in — try that if this one does not work',
       ],
       link: 'https://accounts.zoho.com',
     },
@@ -131,11 +131,11 @@ export const PROVIDERS = {
     dailyLimitHint: 100000,
     help: {
       title: 'SendGrid',
-      why: 'Bahut zyada email bhejne ke liye achha hai. Yahan username hamesha "apikey" hota hai aur password aapki API key.',
+      why: 'Good for sending high volumes. The username here is always "apikey", and the password is your API key.',
       steps: [
         'app.sendgrid.com → Settings → API Keys → Create API Key',
-        '"Full Access" ya kam se kam "Mail Send" ka access do',
-        'Jo key mile wo password wale box me paste karo (username apne aap "apikey" hai)',
+        'Give it "Full Access", or at least "Mail Send" access',
+        'Paste the key you get into the password field (the username is automatically "apikey")',
       ],
       link: 'https://app.sendgrid.com/settings/api_keys',
     },
@@ -143,7 +143,7 @@ export const PROVIDERS = {
 
   brevo: {
     key: 'brevo',
-    name: 'Brevo (pehle Sendinblue)',
+    name: 'Brevo (formerly Sendinblue)',
     host: 'smtp-relay.brevo.com',
     port: 587,
     secure: false,
@@ -151,10 +151,10 @@ export const PROVIDERS = {
     dailyLimitHint: 300,
     help: {
       title: 'Brevo',
-      why: 'Free plan me roz 300 email bhej sakte ho — shuruaat ke liye theek hai.',
+      why: 'The free plan allows 300 emails a day — fine for getting started.',
       steps: [
         'app.brevo.com → SMTP & API → SMTP',
-        'Wahan diya gaya login (email) aur SMTP key yahan daalo',
+        'Enter the login (email) and SMTP key shown there',
       ],
       link: 'https://app.brevo.com/settings/keys/smtp',
     },
@@ -173,13 +173,13 @@ export const PROVIDERS = {
     dailyLimitHint: 50000,
     help: {
       title: 'Amazon SES',
-      why: 'Bahut bada volume bhejne ke liye best hai, lekin setup thoda alag hai — yahan ka username/password aapka AWS login nahi hai, ek alag "SMTP credential" banana padta hai.',
+      why: 'Best for very high volume, but setup is a bit different — the username/password here are not your AWS login, you need to create a separate "SMTP credential".',
       steps: [
-        'AWS Console me SES kholo, apna region chuno (jaise India ke liye Asia Pacific — Mumbai)',
-        '"Verified identities" me apna sending domain ya email address verify karo — bina iske SES kuch nahi bhejega',
-        'Naya account "Sandbox" mode me hota hai — sirf verified address ko hi bhej sakte ho. Sabko bhejne ke liye AWS Support se "production access" maango',
-        'SES ke andar "SMTP settings" → "Create SMTP credentials" dabao — yeh ek NAYA username/password banata hai, apna AWS login yahan mat daalo',
-        'Wahan dikhne wala "SMTP endpoint" (jaise email-smtp.ap-south-1.amazonaws.com) neeche Host me daalo, aur username/password yahan paste karo',
+        'Open SES in the AWS Console and choose your region (e.g. Asia Pacific — Mumbai for India)',
+        'Verify your sending domain or email address under "Verified identities" — SES will not send anything without this',
+        'A new account starts in "Sandbox" mode — you can only send to a verified address. Ask AWS Support for "production access" to send to everyone',
+        'In SES, go to "SMTP settings" → "Create SMTP credentials" — this creates a NEW username/password, do not enter your AWS login here',
+        'Enter the "SMTP endpoint" shown there (e.g. email-smtp.ap-south-1.amazonaws.com) as the Host below, and paste the username/password here',
       ],
       link: 'https://console.aws.amazon.com/ses/home',
     },
@@ -187,19 +187,19 @@ export const PROVIDERS = {
 
   smtp: {
     key: 'smtp',
-    name: 'Koi aur (Custom SMTP)',
+    name: 'Other (Custom SMTP)',
     host: '',
     port: 587,
     secure: false,
     needsAppPassword: false,
     dailyLimitHint: 500,
     help: {
-      title: 'Apna SMTP server',
-      why: 'Aapka hosting ya company ka apna mail server. Details unke help page par ya hosting panel me milti hain.',
+      title: 'Your own SMTP server',
+      why: 'Your hosting provider or company’s own mail server. The details are usually on their help page or in the hosting panel.',
       steps: [
-        'Apne hosting/email provider se poocho: SMTP host, port, username, password',
-        'Port 465 hai to SSL, 587 hai to TLS — hum apne aap samajh lete hain',
-        'Neeche "Connection test karo" dabao — galat hua to wahin pata chal jayega',
+        'Ask your hosting/email provider for: SMTP host, port, username, password',
+        'Port 465 means SSL, 587 means TLS — this is detected automatically',
+        'Press "Test connection" below — if something is wrong, it will show up right there',
       ],
       link: null,
     },
@@ -238,29 +238,29 @@ export function explainSmtpError(error, providerKey) {
 
   if (code === 'EAUTH' || /535|Username and Password not accepted|authentication failed/i.test(raw)) {
     return preset.needsAppPassword
-      ? `Email ya password galat hai. ${preset.name} ke liye aapka normal password kaam nahi karta — App Password banana padta hai. Upar diye gaye steps follow karo.`
-      : 'Email ya password galat hai. Dobara check karo.';
+      ? `The email or password is wrong. ${preset.name} does not accept your normal password — you need to create an App Password. Follow the steps above.`
+      : 'The email or password is wrong. Please check again.';
   }
 
   if (code === 'ENOTFOUND' || /getaddrinfo|ENOTFOUND/i.test(raw)) {
-    return 'Server ka naam (host) galat lag raha hai. Spelling check karo.';
+    return 'The server name (host) looks wrong. Check the spelling.';
   }
 
   if (code === 'ECONNREFUSED') {
-    return 'Server ne connection lene se mana kar diya. Port galat ho sakta hai — 587 ya 465 try karo.';
+    return 'The server refused the connection. The port may be wrong — try 587 or 465.';
   }
 
   if (code === 'ETIMEDOUT' || code === 'ESOCKET' || /timeout/i.test(raw)) {
-    return 'Server tak pahunch nahi paye. Internet check karo, ya ho sakta hai aapka firewall/hosting SMTP block kar raha ho.';
+    return 'Could not reach the server. Check your internet connection, or your firewall/hosting may be blocking SMTP.';
   }
 
   if (/self.signed|certificate/i.test(raw)) {
-    return 'Server ka security certificate theek nahi hai. Apne hosting wale se poocho.';
+    return 'The server’s security certificate is not valid. Ask your hosting provider about it.';
   }
 
   if (/550|relay|not allowed/i.test(raw)) {
-    return 'Server ne bhejne se mana kiya. Ho sakta hai "from" address wahi hona chahiye jo login me hai.';
+    return 'The server refused to send. The "from" address may need to match the login address.';
   }
 
-  return `Connect nahi ho paya: ${raw.slice(0, 200)}`;
+  return `Could not connect: ${raw.slice(0, 200)}`;
 }

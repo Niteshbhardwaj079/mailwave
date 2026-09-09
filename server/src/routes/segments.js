@@ -48,7 +48,7 @@ const condition = z.object({
 });
 
 const segmentInput = z.object({
-  name: z.string().trim().min(1, 'Segment ko ek naam do').max(120),
+  name: z.string().trim().min(1, 'Give this segment a name').max(120),
   tone: z.enum(['danger', 'primary', 'info', 'success', 'warning', 'muted']).default('primary'),
   rule: z
     .object({
@@ -203,7 +203,7 @@ router.put(
   validate(segmentInput),
   asyncHandler(async (req, res) => {
     const existing = await one('SELECT id, name FROM segments WHERE id = $1', [req.params.id]);
-    if (!existing) throw notFound('Yeh segment nahi mila');
+    if (!existing) throw notFound('This segment was not found');
 
     const { name, tone, rule } = req.body;
 
@@ -229,7 +229,7 @@ router.delete(
   requireModule('segments', 'delete'),
   asyncHandler(async (req, res) => {
     const existing = await one('SELECT id, name FROM segments WHERE id = $1', [req.params.id]);
-    if (!existing) throw notFound('Yeh segment nahi mila');
+    if (!existing) throw notFound('This segment was not found');
 
     await query('DELETE FROM segments WHERE id = $1', [req.params.id]);
 
@@ -256,7 +256,7 @@ router.get(
   requireModule('segments', 'view'),
   asyncHandler(async (req, res) => {
     const segment = await one('SELECT * FROM segments WHERE id = $1', [req.params.id]);
-    if (!segment) throw notFound('Yeh segment nahi mila');
+    if (!segment) throw notFound('This segment was not found');
 
     const { clause, params } = ruleToSql(segment.rule ?? {});
 

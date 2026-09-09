@@ -175,7 +175,7 @@ export async function restoreFromBackup(name) {
   const storage = getBackupStorage();
   const exists = await storage.exists(name);
   if (!exists) {
-    throw new Error('Yeh backup ki file storage me nahi mili — shayad hat chuki hai.');
+    throw new Error('This backup file was not found in storage — it may have been removed.');
   }
 
   try {

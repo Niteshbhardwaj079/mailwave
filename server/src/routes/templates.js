@@ -37,10 +37,10 @@ const router = Router();
 const TEMPLATE_SOURCES = ['custom', 'html_upload', 'builder'];
 
 const templateInput = z.object({
-  name: z.string().trim().min(1, 'Template ko ek naam do').max(120),
+  name: z.string().trim().min(1, 'Give this template a name').max(120),
   category: z.string().trim().max(60).default('Custom'),
   subject: z.string().trim().max(300).default(''),
-  html: z.string().max(500_000, 'Yeh template bahut bada hai').default(''),
+  html: z.string().max(500_000, 'This template is too large').default(''),
   language: z.enum(LANGUAGE_CODES).default(DEFAULT_LANGUAGE),
   // "Design" tab ka form-data — raw "Code" tab se edit karne par frontend
   // isse null bhejta hai (structured fields ab bharose ke layak nahi rahe).
@@ -127,7 +127,7 @@ router.post(
   requireModule('templates', 'create'),
   asyncHandler(async (req, res) => {
     const name = String(req.body?.name || '').trim();
-    if (!name) throw badRequest('Category ka naam do');
+    if (!name) throw badRequest('Give this category a name');
     await ensureCategory(name, req.user.id);
     const rows = await many('SELECT id, name FROM template_categories ORDER BY sort_order, name');
     res.status(201).json({ categories: rows.map((r) => r.name) });
@@ -206,7 +206,7 @@ router.get(
   requireModule('templates', 'view'),
   asyncHandler(async (req, res) => {
     const row = await one(`${SELECT} WHERE t.id = $1`, [req.params.id]);
-    if (!row) throw notFound('Yeh template nahi mila');
+    if (!row) throw notFound('This template was not found');
     res.json({ template: toApi(row) });
   })
 );
@@ -222,7 +222,7 @@ router.post(
 
     const enabledSources = await enabledTemplateSources();
     if (enabledSources[resolvedSource] === false) {
-      throw badRequest('Yeh template type abhi Settings me disabled hai — pehle usse chalu karo.');
+      throw badRequest('This template type is currently disabled in Settings — enable it first.');
     }
 
     const id = newId('tpl');
@@ -256,7 +256,7 @@ router.put(
     // is intentional: a Super Admin can correct/improve a built-in template
     // and have it save permanently. Only delete stays blocked (below).
     const existing = await one('SELECT id, name, source FROM templates WHERE id = $1', [req.params.id]);
-    if (!existing) throw notFound('Yeh template nahi mila');
+    if (!existing) throw notFound('This template was not found');
 
     const { name, category, subject, html, language, contentSchema, source } = req.body;
     // Client hamesha apni value bhejta hai — par agar kabhi na bheje (jaise
@@ -294,7 +294,7 @@ router.post(
   requireModule('templates', 'create'),
   asyncHandler(async (req, res) => {
     const original = await one('SELECT * FROM templates WHERE id = $1', [req.params.id]);
-    if (!original) throw notFound('Yeh template nahi mila');
+    if (!original) throw notFound('This template was not found');
 
     const id = newId('tpl');
     const name = original.is_default ? original.name : `${original.name} (copy)`;
@@ -333,9 +333,9 @@ router.delete(
   requireModule('templates', 'delete'),
   asyncHandler(async (req, res) => {
     const existing = await one('SELECT id, name, is_default FROM templates WHERE id = $1', [req.params.id]);
-    if (!existing) throw notFound('Yeh template nahi mila');
+    if (!existing) throw notFound('This template was not found');
     if (existing.is_default) {
-      throw badRequest('Yeh ek default (master) template hai — isse hataya nahi ja sakta.');
+      throw badRequest('This is a default (master) template — it cannot be deleted.');
     }
 
     await query('DELETE FROM templates WHERE id = $1', [req.params.id]);

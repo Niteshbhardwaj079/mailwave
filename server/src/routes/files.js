@@ -36,12 +36,12 @@ router.get(
   '/img/:id',
   asyncHandler(async (req, res) => {
     const row = await one('SELECT url, storage_provider, object_key FROM images WHERE id = $1', [req.params.id]);
-    if (!row) throw notFound('Yeh image nahi mili');
+    if (!row) throw notFound('This image was not found');
 
     // Client ka apna (private) bucket — yahan hi credentials se padhte hain,
     // browser/mail-client ko kabhi bucket ka pata seedha nahi diya jaata.
     if (row.storage_provider === 'object') {
-      if (!row.object_key) throw notFound('Yeh image padhi nahi ja saki');
+      if (!row.object_key) throw notFound('This image could not be read');
 
       const type = EXT_TO_MIME[extname(row.object_key).slice(1).toLowerCase()] || 'application/octet-stream';
       const bytes = await getObjectBuffer(row.object_key);
@@ -62,10 +62,10 @@ router.get(
     }
 
     const match = String(row.url).match(/^data:([^;,]+);base64,(.*)$/s);
-    if (!match) throw notFound('Yeh image padhi nahi ja saki');
+    if (!match) throw notFound('This image could not be read');
 
     const [, type, base64] = match;
-    if (!ALLOWED.has(type)) throw notFound('Yeh image nahi hai');
+    if (!ALLOWED.has(type)) throw notFound('This is not an image');
 
     const bytes = Buffer.from(base64, 'base64');
 

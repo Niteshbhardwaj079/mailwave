@@ -28,9 +28,9 @@ import { LANGUAGE_CODES, DEFAULT_LANGUAGE } from '../lib/languages.js';
 const router = Router();
 
 const userInput = z.object({
-  name: z.string().trim().min(1, 'Naam zaroori hai').max(120),
-  email: z.string().trim().email('Sahi email daalo').max(200),
-  role: z.string().trim().min(1, 'Role chuno'),
+  name: z.string().trim().min(1, 'Name is required').max(120),
+  email: z.string().trim().email('Enter a valid email address').max(200),
+  role: z.string().trim().min(1, 'Choose a role'),
   department: z.string().trim().max(120).default(''),
   status: z.enum(['Active', 'Invited', 'Disabled']).default('Invited'),
   // Yeh person ke real system emails (invite, password reset, waghairah) isi
@@ -100,10 +100,10 @@ router.post(
     const { name, email, role, department, status, language } = req.body;
 
     const roleRow = await one('SELECT key FROM roles WHERE key = $1', [role]);
-    if (!roleRow) throw badRequest('Yeh role hai hi nahi');
+    if (!roleRow) throw badRequest('This role does not exist');
 
     const clash = await one('SELECT id FROM users WHERE lower(email) = lower($1)', [email]);
-    if (clash) throw badRequest('Is email se ek user pehle se hai');
+    if (clash) throw badRequest('A user with this email already exists');
 
     const id = newId('u');
 
@@ -148,26 +148,26 @@ router.put(
   validate(userInput),
   asyncHandler(async (req, res) => {
     const existing = await one(`${USER_SELECT} WHERE id = $1`, [req.params.id]);
-    if (!existing) throw notFound('Yeh user nahi mila');
+    if (!existing) throw notFound('This user was not found');
 
     const { name, email, role, department, status, language } = req.body;
 
     const roleRow = await one('SELECT key FROM roles WHERE key = $1', [role]);
-    if (!roleRow) throw badRequest('Yeh role hai hi nahi');
+    if (!roleRow) throw badRequest('This role does not exist');
 
     const clash = await one('SELECT id FROM users WHERE lower(email) = lower($1) AND id <> $2', [
       email,
       req.params.id,
     ]);
-    if (clash) throw badRequest('Is email se ek aur user pehle se hai');
+    if (clash) throw badRequest('Another user with this email already exists');
 
     // Apne aap ko band kar lena ya apna hi role ghata lena — dono se aadmi
     // bahar ho jata hai aur phir andar nahi aa pata.
     if (existing.id === req.user.id && status !== 'Active') {
-      throw badRequest('Apne aap ko band nahi kar sakte');
+      throw badRequest('You cannot disable yourself');
     }
     if (existing.id === req.user.id && role !== existing.role_key) {
-      throw badRequest('Apna khud ka role nahi badal sakte. Kisi doosre Super Admin se karwao.');
+      throw badRequest('You cannot change your own role. Ask another Super Admin to do it.');
     }
     if (existing.role_key === 'super_admin' && role !== 'super_admin') {
       await guardLastSuperAdmin(existing.id);
@@ -248,9 +248,9 @@ router.delete(
   requireModule('users', 'delete'),
   asyncHandler(async (req, res) => {
     const existing = await one(`${USER_SELECT} WHERE id = $1`, [req.params.id]);
-    if (!existing) throw notFound('Yeh user nahi mila');
+    if (!existing) throw notFound('This user was not found');
 
-    if (existing.id === req.user.id) throw badRequest('Apne aap ko delete nahi kar sakte');
+    if (existing.id === req.user.id) throw badRequest('You cannot delete yourself');
     if (existing.role_key === 'super_admin') await guardLastSuperAdmin(existing.id);
 
     await query('DELETE FROM users WHERE id = $1', [req.params.id]);
@@ -272,7 +272,7 @@ router.post(
   requireModule('users', 'edit'),
   asyncHandler(async (req, res) => {
     const user = await one('SELECT id, name, email, language FROM users WHERE id = $1', [req.params.id]);
-    if (!user) throw notFound('Yeh user nahi mila');
+    if (!user) throw notFound('This user was not found');
 
     await sendInvite(req, { ...user, role: null });
 
@@ -298,7 +298,7 @@ router.post(
   requireModule('users', 'edit'),
   validate(
     z.object({
-      password: z.string().min(8, 'Kam se kam 8 akshar'),
+      password: z.string().min(8, 'At least 8 characters'),
       // User ko email jaye ya nahi. Default "haan" — apna password badla hai
       // yeh pata chalna insaan ka haq hai, aur agar wo usne nahi karwaya to
       // isi email se use pata chalega.
@@ -307,7 +307,7 @@ router.post(
   ),
   asyncHandler(async (req, res) => {
     const user = await one('SELECT id, name, email, language FROM users WHERE id = $1', [req.params.id]);
-    if (!user) throw notFound('Yeh user nahi mila');
+    if (!user) throw notFound('This user was not found');
 
     await query(
       `UPDATE users SET password_hash = $1, status = 'Active', updated_at = now() WHERE id = $2`,
@@ -356,7 +356,7 @@ async function guardLastSuperAdmin(exceptId) {
   );
 
   if ((row?.n ?? 0) === 0) {
-    throw badRequest('Yeh aakhri Super Admin hai. Pehle kisi aur ko Super Admin banao.');
+    throw badRequest('This is the last Super Admin. Make someone else Super Admin first.');
   }
 }
 

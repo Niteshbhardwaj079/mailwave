@@ -48,7 +48,7 @@ router.get(
 router.post(
   '/',
   requireModule('settings', 'edit'),
-  validate(z.object({ name: z.string().trim().min(1, 'Key ko ek naam do').max(120) })),
+  validate(z.object({ name: z.string().trim().min(1, 'Give this key a name').max(120) })),
   asyncHandler(async (req, res) => {
     const { token, hash, prefix } = newApiKey();
     const id = newId('ak');
@@ -81,7 +81,7 @@ router.delete(
   requireModule('settings', 'edit'),
   asyncHandler(async (req, res) => {
     const existing = await one('SELECT id, name FROM api_keys WHERE id = $1', [req.params.id]);
-    if (!existing) throw notFound('Yeh API key nahi mili');
+    if (!existing) throw notFound('This API key was not found');
 
     await query('DELETE FROM api_keys WHERE id = $1', [req.params.id]);
 

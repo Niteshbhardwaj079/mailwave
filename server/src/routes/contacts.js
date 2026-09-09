@@ -22,7 +22,7 @@ const router = Router();
 
 const contactInput = z.object({
   name: z.string().trim().max(120).optional().nullable(),
-  email: z.string().trim().email('Sahi email address daalo'),
+  email: z.string().trim().email('Enter a valid email address'),
   phone: z.string().trim().max(40).optional().nullable(),
   company: z.string().trim().max(120).optional().nullable(),
   city: z.string().trim().max(80).optional().nullable(),
@@ -179,7 +179,7 @@ router.get(
   requireModule('contacts', 'view'),
   asyncHandler(async (req, res) => {
     const row = await one(`${SELECT} WHERE c.id = $1`, [req.params.id]);
-    if (!row) throw notFound('Yeh contact nahi mila');
+    if (!row) throw notFound('This contact was not found');
     res.json({ contact: toApi(row) });
   })
 );
@@ -193,7 +193,7 @@ router.post(
     const body = req.body;
 
     const duplicate = await one('SELECT id FROM contacts WHERE lower(email) = lower($1)', [body.email]);
-    if (duplicate) throw conflict('Yeh email pehle se list me hai');
+    if (duplicate) throw conflict('This email is already in the list');
 
     const id = newId('c');
     await query(
@@ -222,7 +222,7 @@ router.put(
   validate(contactInput),
   asyncHandler(async (req, res) => {
     const existing = await one('SELECT id, email FROM contacts WHERE id = $1', [req.params.id]);
-    if (!existing) throw notFound('Yeh contact nahi mila');
+    if (!existing) throw notFound('This contact was not found');
 
     const body = req.body;
 
@@ -232,7 +232,7 @@ router.put(
         'SELECT id FROM contacts WHERE lower(email) = lower($1) AND id <> $2',
         [body.email, req.params.id]
       );
-      if (clash) throw conflict('Yeh email kisi aur contact ke paas hai');
+      if (clash) throw conflict('This email belongs to another contact');
     }
 
     await query(
@@ -262,7 +262,7 @@ router.delete(
   requireModule('contacts', 'delete'),
   asyncHandler(async (req, res) => {
     const existing = await one('SELECT id, email FROM contacts WHERE id = $1', [req.params.id]);
-    if (!existing) throw notFound('Yeh contact nahi mila');
+    if (!existing) throw notFound('This contact was not found');
 
     await query('DELETE FROM contacts WHERE id = $1', [req.params.id]);
 
@@ -281,7 +281,7 @@ router.delete(
 router.post(
   '/bulk-delete',
   requireModule('contacts', 'delete'),
-  validate(z.object({ ids: z.array(z.string()).min(1, 'Kam se kam ek contact chuno') })),
+  validate(z.object({ ids: z.array(z.string()).min(1, 'Choose at least one contact') })),
   asyncHandler(async (req, res) => {
     const result = await query('DELETE FROM contacts WHERE id = ANY($1)', [req.body.ids]);
 
@@ -308,7 +308,7 @@ router.post(
 router.post(
   '/export',
   requireModule('contacts', 'export'),
-  validate(z.object({ ids: z.array(z.string()).min(1, 'Kam se kam ek contact chuno').max(50_000) })),
+  validate(z.object({ ids: z.array(z.string()).min(1, 'Choose at least one contact').max(50_000) })),
   asyncHandler(async (req, res) => {
     const rows = await many(`${SELECT} WHERE c.id = ANY($1) ORDER BY c.added_on DESC`, [req.body.ids]);
 
@@ -343,7 +343,7 @@ router.post(
   '/groups',
   requireModule('contacts', 'create'),
   validate(z.object({
-    name: z.string().trim().min(1, 'Group ko naam do').max(80),
+    name: z.string().trim().min(1, 'Give this group a name').max(80),
     tone: z.string().trim().max(20).default('primary'),
   })),
   asyncHandler(async (req, res) => {
@@ -369,11 +369,11 @@ router.put(
   '/groups/:id',
   requireModule('contacts', 'edit'),
   validate(z.object({
-    name: z.string().trim().min(1, 'Group ko naam do').max(80),
+    name: z.string().trim().min(1, 'Give this group a name').max(80),
   })),
   asyncHandler(async (req, res) => {
     const existing = await one('SELECT id FROM contact_groups WHERE id = $1', [req.params.id]);
-    if (!existing) throw notFound('Yeh group nahi mila');
+    if (!existing) throw notFound('This group was not found');
 
     await query('UPDATE contact_groups SET name = $1 WHERE id = $2', [req.body.name, req.params.id]);
 
@@ -406,7 +406,7 @@ router.delete(
   requireModule('contacts', 'delete'),
   asyncHandler(async (req, res) => {
     const existing = await one('SELECT id, name FROM contact_groups WHERE id = $1', [req.params.id]);
-    if (!existing) throw notFound('Yeh group nahi mila');
+    if (!existing) throw notFound('This group was not found');
 
     await query('DELETE FROM contact_groups WHERE id = $1', [req.params.id]);
 
@@ -494,7 +494,7 @@ router.post(
   '/import',
   requireModule('contacts', 'create'),
   validate(z.object({
-    rows: z.array(z.record(z.any())).min(1, 'Import karne ke liye kuch to do').max(50_000),
+    rows: z.array(z.record(z.any())).min(1, 'Add something to import').max(50_000),
     groupId: z.string().trim().optional().nullable(),
     // false rakho to sirf report milegi, kuch save nahi hoga (preview ke liye).
     commit: z.boolean().default(true),
@@ -539,28 +539,28 @@ router.post(
 
       if (!email) {
         report.invalid += 1;
-        problem('missing', 'Email khali hai');
+        problem('missing', 'Email is empty');
         return;
       }
       if (!looksLikeEmail(email)) {
         report.invalid += 1;
-        problem('invalid', 'Email theek nahi lag raha');
+        problem('invalid', 'Email does not look valid');
         return;
       }
       if (seenInFile.has(email)) {
         report.duplicateInFile += 1;
-        problem('duplicateInFile', 'Yeh email isi file me pehle bhi aaya hai');
+        problem('duplicateInFile', 'This email already appears earlier in this file');
         return;
       }
       if (inDatabase.has(email)) {
         report.duplicateInDatabase += 1;
-        problem('duplicateInDatabase', 'Yeh email pehle se aapki list me hai');
+        problem('duplicateInDatabase', 'This email is already in your list');
         seenInFile.add(email);
         return;
       }
       if (inSuppression.has(email)) {
         report.suppressed += 1;
-        problem('suppressed', 'Isne unsubscribe kiya tha ya bounce hua tha — isliye chhod diya');
+        problem('suppressed', 'This address unsubscribed or bounced previously, so it was skipped');
         seenInFile.add(email);
         return;
       }

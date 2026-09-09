@@ -24,7 +24,7 @@ import { notifySuperAdmins } from '../services/systemMail.js';
 const router = Router();
 
 const accountInput = z.object({
-  email: z.string().trim().email('Sahi email address daalo'),
+  email: z.string().trim().email('Enter a valid email address'),
   displayName: z.string().trim().max(120).optional().nullable(),
   provider: z.string().trim().min(1).default('smtp'),
   dailyLimit: z.number().int().min(1).max(1_000_000).optional(),
@@ -68,8 +68,8 @@ function buildSecrets(body) {
 
 /** Sirf connection jodkar dekhta hai — koi email nahi bhejta. */
 async function testConnection(secrets, providerKey) {
-  if (!secrets.host) throw badRequest('SMTP server ka naam (host) bharo');
-  if (!secrets.pass) throw badRequest('Password bharo');
+  if (!secrets.host) throw badRequest('Enter the SMTP server name (host)');
+  if (!secrets.pass) throw badRequest('Enter the password');
 
   const transport = nodemailer.createTransport({
     host: secrets.host,
@@ -113,7 +113,7 @@ router.get(
   requireModule('accounts', 'view'),
   asyncHandler(async (req, res) => {
     const row = await one('SELECT * FROM email_accounts WHERE id = $1', [req.params.id]);
-    if (!row) throw notFound('Yeh account nahi mila');
+    if (!row) throw notFound('This account was not found');
     res.json({ account: toApi(row) });
   })
 );
@@ -151,7 +151,7 @@ router.post(
     const body = req.body;
 
     const duplicate = await one('SELECT id FROM email_accounts WHERE lower(email) = lower($1)', [body.email]);
-    if (duplicate) throw conflict('Yeh email account pehle se juda hua hai');
+    if (duplicate) throw conflict('This email account is already connected');
 
     const secrets = buildSecrets(body);
     const preset = providerPreset(body.provider);
@@ -208,7 +208,7 @@ router.put(
   validate(accountInput),
   asyncHandler(async (req, res) => {
     const existing = await one('SELECT * FROM email_accounts WHERE id = $1', [req.params.id]);
-    if (!existing) throw notFound('Yeh account nahi mila');
+    if (!existing) throw notFound('This account was not found');
 
     const body = req.body;
     const preset = providerPreset(body.provider);
@@ -256,10 +256,10 @@ router.put(
 router.post(
   '/:id/test-email',
   requireModule('accounts', 'edit'),
-  validate(z.object({ to: z.string().trim().email('Sahi email daalo') })),
+  validate(z.object({ to: z.string().trim().email('Enter a valid email address') })),
   asyncHandler(async (req, res) => {
     const row = await one('SELECT * FROM email_accounts WHERE id = $1', [req.params.id]);
-    if (!row) throw notFound('Yeh account nahi mila');
+    if (!row) throw notFound('This account was not found');
 
     // mailer khud decrypt karta hai, isliye row seedhi bhej rahe hain.
     const account = row;
@@ -300,14 +300,14 @@ router.delete(
   requireModule('accounts', 'delete'),
   asyncHandler(async (req, res) => {
     const existing = await one('SELECT id, email FROM email_accounts WHERE id = $1', [req.params.id]);
-    if (!existing) throw notFound('Yeh account nahi mila');
+    if (!existing) throw notFound('This account was not found');
 
     const inUse = await one(
       `SELECT count(*)::int AS n FROM campaigns WHERE account_id = $1 AND status IN ('Sending','Scheduled')`,
       [req.params.id]
     );
     if ((inUse?.n ?? 0) > 0) {
-      throw badRequest('Yeh account abhi kisi chalte hue campaign me lag raha hai. Pehle wo campaign roko.');
+      throw badRequest('This account is currently in use by a running campaign. Pause that campaign first.');
     }
 
     await query('DELETE FROM email_accounts WHERE id = $1', [req.params.id]);

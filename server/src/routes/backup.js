@@ -30,7 +30,7 @@ const router = Router();
 /** Backup me sab kuch hota hai — password hashes tak. Sirf Super Admin. */
 const onlySuperAdmin = (req, res, next) => {
   if (req.user.role_key !== 'super_admin') {
-    next(forbidden('Backup sirf Super Admin sambhal sakta hai'));
+    next(forbidden('Only a Super Admin can manage backups'));
     return;
   }
   next();
@@ -70,7 +70,7 @@ router.post(
     try {
       backup = await createBackup({ reason: 'manual', userId: req.user.id });
     } catch (error) {
-      throw badRequest(`Backup nahi ban paya: ${String(error?.message || error)}`);
+      throw badRequest(`Backup could not be created: ${String(error?.message || error)}`);
     }
 
     await logActivity(req, {
@@ -89,10 +89,10 @@ router.get(
   '/:name/download',
   asyncHandler(async (req, res) => {
     const meta = await getBackup(req.params.name);
-    if (!meta || meta.status !== 'successful') throw notFound('Yeh backup file nahi mili');
+    if (!meta || meta.status !== 'successful') throw notFound('This backup file was not found');
 
     const storage = getBackupStorage();
-    if (!(await storage.exists(req.params.name))) throw notFound('Yeh backup file nahi mili');
+    if (!(await storage.exists(req.params.name))) throw notFound('This backup file was not found');
 
     const buffer = await storage.read(req.params.name);
 
@@ -117,7 +117,7 @@ router.delete(
   '/:name',
   asyncHandler(async (req, res) => {
     const removed = await deleteBackup(req.params.name);
-    if (!removed) throw notFound('Yeh backup file nahi mili');
+    if (!removed) throw notFound('This backup file was not found');
 
     await logActivity(req, {
       action: 'deleted',
@@ -138,7 +138,7 @@ router.post(
   '/:name/restore',
   validate(z.object({
     confirm: z.literal('RESTORE', {
-      errorMap: () => ({ message: 'Pakka karne ke liye RESTORE likho' }),
+      errorMap: () => ({ message: 'Type RESTORE to confirm' }),
     }),
   })),
   asyncHandler(async (req, res) => {
@@ -152,7 +152,7 @@ router.post(
         // seedha admin ko dikhate hain, generic "kuch gadbad hai" nahi.
         throw badRequest(String(error?.message || error));
       }
-      if (!result) throw notFound('Yeh backup nahi mili ya abhi kaam ki nahi hai');
+      if (!result) throw notFound('This backup was not found or is not yet usable');
 
       await logActivity(req, {
         action: 'updated',
@@ -170,7 +170,7 @@ router.post(
     }
 
     const ok = await markForRestore(req.params.name);
-    if (!ok) throw notFound('Yeh backup file nahi mili');
+    if (!ok) throw notFound('This backup file was not found');
 
     await logActivity(req, {
       action: 'updated',
@@ -196,7 +196,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const type = req.get('content-type') || '';
     if (!type.includes('application/gzip') && !type.includes('application/octet-stream')) {
-      throw badRequest('Backup file .tar.gz honi chahiye');
+      throw badRequest('The backup file must be a .tar.gz');
     }
 
     // Bade backup ko poori tarah memory me uthana theek nahi, par jaanch se

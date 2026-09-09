@@ -86,10 +86,10 @@ function buildContactFilterWhere(filter = {}, excludeCampaignId = null) {
 }
 
 const campaignInput = z.object({
-  name: z.string().trim().min(1, 'Campaign ko naam do').max(150),
-  accountId: z.string().trim().min(1, 'Kis account se bhejna hai, wo chuno'),
+  name: z.string().trim().min(1, 'Give this campaign a name').max(150),
+  accountId: z.string().trim().min(1, 'Choose which account to send from'),
   senderName: z.string().trim().max(120).optional().nullable(),
-  replyTo: z.string().trim().email('Reply-to me sahi email daalo').optional().nullable(),
+  replyTo: z.string().trim().email('Enter a valid reply-to email address').optional().nullable(),
   subject: z.string().trim().max(300).default(''),
   preheader: z.string().trim().max(300).optional().nullable(),
   templateId: z.string().trim().optional().nullable(),
@@ -323,7 +323,7 @@ router.get(
   requireModule('campaigns', 'view'),
   asyncHandler(async (req, res) => {
     const row = await one(`${SELECT} WHERE c.id = $1`, [req.params.id]);
-    if (!row) throw notFound('Yeh campaign nahi mila');
+    if (!row) throw notFound('This campaign was not found');
     res.json({ campaign: toApi(row) });
   })
 );
@@ -431,7 +431,7 @@ router.get(
   requireModule('campaigns', 'export'),
   asyncHandler(async (req, res) => {
     const built = await buildCampaignReportWorkbook(req.params.id);
-    if (!built) throw notFound('Yeh campaign nahi mila');
+    if (!built) throw notFound('This campaign was not found');
 
     const filename = reportFileName(built.campaignName);
     const tempPath = join(tmpdir(), `mw-report-${randomUUID()}.xlsx`);
@@ -500,9 +500,9 @@ router.put(
   validate(campaignInput),
   asyncHandler(async (req, res) => {
     const existing = await one('SELECT id, status FROM campaigns WHERE id = $1', [req.params.id]);
-    if (!existing) throw notFound('Yeh campaign nahi mila');
+    if (!existing) throw notFound('This campaign was not found');
     if (existing.status !== 'Draft') {
-      throw badRequest('Sirf Draft campaign ko edit kar sakte ho.');
+      throw badRequest('Only a Draft campaign can be edited.');
     }
 
     const b = req.body;
@@ -559,8 +559,8 @@ router.post(
   })),
   asyncHandler(async (req, res) => {
     const campaign = await one('SELECT id, name, status, pause_reason FROM campaigns WHERE id = $1', [req.params.id]);
-    if (!campaign) throw notFound('Yeh campaign nahi mila');
-    if (campaign.status === 'Sending') throw badRequest('Campaign chal raha hai — abhi log nahi jod sakte');
+    if (!campaign) throw notFound('This campaign was not found');
+    if (campaign.status === 'Sending') throw badRequest('The campaign is sending — recipients cannot be added right now');
 
     const { source, groupId, filter, people, subscriberIds } = req.body;
     let rows = [];
@@ -608,7 +608,7 @@ router.post(
       let where = `WHERE c.status = 'Subscribed' AND s.email IS NULL`;
 
       if (source === 'group') {
-        if (!groupId) throw badRequest('Kaun sa group, wo batao');
+        if (!groupId) throw badRequest('Specify which group');
         params.push(groupId);
         where += ` AND c.group_id = $1`;
       }
@@ -689,13 +689,13 @@ router.post(
 router.post(
   '/:id/test',
   requireModule('campaigns', 'send'),
-  validate(z.object({ to: z.string().trim().email('Sahi email daalo') })),
+  validate(z.object({ to: z.string().trim().email('Enter a valid email address') })),
   asyncHandler(async (req, res) => {
     const campaign = await one('SELECT * FROM campaigns WHERE id = $1', [req.params.id]);
-    if (!campaign) throw notFound('Yeh campaign nahi mila');
+    if (!campaign) throw notFound('This campaign was not found');
 
     const account = await one('SELECT * FROM email_accounts WHERE id = $1', [campaign.account_id]);
-    if (!account) throw badRequest('Is campaign ka koi email account nahi chuna gaya');
+    if (!account) throw badRequest('No email account has been chosen for this campaign');
 
     // Test ke liye ek nakli recipient — database me kuch nahi likhte.
     const fake = {
@@ -739,22 +739,22 @@ router.post(
   requireModule('campaigns', 'send'),
   asyncHandler(async (req, res) => {
     const campaign = await one('SELECT id, name, status FROM campaigns WHERE id = $1', [req.params.id]);
-    if (!campaign) throw notFound('Yeh campaign nahi mila');
+    if (!campaign) throw notFound('This campaign was not found');
 
     const count = await one(
       `SELECT count(*)::int AS n FROM campaign_recipients WHERE campaign_id = $1 AND status = 'Pending'`,
       [campaign.id]
     );
-    if ((count?.n ?? 0) === 0) throw badRequest('Bhejne ke liye koi bacha hi nahi — pehle log jodo');
+    if ((count?.n ?? 0) === 0) throw badRequest('There is nothing left to send — add recipients first');
 
     const result = await startCampaign(campaign.id, { company: env.brand.company });
     if (!result.started) {
       const reasons = {
-        already_running: 'Yeh campaign pehle se chal raha hai',
-        no_account: 'Is campaign ka email account nahi mila',
-        not_found: 'Yeh campaign nahi mila',
+        already_running: 'This campaign is already sending',
+        no_account: 'This campaign has no email account attached',
+        not_found: 'This campaign was not found',
       };
-      throw badRequest(reasons[result.reason] ?? 'Campaign chalu nahi ho paya');
+      throw badRequest(reasons[result.reason] ?? 'The campaign could not be started');
     }
 
     await logActivity(req, {
@@ -774,7 +774,7 @@ router.post(
   requireModule('campaigns', 'send'),
   asyncHandler(async (req, res) => {
     const campaign = await one('SELECT id, name FROM campaigns WHERE id = $1', [req.params.id]);
-    if (!campaign) throw notFound('Yeh campaign nahi mila');
+    if (!campaign) throw notFound('This campaign was not found');
 
     await pauseCampaign(campaign.id);
     await logActivity(req, {
@@ -803,7 +803,7 @@ router.get(
     const campaign = await one('SELECT id, started_at, created_at FROM campaigns WHERE id = $1', [
       req.params.id,
     ]);
-    if (!campaign) throw notFound('Yeh campaign nahi mila');
+    if (!campaign) throw notFound('This campaign was not found');
 
     // Graph campaign shuru hone ke din se 7 din tak.
     const rows = await many(
@@ -872,7 +872,7 @@ router.get(
       'SELECT id, email, status, error, sent_at FROM campaign_recipients WHERE id = $1 AND campaign_id = $2',
       [req.params.recipientId, req.params.id]
     );
-    if (!recipient) throw notFound('Yeh recipient nahi mila');
+    if (!recipient) throw notFound('This recipient was not found');
 
     const rows = await many(
       `SELECT e.kind, e.at, e.user_agent, l.url
@@ -939,18 +939,18 @@ router.post(
   requireModule('campaigns', 'send'),
   validate(
     z.object({
-      at: z.string().datetime('Sahi tareekh aur time chuno').nullable().optional(),
+      at: z.string().datetime('Choose a valid date and time').nullable().optional(),
     })
   ),
   asyncHandler(async (req, res) => {
     const campaign = await one('SELECT id, name, status FROM campaigns WHERE id = $1', [req.params.id]);
-    if (!campaign) throw notFound('Yeh campaign nahi mila');
+    if (!campaign) throw notFound('This campaign was not found');
 
     if (campaign.status === 'Sending') {
-      throw badRequest('Yeh campaign abhi ja rahi hai — ab time nahi badla ja sakta');
+      throw badRequest('This campaign is currently sending — the time can no longer be changed');
     }
     if (campaign.status === 'Sent') {
-      throw badRequest('Yeh campaign ja chuki hai');
+      throw badRequest('This campaign has already been sent');
     }
 
     const at = req.body.at ?? null;
@@ -958,7 +958,7 @@ router.post(
     // Beeta hua time chunna kisi kaam ka nahi — wo turant chal padegi aur user
     // ko lagega ki uska chuna hua time maana hi nahi gaya.
     if (at && new Date(at) <= new Date()) {
-      throw badRequest('Yeh time nikal chuka hai. Aage ka koi time chuno.');
+      throw badRequest('That time has already passed. Choose a time in the future.');
     }
 
     await query(
@@ -992,7 +992,7 @@ router.post(
   validate(z.object({ target: z.enum(['unopened', 'failed']) })),
   asyncHandler(async (req, res) => {
     const campaign = await one('SELECT id, name, account_id FROM campaigns WHERE id = $1', [req.params.id]);
-    if (!campaign) throw notFound('Yeh campaign nahi mila');
+    if (!campaign) throw notFound('This campaign was not found');
 
     // Jo unsubscribe kar chuka hai (isi campaign se, YA is CAMPAIGN KE
     // ACCOUNT se pehle kisi aur campaign/manual block se — dusre accounts
@@ -1052,7 +1052,7 @@ router.post(
   validate(
     z.object({
       kind: z.enum(['resend', 'remove', 'suppress', 'export']),
-      ids: z.array(z.string()).min(1, 'Kam se kam ek chuno').max(2000),
+      ids: z.array(z.string()).min(1, 'Choose at least one').max(2000),
       campaignName: z.string().trim().max(150).default(''),
     })
   ),
@@ -1074,7 +1074,7 @@ router.post(
         WHERE r.id = ANY($1)`,
       [ids]
     );
-    if (rows.length === 0) throw badRequest('Inme se koi recipient nahi mila');
+    if (rows.length === 0) throw badRequest('None of these recipients were found');
 
     let skipped = 0;
 
@@ -1166,8 +1166,8 @@ router.delete(
   requireModule('campaigns', 'delete'),
   asyncHandler(async (req, res) => {
     const campaign = await one('SELECT id, name, status FROM campaigns WHERE id = $1', [req.params.id]);
-    if (!campaign) throw notFound('Yeh campaign nahi mila');
-    if (campaign.status === 'Sending') throw badRequest('Chalte hue campaign ko hata nahi sakte — pehle roko');
+    if (!campaign) throw notFound('This campaign was not found');
+    if (campaign.status === 'Sending') throw badRequest('A running campaign cannot be deleted — pause it first');
 
     await query('DELETE FROM campaigns WHERE id = $1', [campaign.id]);
     await logActivity(req, {

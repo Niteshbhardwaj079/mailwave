@@ -496,11 +496,11 @@ export async function readAndValidateBackup(buffer) {
     const json = await gunzip(buffer);
     payload = JSON.parse(json.toString('utf8'));
   } catch (error) {
-    throw new Error('Yeh backup file padhi nahi ja saki — kharab ya galat file lagti hai.');
+    throw new Error('This backup file could not be read — it looks corrupted or invalid.');
   }
 
   if (!payload?.tables || typeof payload.tables !== 'object' || Array.isArray(payload.tables)) {
-    throw new Error('Yeh backup file sahi format me nahi hai.');
+    throw new Error('This backup file is not in the correct format.');
   }
 
   if (typeof payload.formatVersion !== 'number' || payload.formatVersion > BACKUP_FORMAT_VERSION) {
@@ -512,7 +512,7 @@ export async function readAndValidateBackup(buffer) {
   if (payload.checksum) {
     const actual = `sha256:${sha256(JSON.stringify(payload.tables))}`;
     if (actual !== payload.checksum) {
-      throw new Error('Yeh backup file kharab (corrupt) hai — checksum match nahi hua.');
+      throw new Error('This backup file is corrupted — the checksum did not match.');
     }
   }
 
@@ -601,7 +601,7 @@ async function topologicalTableOrder(client, tableNames) {
  */
 export async function restoreDatabase(buffer) {
   if (driver !== 'postgres') {
-    throw new Error('Yeh turant wala restore sirf asli Postgres ke liye hai.');
+    throw new Error('This instant restore is only available for real Postgres.');
   }
 
   const payload = await readAndValidateBackup(buffer);
@@ -619,7 +619,7 @@ export async function restoreDatabase(buffer) {
   );
 
   if (tableNames.length === 0) {
-    throw new Error('Is backup me koi maujooda table nahi mili.');
+    throw new Error('No existing table was found in this backup.');
   }
 
   return conn.withClient(async (client) => {

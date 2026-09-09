@@ -434,7 +434,7 @@ router.get(
     const report = REPORTS[type];
 
     if (!report) {
-      res.status(400).json({ error: { code: 'bad_request', message: 'Aisi koi report nahi hai' } });
+      res.status(400).json({ error: { code: 'bad_request', message: 'No such report exists' } });
       return;
     }
 

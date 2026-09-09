@@ -56,8 +56,8 @@ function buildSmtpTransport(account) {
 
   if (!secrets.host || !secrets.user || !secrets.pass) {
     throw badRequest(
-      `"${account.email}" ki SMTP details nahi bhari hain. ` +
-        'Email Accounts page par jakar host, port, username aur password daalo.'
+      `"${account.email}" is missing its SMTP details. ` +
+        'Go to the Email Accounts page and enter the host, port, username and password.'
     );
   }
 

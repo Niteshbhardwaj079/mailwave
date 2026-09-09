@@ -79,7 +79,7 @@ const SCHEMAS = {
       z.object({
         id: z.string().trim().min(1).max(50),
         label: z.string().trim().min(1).max(80),
-        key: z.string().trim().refine(isValidFieldKey, 'Key sirf chhote akshar/ank/underscore, akshar se shuru'),
+        key: z.string().trim().refine(isValidFieldKey, 'Key can only contain lowercase letters/numbers/underscore, starting with a letter'),
       })
     )
     .max(200)
@@ -87,7 +87,7 @@ const SCHEMAS = {
       const keys = fields.map((f) => f.key);
       if (keys.some((k) => BUILTIN_DYNAMIC_FIELD_KEYS.includes(k))) return false;
       return new Set(keys).size === keys.length;
-    }, 'Ek key sirf ek hi field ke liye — koi builtin field ki key repeat ya duplicate nahi honi chahiye'),
+    }, 'Each key belongs to one field only — it cannot repeat or duplicate a builtin field key'),
 };
 
 router.get(
@@ -103,7 +103,7 @@ router.get(
 /** `validate()` ek fixed schema ke liye bana hai — yahan key ke hisaab se schema khud chunna padta hai. */
 function validateSettingBody(req, res, next) {
   const schema = SCHEMAS[req.params.key];
-  if (!schema) return next(badRequest('Aisi koi setting nahi hai'));
+  if (!schema) return next(badRequest('No such setting exists'));
   return validate(schema)(req, res, next);
 }
 

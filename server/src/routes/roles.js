@@ -40,9 +40,9 @@ const roleInput = z.object({
   key: z
     .string()
     .trim()
-    .min(2, 'Role ki key kam se kam 2 akshar ki ho')
+    .min(2, 'The role key must be at least 2 characters')
     .max(40)
-    .regex(/^[a-z][a-z0-9_]*$/, 'Key me sirf chhote akshar, number aur _ chalega'),
+    .regex(/^[a-z][a-z0-9_]*$/, 'Key can only contain lowercase letters, numbers and _'),
   // Naam khali bhi ho sakta hai. Starter roles (Admin, Member waghairah) ka
   // naam translation file se aata hai, database me nahi rakha jata — unhe
   // update karte waqt screen null bhejti hai, aur wo galti nahi hai.
@@ -55,7 +55,7 @@ const roleInput = z.object({
 
 /** Naya role banate waqt naam zaroori hai — bina naam ka role kis kaam ka. */
 const newRoleInput = roleInput.extend({
-  label: z.string().trim().min(1, 'Role ko ek naam do').max(80),
+  label: z.string().trim().min(1, 'Give this role a name').max(80),
 });
 
 /**
@@ -144,7 +144,7 @@ router.post(
     const { key, label, desc, tone, icon, permissions } = req.body;
 
     const clash = await one('SELECT key FROM roles WHERE key = $1', [key]);
-    if (clash) throw badRequest('Is key se ek role pehle se hai');
+    if (clash) throw badRequest('A role with this key already exists');
 
     const orderRow = await one('SELECT coalesce(max(sort_order), 0) + 1 AS n FROM roles');
 
@@ -176,11 +176,11 @@ router.put(
   validate(roleInput.partial({ key: true })),
   asyncHandler(async (req, res) => {
     const existing = await one('SELECT * FROM roles WHERE key = $1', [req.params.key]);
-    if (!existing) throw notFound('Yeh role nahi mila');
+    if (!existing) throw notFound('This role was not found');
 
     // super_admin par taala isliye hai ki uski permissions ghata di jayen to
     // app ko phir se theek karne wala koi bachta hi nahi.
-    if (existing.locked) throw badRequest('Yeh role locked hai, ise badla nahi ja sakta');
+    if (existing.locked) throw badRequest('This role is locked and cannot be changed');
 
     const { label, desc, tone, icon, permissions } = req.body;
 
@@ -259,7 +259,7 @@ router.post(
   requireModule('users', 'create'),
   asyncHandler(async (req, res) => {
     const source = await one('SELECT * FROM roles WHERE key = $1', [req.params.key]);
-    if (!source) throw notFound('Yeh role nahi mila');
+    if (!source) throw notFound('This role was not found');
 
     // Nayi key khud bana lete hain: admin, admin_2, admin_3...
     let key = `${source.key}_copy`;
@@ -303,8 +303,8 @@ router.delete(
   requireModule('users', 'delete'),
   asyncHandler(async (req, res) => {
     const existing = await one('SELECT * FROM roles WHERE key = $1', [req.params.key]);
-    if (!existing) throw notFound('Yeh role nahi mila');
-    if (existing.locked) throw badRequest('Yeh role locked hai, ise hataya nahi ja sakta');
+    if (!existing) throw notFound('This role was not found');
+    if (existing.locked) throw badRequest('This role is locked and cannot be deleted');
 
     // Role ke saath uske users ko chhodna nahi hai — wo bina role ke reh
     // jayenge aur unse app khulega hi nahi.
@@ -313,7 +313,7 @@ router.delete(
     ]);
     if ((used?.n ?? 0) > 0) {
       throw badRequest(
-        `Is role par ${used.n} user hain. Pehle unhe koi doosra role do, phir yeh role hatao.`
+        `${used.n} user(s) currently have this role. Give them a different role first, then delete this one.`
       );
     }
 

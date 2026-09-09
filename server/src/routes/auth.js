@@ -329,7 +329,7 @@ router.put(
   requireAuth,
   validate(
     z.object({
-      name: z.string().trim().min(1, 'Naam khali nahi ho sakta').max(120),
+      name: z.string().trim().min(1, 'Name cannot be empty').max(120),
       department: z.string().trim().max(120).default(''),
       language: z.enum(LANGUAGE_CODES).default(DEFAULT_LANGUAGE),
     })

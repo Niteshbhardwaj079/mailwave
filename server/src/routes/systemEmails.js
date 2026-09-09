@@ -83,13 +83,13 @@ router.put(
   requireModule('settings', 'edit'),
   validate(
     z.object({
-      subject: z.string().trim().min(1, 'Subject khali nahi ho sakta').max(300),
-      html: z.string().max(500_000, 'Yeh template bahut bada hai'),
+      subject: z.string().trim().min(1, 'Subject cannot be empty').max(300),
+      html: z.string().max(500_000, 'This template is too large'),
     })
   ),
   asyncHandler(async (req, res) => {
     const existing = await one('SELECT * FROM system_emails WHERE key = $1', [req.params.key]);
-    if (!existing) throw notFound('Yeh system email nahi mili');
+    if (!existing) throw notFound('This system email was not found');
 
     await query(
       'UPDATE system_emails SET subject = $1, html = $2, updated_at = now() WHERE key = $3',
@@ -119,19 +119,19 @@ router.put(
   requireModule('settings', 'edit'),
   validate(
     z.object({
-      subject: z.string().trim().min(1, 'Subject khali nahi ho sakta').max(300),
-      html: z.string().max(500_000, 'Yeh template bahut bada hai'),
+      subject: z.string().trim().min(1, 'Subject cannot be empty').max(300),
+      html: z.string().max(500_000, 'This template is too large'),
     })
   ),
   asyncHandler(async (req, res) => {
     const { key, language } = req.params;
     if (language === 'en') {
-      throw badRequest('English ke liye PUT /:key route use karo, translations ke liye nahi');
+      throw badRequest('Use the PUT /:key route for English, not the translations one');
     }
-    if (!isValidLanguage(language)) throw badRequest('Yeh language pehchani nahi gayi');
+    if (!isValidLanguage(language)) throw badRequest('This language was not recognised');
 
     const base = await one('SELECT key, enabled FROM system_emails WHERE key = $1', [key]);
-    if (!base) throw notFound('Yeh system email nahi mili');
+    if (!base) throw notFound('This system email was not found');
 
     await query(
       `INSERT INTO system_email_translations (key, language, subject, html, updated_at)
@@ -173,13 +173,13 @@ router.delete(
   requireModule('settings', 'edit'),
   asyncHandler(async (req, res) => {
     const { key, language } = req.params;
-    if (language === 'en') throw badRequest('English translations me nahi, system_emails me hai');
+    if (language === 'en') throw badRequest('English lives in system_emails, not in translations');
 
     const existing = await one(
       'SELECT 1 AS found FROM system_email_translations WHERE key = $1 AND language = $2',
       [key, language]
     );
-    if (!existing) throw notFound('Is language ka koi version saved nahi hai');
+    if (!existing) throw notFound('No saved version exists for this language');
 
     await query('DELETE FROM system_email_translations WHERE key = $1 AND language = $2', [key, language]);
 
@@ -206,17 +206,17 @@ router.post(
   asyncHandler(async (req, res) => {
     const { key, language } = req.params;
     if (language === 'en') {
-      throw badRequest('English ke liye POST /:key/reset use karo, translations wala reset nahi');
+      throw badRequest('Use POST /:key/reset for English, not the translations reset');
     }
 
     const { getSeedTranslation } = await import('../../../src/data/systemEmailTranslations.js');
     const original = getSeedTranslation(key, language);
     if (!original) {
-      throw notFound('Is language ka koi original (starting) version abhi tak nahi bana hai');
+      throw notFound('No original (starting) version exists yet for this language');
     }
 
     const base = await one('SELECT key, enabled FROM system_emails WHERE key = $1', [key]);
-    if (!base) throw notFound('Yeh system email nahi mili');
+    if (!base) throw notFound('This system email was not found');
 
     await query(
       `INSERT INTO system_email_translations (key, language, subject, html, updated_at)
@@ -263,10 +263,10 @@ router.post(
   validate(z.object({ enabled: z.boolean() })),
   asyncHandler(async (req, res) => {
     const existing = await one('SELECT * FROM system_emails WHERE key = $1', [req.params.key]);
-    if (!existing) throw notFound('Yeh system email nahi mili');
+    if (!existing) throw notFound('This system email was not found');
 
     if (!req.body.enabled && CANNOT_TURN_OFF.includes(req.params.key)) {
-      throw badRequest('Yeh email band nahi ki ja sakti — iske bina log app me ghus hi nahi payenge');
+      throw badRequest('This email cannot be turned off — without it, people would not be able to sign in');
     }
 
     await query('UPDATE system_emails SET enabled = $1, updated_at = now() WHERE key = $2', [
@@ -299,7 +299,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const { systemEmailTemplates } = await import('../../../src/data/systemEmails.js');
     const original = systemEmailTemplates.find((item) => item.key === req.params.key);
-    if (!original) throw notFound('Is email ka asli matter nahi mila');
+    if (!original) throw notFound('The original content for this email was not found');
 
     await query(
       'UPDATE system_emails SET subject = $1, html = $2, updated_at = now() WHERE key = $3',
@@ -370,11 +370,11 @@ router.post(
 
     if (!sent.ok) {
       const why = {
-        'no-account': 'Abhi tak koi email account juda nahi hai. Settings > Email accounts me ek jodo.',
-        'send-failed': 'Email bhejte waqt dikkat aayi. Server ka console dekho.',
-        'no-template': 'Yeh template nahi mili.',
+        'no-account': 'No email account is connected yet. Add one under Settings > Email accounts.',
+        'send-failed': 'Something went wrong while sending the email. Check the server console.',
+        'no-template': 'This template was not found.',
       };
-      throw badRequest(why[sent.reason] ?? 'Test email nahi ja saka');
+      throw badRequest(why[sent.reason] ?? 'The test email could not be sent');
     }
 
     res.json({ ok: true, to: req.user.email, language, previewUrl: sent.previewUrl ?? null });

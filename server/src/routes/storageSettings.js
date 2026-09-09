@@ -26,10 +26,10 @@ const router = Router();
 
 const settingsInput = z.object({
   provider: z.enum(STORAGE_PROVIDER_IDS),
-  bucket: z.string().trim().min(1, 'Bucket ka naam do').max(200),
+  bucket: z.string().trim().min(1, 'Give the bucket a name').max(200),
   region: z.string().trim().max(100).default('auto'),
   endpoint: z.string().trim().max(300).default(''),
-  accessKeyId: z.string().trim().min(1, 'Access Key ID do').max(300),
+  accessKeyId: z.string().trim().min(1, 'Enter the Access Key ID').max(300),
   // Blank = purani secret key rakh lo (write-only field, dobara nahi dikhti).
   secretAccessKey: z.string().trim().max(500).default(''),
   publicUrlBase: z.string().trim().max(300).default(''),
@@ -50,7 +50,7 @@ router.put(
     const parsed = settingsInput.safeParse(req.body);
     if (!parsed.success) {
       throw badRequest(
-        'Kuch fields sahi nahi hain',
+        'Some fields are not valid',
         parsed.error.issues.map((issue) => ({ field: issue.path.join('.'), message: issue.message }))
       );
     }
@@ -73,7 +73,7 @@ router.post(
   requireModule('settings', 'edit'),
   asyncHandler(async (req, res) => {
     const existing = await getSettings();
-    if (!existing.provider) throw badRequest('Pehle storage details save karo');
+    if (!existing.provider) throw badRequest('Save the storage details first');
 
     const result = await testConnection();
     await markTested(result.ok, result.message);
@@ -99,7 +99,7 @@ router.post(
     const { env } = await import('../env.js');
 
     const existing = await getSettings();
-    if (!existing.connected) throw badRequest('Pehle "Test Connection" safal karo');
+    if (!existing.connected) throw badRequest('Run a successful "Test Connection" first');
 
     // 1x1 PNG — bundled sample, taaki client ko khud koi file dena zaroori na ho.
     const SAMPLE_PNG_BASE64 =

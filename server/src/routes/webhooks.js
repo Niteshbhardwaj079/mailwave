@@ -59,7 +59,7 @@ router.put(
 function validateWebhookUrl(req, res, next) {
   const schema = z.object({
     url: z.string().trim().refine((value) => value === '' || /^https:\/\//.test(value), {
-      message: 'Webhook URL https:// se shuru honi chahiye',
+      message: 'The webhook URL must start with https://',
     }),
     enabled: z.boolean(),
   });
@@ -72,7 +72,7 @@ function validateWebhookUrl(req, res, next) {
     }))));
   }
   if (result.data.enabled && !result.data.url) {
-    return next(badRequest('Chalu karne se pehle ek URL do'));
+    return next(badRequest('Provide a URL before turning this on'));
   }
   req.body = result.data;
   return next();
@@ -101,7 +101,7 @@ router.post(
   requireModule('settings', 'edit'),
   asyncHandler(async (req, res) => {
     const result = await sendTestWebhook();
-    if (!result.ok && result.reason === 'no-url') throw badRequest('Pehle ek webhook URL bharo');
+    if (!result.ok && result.reason === 'no-url') throw badRequest('Enter a webhook URL first');
     res.json(result);
   })
 );
