@@ -31,12 +31,57 @@ import { uniqueFieldKey } from '../../data/dynamicFields';
  * controls jaan-boojh kar yahan nahi hain — font hamesha Arial hai, colors
  * template ke saath pehle se set hain.
  */
+/** Body text ke andar sirf khali `<p></p>`/`<br>` bacha ho to bhi "khali" maana jaata hai. */
+function stripHtml(html) {
+  return String(html || '').replace(/<[^>]*>/g, '').trim();
+}
+
+/** Naye add kiye field khali hote hain (accordion open dikhane ke liye); pehle se bhare hue collapsed shuru hote hain. */
+function fieldHasContent(field) {
+  if (field.type === 'heading') return Boolean(field.value && field.value.trim());
+  if (field.type === 'richtext') return Boolean(stripHtml(field.value));
+  if (field.type === 'image') return Boolean(field.url && field.url.trim());
+  if (field.type === 'button') return Boolean((field.buttonLabel && field.buttonLabel.trim()) || (field.buttonUrl && field.buttonUrl.trim()));
+  return false;
+}
+
 export default function TemplateDesignEditor({ schema, onChange, ownFieldKeys }) {
   const t = useT();
   const [pickerFor, setPickerFor] = useState(null); // 'logo' | { fieldId }
   const headingRefs = useRef({});
   const websiteRef = useRef(null);
   const footerTextRefs = useRef([]);
+
+  // Content field ki accordion open/closed state. `fieldDefaults` ek field ki
+  // pehli baar dikhne par hi decide hota hai (khali ho to open, bhara ho to
+  // collapsed), phir hamesha ke liye waisa hi rehta hai — naya field dikhte
+  // hi render ke DAURAAN seed hota hai (React ka apna "adjust state while
+  // rendering" pattern — effect ke andar setState se behtar, ek extra
+  // "sync" render nahi lagta). `openOverrides` me sirf client ke apne
+  // EXPLICIT toggle (event se) jaate hain — isliye field me type karte waqt
+  // content badalne se accordion apne aap band nahi hoti.
+  const [fieldDefaults, setFieldDefaults] = useState(() => {
+    const defaults = {};
+    for (const field of schema.fields || []) defaults[field.id] = !fieldHasContent(field);
+    return defaults;
+  });
+  const newFields = (schema.fields || []).filter((field) => !(field.id in fieldDefaults));
+  if (newFields.length > 0) {
+    setFieldDefaults((prev) => {
+      const next = { ...prev };
+      for (const field of newFields) next[field.id] = !fieldHasContent(field);
+      return next;
+    });
+  }
+  const [openOverrides, setOpenOverrides] = useState({});
+
+  function isFieldOpen(field) {
+    return field.id in openOverrides ? openOverrides[field.id] : fieldDefaults[field.id];
+  }
+
+  function toggleFieldOpen(id, isOpen) {
+    setOpenOverrides((prev) => ({ ...prev, [id]: isOpen }));
+  }
 
   function set(patch) {
     onChange({ ...schema, ...patch });
@@ -225,8 +270,13 @@ export default function TemplateDesignEditor({ schema, onChange, ownFieldKeys })
         <h4 className="mw-fs-14 mw-fw-700 mb-2">{t('tpl.design.content')}</h4>
         <div className="mw-stack--sm d-flex flex-column">
           {(schema.fields || []).map((field, index) => (
-            <div key={field.id} className="p-3" style={{ border: '1px solid var(--mw-border, #e5e7eb)', borderRadius: 8 }}>
-              <div className="mw-row mb-2 align-items-center">
+            <details
+              key={field.id}
+              className="mw-fieldrow"
+              open={Boolean(isFieldOpen(field))}
+              onToggle={(e) => toggleFieldOpen(field.id, e.currentTarget.open)}
+            >
+              <summary className="mw-fieldrow__summary">
                 <div className="flex-grow-1">
                   <input
                     type="text"
@@ -234,28 +284,55 @@ export default function TemplateDesignEditor({ schema, onChange, ownFieldKeys })
                     value={field.label}
                     onChange={(e) => setFieldLabel(field, e.target.value)}
                     onBlur={() => lockFieldKey(field)}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
                     aria-label={t('tpl.design.fieldLabel')}
                   />
                   <span className="mw-fs-12 mw-text-muted mw-mono">{`{{${field.key}}}`}</span>
                 </div>
-                <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => moveField(index, -1)} disabled={index === 0}>
-                  <i className="bi bi-arrow-up" />
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-outline-secondary"
-                  onClick={() => moveField(index, 1)}
-                  disabled={index === schema.fields.length - 1}
-                >
-                  <i className="bi bi-arrow-down" />
-                </button>
-                <button type="button" className="btn btn-sm btn-outline-danger" onClick={() => removeField(field.id)}>
-                  <i className="bi bi-trash3" />
-                </button>
-              </div>
+                <div className="mw-row">
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-secondary"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      moveField(index, -1);
+                    }}
+                    disabled={index === 0}
+                  >
+                    <i className="bi bi-arrow-up" />
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-secondary"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      moveField(index, 1);
+                    }}
+                    disabled={index === schema.fields.length - 1}
+                  >
+                    <i className="bi bi-arrow-down" />
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-danger"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeField(field.id);
+                    }}
+                  >
+                    <i className="bi bi-trash3" />
+                  </button>
+                </div>
+                <i className="bi bi-chevron-down mw-fieldrow__chevron" aria-hidden="true" />
+              </summary>
 
-              {field.type === 'heading' ? (
-                <>
+              <div className="mw-fieldrow__body">
+                {field.type === 'heading' ? (
                   <input
                     ref={(el) => (headingRefs.current[field.id] = el)}
                     type="text"
@@ -264,73 +341,73 @@ export default function TemplateDesignEditor({ schema, onChange, ownFieldKeys })
                     onChange={(e) => setField(field.id, { value: e.target.value })}
                     placeholder={t('tpl.design.headingPlaceholder')}
                   />
-                </>
-              ) : null}
+                ) : null}
 
-              {field.type === 'richtext' ? (
-                <RichTextEditor
-                  value={field.value}
-                  onChange={(next) => setField(field.id, { value: next })}
-                  placeholder={t('tpl.design.paragraphPlaceholder')}
-                />
-              ) : null}
+                {field.type === 'richtext' ? (
+                  <RichTextEditor
+                    value={field.value}
+                    onChange={(next) => setField(field.id, { value: next })}
+                    placeholder={t('tpl.design.paragraphPlaceholder')}
+                  />
+                ) : null}
 
-              {field.type === 'image' ? (
-                <div className="row g-2">
-                  <div className="col-12">
-                    <div className="input-group">
+                {field.type === 'image' ? (
+                  <div className="row g-2">
+                    <div className="col-12">
+                      <div className="input-group">
+                        <input
+                          type="text"
+                          className="form-control"
+                          value={field.url}
+                          onChange={(e) => setField(field.id, { url: e.target.value })}
+                          placeholder={t('tpl.design.logoPlaceholder')}
+                        />
+                        <button
+                          type="button"
+                          className="btn btn-outline-secondary"
+                          onClick={() => setPickerFor({ fieldId: field.id })}
+                        >
+                          <i className="bi bi-images me-1" />
+                          {t('img.title')}
+                        </button>
+                      </div>
+                    </div>
+                    <div className="col-12">
                       <input
                         type="text"
                         className="form-control"
-                        value={field.url}
-                        onChange={(e) => setField(field.id, { url: e.target.value })}
-                        placeholder={t('tpl.design.logoPlaceholder')}
+                        value={field.alt}
+                        onChange={(e) => setField(field.id, { alt: e.target.value })}
+                        placeholder={t('tpl.design.altPlaceholder')}
                       />
-                      <button
-                        type="button"
-                        className="btn btn-outline-secondary"
-                        onClick={() => setPickerFor({ fieldId: field.id })}
-                      >
-                        <i className="bi bi-images me-1" />
-                        {t('img.title')}
-                      </button>
                     </div>
                   </div>
-                  <div className="col-12">
-                    <input
-                      type="text"
-                      className="form-control"
-                      value={field.alt}
-                      onChange={(e) => setField(field.id, { alt: e.target.value })}
-                      placeholder={t('tpl.design.altPlaceholder')}
-                    />
-                  </div>
-                </div>
-              ) : null}
+                ) : null}
 
-              {field.type === 'button' ? (
-                <div className="row g-2">
-                  <div className="col-12 col-md-6">
-                    <input
-                      type="text"
-                      className="form-control"
-                      value={field.buttonLabel}
-                      onChange={(e) => setField(field.id, { buttonLabel: e.target.value })}
-                      placeholder={t('tpl.design.buttonLabelPlaceholder')}
-                    />
+                {field.type === 'button' ? (
+                  <div className="row g-2">
+                    <div className="col-12 col-md-6">
+                      <input
+                        type="text"
+                        className="form-control"
+                        value={field.buttonLabel}
+                        onChange={(e) => setField(field.id, { buttonLabel: e.target.value })}
+                        placeholder={t('tpl.design.buttonLabelPlaceholder')}
+                      />
+                    </div>
+                    <div className="col-12 col-md-6">
+                      <input
+                        type="text"
+                        className="form-control"
+                        value={field.buttonUrl}
+                        onChange={(e) => setField(field.id, { buttonUrl: e.target.value })}
+                        placeholder="{{subscribe_url}}"
+                      />
+                    </div>
                   </div>
-                  <div className="col-12 col-md-6">
-                    <input
-                      type="text"
-                      className="form-control"
-                      value={field.buttonUrl}
-                      onChange={(e) => setField(field.id, { buttonUrl: e.target.value })}
-                      placeholder="{{subscribe_url}}"
-                    />
-                  </div>
-                </div>
-              ) : null}
-            </div>
+                ) : null}
+              </div>
+            </details>
           ))}
 
           <div className="mw-row mw-row--wrap">

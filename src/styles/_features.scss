@@ -297,6 +297,59 @@
   }
 }
 
+// Live preview stays put while the form/canvas beside it scrolls — desktop
+// only (matches the breakpoint where .mw-editor is 2 columns). Scoped off
+// the system-email screen (.mw-editor--list), which wasn't asked for this.
+@media (min-width: 1200px) {
+  .mw-editor:not(.mw-editor--list) > .mw-card:last-child {
+    position: sticky;
+    inset-block-start: 8rem;
+    max-height: calc(100vh - 10rem);
+    overflow-y: auto;
+  }
+}
+
+// Design tab's Content fields — each one collapses to just its label/key so
+// a template with lots of fields doesn't turn into a wall of open cards.
+.mw-fieldrow {
+  border: 1px solid var(--mw-line, #e5e7eb);
+  border-radius: 0.8rem;
+  overflow: hidden;
+}
+
+.mw-fieldrow__summary {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 1.2rem;
+  cursor: pointer;
+  list-style: none;
+
+  &::-webkit-details-marker {
+    display: none;
+  }
+
+  &:hover {
+    background-color: var(--mw-hover);
+  }
+}
+
+.mw-fieldrow__chevron {
+  color: var(--mw-muted);
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+}
+
+.mw-fieldrow[open] > .mw-fieldrow__summary .mw-fieldrow__chevron {
+  transform: rotate(180deg);
+}
+
+.mw-fieldrow__body {
+  padding: 0 1.2rem 1.2rem;
+  border-block-start: 1px solid var(--mw-line, #e5e7eb);
+  padding-block-start: 1.2rem;
+}
+
 .mw-codearea {
   width: 100%;
   min-height: 42rem;

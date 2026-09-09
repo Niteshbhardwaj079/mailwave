@@ -1918,6 +1918,16 @@
   }
 }
 
+// Live preview stays put while the canvas beside it scrolls — desktop only.
+@media (min-width: 1200.02px) {
+  .mw-tplbuilder > .mw-card:last-child {
+    position: sticky;
+    inset-block-start: 8rem;
+    max-height: calc(100vh - 10rem);
+    overflow-y: auto;
+  }
+}
+
 .mw-tplbuilder__canvas {
   padding: 1.6rem;
   border-radius: 1rem;
