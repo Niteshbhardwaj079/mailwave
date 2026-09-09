@@ -179,11 +179,17 @@ export function buildEmail({ campaign, recipient, links, company, unsubscribeTex
     // karte hain — taaki poora system-wala footer dobara na jud jaye.
     unsubscribe_url: `${env.publicUrl}/t/u/${recipient.id}`,
     // App-wide, not per-recipient — same for every email, sourced from the
-    // app's own brand config so a {{app_name}}/{{support_email}} a client
-    // inserts (default templates' header/footer use these) always resolves,
-    // instead of silently going blank.
+    // app's own brand config so a {{app_name}} a client inserts always
+    // resolves, instead of silently going blank.
+    //
+    // NOTE: {{support_email}} deliberately has NO fallback here — it's a
+    // per-template field (src/data/templateBuilder.js's DEFAULT_SCHEMA
+    // `supportEmail`, baked in at campaign-creation time by
+    // resolveTemplateFieldTokens()). One workspace can send on behalf of
+    // different companies, so a single global support address must never
+    // silently appear on a template that didn't set its own — better blank
+    // than wrong.
     app_name: env.brand.name,
-    support_email: env.brand.supportEmail,
     ...(recipient.merge_data || {}),
   };
 

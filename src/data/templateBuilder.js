@@ -55,8 +55,8 @@ export function findSocialPlatform(id) {
   return SOCIAL_PLATFORMS.find((p) => p.id === id) || SOCIAL_PLATFORMS[SOCIAL_PLATFORMS.length - 1];
 }
 
-/** Logo/Brand/Website/Unsubscribe-text hamesha maujood, single (list nahi) fields hain — inki key kabhi nahi badalti. */
-export const RESERVED_TEMPLATE_KEYS = ['logo_url', 'brand_name', 'website_url', 'unsubscribe_text'];
+/** Logo/Brand/Website/Support-email/Unsubscribe-text hamesha maujood, single (list nahi) fields hain — inki key kabhi nahi badalti. */
+export const RESERVED_TEMPLATE_KEYS = ['logo_url', 'brand_name', 'website_url', 'support_email', 'unsubscribe_text'];
 
 export const DEFAULT_SCHEMA = {
   accentColor: '#4f46e5',
@@ -66,6 +66,11 @@ export const DEFAULT_SCHEMA = {
   logoUrl: '',
   brandName: '',
   websiteUrl: '',
+  // Har template ka apna, alag support email ho sakta hai (agar ek hi
+  // workspace se alag-alag companies ke liye bheja jaa raha ho) — isliye
+  // koi app-wide global fallback nahi hai; khaali chhodne par bas khaali
+  // hi rehta hai (dekho resolveTemplateFieldTokens() neeche).
+  supportEmail: '',
   // Ek nayi/khaali template hamesha ek shuruaati Heading + Text field ke
   // saath khulti hai — Code tab me kuch bhi likha jaaye, yeh list kabhi
   // khud-ba-khud khaali/hidden nahi hoti (WordPress custom-fields jaisa).
@@ -489,6 +494,7 @@ export function resolveTemplateFieldTokens(html, schemaInput) {
   map.set('logo_url', schema.logoUrl || '');
   map.set('brand_name', schema.brandName || '');
   map.set('website_url', schema.websiteUrl || '');
+  map.set('support_email', schema.supportEmail || '');
   map.set('unsubscribe_text', schema.unsubscribeText || DEFAULT_SCHEMA.unsubscribeText);
   for (const field of schema.fields || []) {
     map.set(field.key, fieldPlainValue(field, accent));

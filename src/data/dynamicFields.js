@@ -17,20 +17,10 @@
 // templateBuilder.js / systemEmailTranslations.js.
 // ---------------------------------------------------------------------------
 
-export const BUILTIN_DYNAMIC_FIELDS = [
-  { key: 'name', label: 'Customer Name', preview: 'Neha Kulkarni' },
-  { key: 'email', label: 'Email Address', preview: 'neha@example.com' },
-  { key: 'company', label: 'Company Name', preview: 'Acme Traders' },
-  { key: 'phone', label: 'Mobile Number', preview: '+91 98765 43210' },
-  { key: 'city', label: 'City', preview: 'Mumbai' },
-  { key: 'subscribe_url', label: 'Subscribe Link', preview: '#' },
-  { key: 'unsubscribe_url', label: 'Unsubscribe Link', preview: '#' },
-  // In-app/static, not per-recipient — same value in every email, always
-  // resolvable (server/src/services/render.js reads it from the app's own
-  // brand config, never from recipient data).
-  { key: 'app_name', label: 'Your Business Name', preview: 'Your Company' },
-  { key: 'support_email', label: 'Support Email', preview: 'support@example.com' },
-].map((f) => ({ ...f, builtin: true }));
+export const BUILTIN_DYNAMIC_FIELDS = [{ key: 'subscribe_url', label: 'Subscribe Link', preview: '#' }].map((f) => ({
+  ...f,
+  builtin: true,
+}));
 
 export const BUILTIN_DYNAMIC_FIELD_KEYS = BUILTIN_DYNAMIC_FIELDS.map((f) => f.key);
 

@@ -354,6 +354,8 @@ export default {
   'tpl.design.logoHelp': 'Leave blank to show your brand name as text instead of a logo image.',
   'tpl.design.websiteUrl': 'Website',
   'tpl.design.websiteUrlHelp': 'Your logo links here. Also available as a dynamic field ({{website_url}}) anywhere in this template.',
+  'tpl.design.supportEmail': 'Support Email',
+  'tpl.design.supportEmailHelp': "This template's own support address — used only here, never a shared default. Leave blank to show nothing.",
   'tpl.design.fieldLabel': 'Field label',
   'tpl.design.heading': 'Heading',
   'tpl.design.headingPlaceholder': 'e.g. A special offer, just for you',

@@ -263,6 +263,18 @@ export default function TemplateDesignEditor({ schema, onChange, ownFieldKeys })
             <span className="mw-fs-12 mw-text-muted mw-mono">{'{{website_url}}'}</span>
             <p className="form-text mb-0">{t('tpl.design.websiteUrlHelp')}</p>
           </div>
+          <div className="col-12 col-md-6">
+            <label className="form-label">{t('tpl.design.supportEmail')}</label>
+            <input
+              type="email"
+              className="form-control"
+              value={schema.supportEmail}
+              onChange={(e) => set({ supportEmail: e.target.value })}
+              placeholder="support@example.com"
+            />
+            <span className="mw-fs-12 mw-text-muted mw-mono">{'{{support_email}}'}</span>
+            <p className="form-text mb-0">{t('tpl.design.supportEmailHelp')}</p>
+          </div>
         </div>
       </div>
 
