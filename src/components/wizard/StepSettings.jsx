@@ -1,6 +1,7 @@
 import { Note, Required } from '../ui/Controls';
 import { batchOptions } from '../../data/constants';
 import { formatNumber } from '../../utils/format';
+import { estimateSendTime, formatEstimate } from '../../utils/sendEstimate';
 import { useT } from '../../i18n/I18nProvider';
 
 /** Native picker ko beeta hua din/waqt dikhane hi nahi dete. */
@@ -15,7 +16,7 @@ const SCHEDULE_OPTIONS = [
   { key: 'later', titleKey: 'send.later', descKey: 'send.laterDesc', icon: 'bi-calendar-event' },
 ];
 
-export default function StepSettings({ draft, onChange, recipientCount = 0, showErrors = false }) {
+export default function StepSettings({ draft, onChange, recipientCount = 0, account = null, showErrors = false }) {
   const t = useT();
 
   const scheduleInvalid =
@@ -64,6 +65,21 @@ export default function StepSettings({ draft, onChange, recipientCount = 0, show
     return draft.batchSize > 0 ? Math.min(draft.batchSize, remaining) : recipientCount;
   });
 
+  // Account ki daily limit/sentToday hamesha FRESH use karte hain (jo bhi
+  // `account` prop me abhi aaya hai) — kabhi kisi fixed number (jaise 500)
+  // ko hardcode nahi karte, taaki kal koi doosra account use ho jiski limit
+  // alag ho, to estimate seedha sahi nikle.
+  const sendEstimate =
+    recipientCount > 0
+      ? estimateSendTime({
+          recipientCount,
+          batchSize: draft.batchSize,
+          batchDelayMinutes: draft.batchDelay,
+          dailyLimit: account?.dailyLimit,
+          sentToday: account?.sentToday,
+        })
+      : null;
+
   return (
     <div className="mw-stack">
       <div>
@@ -102,6 +118,14 @@ export default function StepSettings({ draft, onChange, recipientCount = 0, show
                 <span className="mw-batch">{t('send.batchMore', { count: batchCount - 8 })}</span>
               ) : null}
             </div>
+          </div>
+        ) : null}
+
+        {sendEstimate ? (
+          <div className="mt-3">
+            <Note tone="info" icon="bi-stopwatch">
+              {formatEstimate(t, sendEstimate, { accountLabel: account?.email, dailyLimit: account?.dailyLimit })}
+            </Note>
           </div>
         ) : null}
       </div>

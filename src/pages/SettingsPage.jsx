@@ -18,6 +18,8 @@ import { useApi } from '../api/useApi';
 import { ApiError, api, apiBase } from '../api/client';
 import { useToast } from '../components/ui/ToastProvider';
 import { formatDateTime, formatNumber } from '../utils/format';
+import { estimateSendTime, formatEstimate } from '../utils/sendEstimate';
+import { batchOptionLabel, batchOptions } from '../data/constants';
 import { LANGUAGES } from '../i18n/languages';
 import { STORAGE_PROVIDERS, findStorageProvider } from '../data/storageProviders';
 
@@ -157,6 +159,7 @@ export default function SettingsPage() {
   const serverSettings = settingsCall.data?.settings ?? {};
 
   const [sendingDraft, setSendingDraft] = useState(null);
+  const [estimateSampleSize, setEstimateSampleSize] = useState(1000);
   const [trackingDraft, setTrackingDraft] = useState(null);
   const [contactsDraft, setContactsDraft] = useState(null);
   const [unsubDraft, setUnsubDraft] = useState(null);
@@ -746,10 +749,11 @@ export default function SettingsPage() {
                             setSendingDraft((current) => ({ ...current, defaultBatchSize: Number(event.target.value) }))
                           }
                         >
-                          <option value="0">{t('send.batchAll')}</option>
-                          <option value="100">{t('send.batchPer', { size: formatNumber(100) })}</option>
-                          <option value="200">{t('send.batchPer', { size: formatNumber(200) })}</option>
-                          <option value="500">{t('send.batchPer', { size: formatNumber(500) })}</option>
+                          {batchOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {batchOptionLabel(t, option, formatNumber)}
+                            </option>
+                          ))}
                         </select>
                       </div>
                       <div className="col-12 col-md-6">
@@ -767,6 +771,33 @@ export default function SettingsPage() {
                         />
                       </div>
                     </div>
+
+                    <div className="row g-3 mb-3">
+                      <div className="col-12 col-md-6">
+                        <label className="form-label" htmlFor="s-estimate-size">{t('send.estimateSampleLabel')}</label>
+                        <input
+                          id="s-estimate-size"
+                          type="number"
+                          className="form-control"
+                          value={estimateSampleSize}
+                          min={0}
+                          onChange={(event) => setEstimateSampleSize(Math.max(0, Number(event.target.value) || 0))}
+                        />
+                      </div>
+                    </div>
+                    {estimateSampleSize > 0 ? (
+                      <Note tone="info" icon="bi-stopwatch">
+                        {formatEstimate(
+                          t,
+                          estimateSendTime({
+                            recipientCount: estimateSampleSize,
+                            batchSize: sendingDraft.defaultBatchSize,
+                            batchDelayMinutes: sendingDraft.batchDelayMinutes,
+                          })
+                        )}{' '}
+                        {t('send.estimateAccountNote')}
+                      </Note>
+                    ) : null}
 
                     <SwitchRow
                       id="s-retry"

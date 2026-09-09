@@ -33,7 +33,21 @@ export const batchOptions = [
   { value: 100, labelKey: 'send.batchPer' },
   { value: 200, labelKey: 'send.batchPer' },
   { value: 500, labelKey: 'send.batchPer' },
+  { value: 800, labelKey: 'send.batchPer' },
+  { value: 1000, labelKey: 'send.batchPer' },
+  { value: 1500, labelKey: 'send.batchPer' },
+  { value: 2000, labelKey: 'send.batchPer' },
+  { value: 2500, labelKey: 'send.batchPer' },
+  { value: 3000, labelKey: 'send.batchPer' },
+  { value: 5000, labelKey: 'send.batchPer' },
+  { value: 10000, labelKey: 'send.batchPer' },
+  { value: 20000, labelKey: 'send.batchPer' },
 ];
+
+/** "Send all at once" has no number in it; the other choices do. */
+export function batchOptionLabel(t, option, formatNumber) {
+  return option.value === 0 ? t('send.batchAll') : t('send.batchPer', { size: formatNumber(option.value) });
+}
 
 // Steps carry a translation key, not English text — the wizard renders them
 // through t() so every language gets its own labels.

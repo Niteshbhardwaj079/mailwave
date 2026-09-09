@@ -4,6 +4,7 @@ import { useParams } from 'react-router-dom';
 import PageHeader from '../components/ui/PageHeader';
 import { useDebouncedValue } from '../utils/useDebouncedValue';
 import KpiCard from '../components/ui/KpiCard';
+import ProgressBar from '../components/ui/ProgressBar';
 import { Card, CardBody, CardHead } from '../components/ui/Card';
 import { Note, SearchInput } from '../components/ui/Controls';
 import FilterSelect, { FilterBar } from '../components/ui/FilterSelect';
@@ -20,6 +21,7 @@ import { downloadCampaignReport } from '../utils/campaignReport';
 import FullScreenLoader from '../components/ui/FullScreenLoader';
 import PerformanceChart from '../components/charts/PerformanceChart';
 import { widthClass, formatDateTime, formatNumber, getActiveLocale, percent, percentValue } from '../utils/format';
+import { estimateSendTime, formatDuration } from '../utils/sendEstimate';
 import { useApi } from '../api/useApi';
 import { ApiError, api } from '../api/client';
 import EmptyState from '../components/ui/EmptyState';
@@ -183,6 +185,7 @@ export default function CampaignAnalyticsPage() {
       recipientsCall.refresh(),
       trendCall.refresh(),
       linksCall.refresh(),
+      accountCall.refresh(),
     ]);
     setLastUpdated(new Date());
     setRefreshing(false);
@@ -199,6 +202,15 @@ export default function CampaignAnalyticsPage() {
   }, [refreshAll]);
 
   const campaign = campaignCall.data?.campaign ?? null;
+
+  // Live progress estimate ke liye — account ki dailyLimit/sentToday HAMESHA
+  // fresh chahiye (kabhi ek baar load karke chhod nahi dete), isliye ise bhi
+  // refreshAll() ke usi 30s tick me refresh karte hain jisme campaign khud
+  // refresh hota hai — neeche dekho.
+  const accountCall = useApi(campaign?.accountId ? `/api/accounts/${campaign.accountId}` : null, {
+    deps: [campaign?.accountId],
+  });
+  const sendingAccount = accountCall.data?.account ?? null;
   // Kuch contacts bina naam ke import hue the (purana data) — naam khaali ho
   // to email hi dikha dete hain, taaki row.name.slice() jaisi jagah crash na
   // ho aur list me khaali jagah bhi na dikhe.
@@ -500,6 +512,30 @@ export default function CampaignAnalyticsPage() {
   // results half of this page must stay quiet instead of showing borrowed data.
   const hasResults = campaign.sent > 0;
 
+  // Live progress — sirf jab campaign abhi 'Sending' me ho. `processed` (sent
+  // + failed) se batch number nikalte hain, `pending` se batch nahi — ek
+  // failed recipient bhi kisi batch me PROCESS ho chuka hota hai, isliye
+  // sirf pending count se ulta ginna galat batch number deta agar koi bhi
+  // recipient fail hua ho.
+  const sendingProgress = (() => {
+    if (campaign.status !== 'Sending') return null;
+    const batchSize = campaign.batchSize;
+    const processed = campaign.sent + campaign.failed;
+    const totalBatches = batchSize > 0 ? Math.ceil(campaign.recipients / batchSize) : 1;
+    const currentBatch = batchSize > 0 ? Math.ceil(processed / batchSize) : processed > 0 ? 1 : 0;
+    const estimate =
+      campaign.pending > 0
+        ? estimateSendTime({
+            recipientCount: campaign.pending,
+            batchSize,
+            batchDelayMinutes: campaign.batchDelay,
+            dailyLimit: sendingAccount?.dailyLimit,
+            sentToday: sendingAccount?.sentToday,
+          })
+        : null;
+    return { processed, totalBatches, currentBatch: Math.min(currentBatch, totalBatches), estimate };
+  })();
+
   // Asli click ginti — campaign_links table se, kisi andaze se nahi.
   const topLinks = linksCall.data?.links ?? [];
   const maxClicks = Math.max(1, ...topLinks.map((link) => link.clicks));
@@ -540,6 +576,35 @@ export default function CampaignAnalyticsPage() {
           </>
         }
       />
+
+      {sendingProgress ? (
+        <Card>
+          <CardBody>
+            <div className="d-flex justify-content-between align-items-center mb-2">
+              <span className="mw-fs-14 mw-fw-700">
+                <i className="bi bi-stopwatch me-2" />
+                {t('camp.progressTitle')}
+              </span>
+              <span className="mw-fs-13 mw-text-muted">
+                {t('camp.progressBatch', { current: sendingProgress.currentBatch, total: sendingProgress.totalBatches })}
+              </span>
+            </div>
+            <ProgressBar value={percentValue(sendingProgress.processed, campaign.recipients)} label={t('camp.progressTitle')} />
+            {sendingProgress.estimate ? (
+              <p className="mw-fs-13 mw-text-muted mt-2 mb-0">
+                {sendingProgress.estimate.quotaLimited
+                  ? t('camp.progressRemainingQuotaLimited', {
+                      days: sendingProgress.estimate.totalDays,
+                      account: sendingAccount?.email || '',
+                      limit: sendingAccount?.dailyLimit ?? '',
+                      duration: formatDuration(t, sendingProgress.estimate.totalMinutes),
+                    })
+                  : t('camp.progressRemainingSameDay', { duration: formatDuration(t, sendingProgress.estimate.totalMinutes) })}
+              </p>
+            ) : null}
+          </CardBody>
+        </Card>
+      ) : null}
 
       <div className="mw-kpi-grid">
         {kpis.map((kpi) => (

@@ -35,7 +35,7 @@ export const guideChapters = [
     number: 5,
     key: 'c5',
     icon: 'bi-send',
-    steps: ['s1', 's2', 's3', 's4', 's5', 's6'],
+    steps: ['s1', 's2', 's3', 's4', 's5', 's6', 's7'],
     minutes: 4,
     link: { to: '/campaigns/new', labelKey: 'dash.createCampaign' },
   },

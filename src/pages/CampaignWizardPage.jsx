@@ -118,6 +118,14 @@ export default function CampaignWizardPage() {
       : INITIAL_DRAFT
   );
 
+  // StepSettings ka send-time estimate isi se, apne aap, us account ki ASLI
+  // (fixed 500 nahi) dailyLimit/sentToday padhta hai — jo bhi account draft
+  // me abhi chuna ho, wahi, har render par fresh.
+  const selectedAccount = useMemo(
+    () => accounts.find((item) => item.email === draft.account) || null,
+    [accounts, draft.account]
+  );
+
   // Ek hi baar, jab Settings load ho jayein — naya campaign inhi defaults se
   // shuru hota hai. Edit mode me nahi (wahan asli campaign ki apni values
   // aati hain), aur ek baar lagne ke baad dobara nahi (warna user ka khud
@@ -867,7 +875,13 @@ export default function CampaignWizardPage() {
           ) : null}
           {step === 3 ? <StepContent draft={draft} onChange={updateDraft} showErrors={showErrors} /> : null}
           {step === 4 ? (
-            <StepSettings draft={draft} onChange={updateDraft} recipientCount={willReach} showErrors={showErrors} />
+            <StepSettings
+              draft={draft}
+              onChange={updateDraft}
+              recipientCount={willReach}
+              account={selectedAccount}
+              showErrors={showErrors}
+            />
           ) : null}
           {step === 5 ? <StepReview draft={draft} recipientCount={willReach} onSend={openConfirm} /> : null}
         </div>
