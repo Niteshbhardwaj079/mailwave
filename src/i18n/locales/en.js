@@ -1774,6 +1774,7 @@ export default {
   'wiz.pauseNote': 'Pausing is safe. Whoever is left stays in the queue and carries on from there.',
   'wiz.noAccountNote': 'No email account is connected yet, so nothing can be sent. Connect one first.',
   'nav.backups': 'Backups',
+  'nav.developerGuide': 'Developer Guide',
   'bak.title': 'Backups',
   'bak.subtitle': 'A copy of everything, so nothing is ever lost for good.',
   'bak.createNow': 'Back up now',

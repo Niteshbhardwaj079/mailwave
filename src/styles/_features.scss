@@ -708,6 +708,115 @@
 }
 
 // ---------------------------------------------------------------------------
+// Developer Guide — reuses everything above (.mw-guide, .mw-guide__nav, the
+// same responsive collapse at 1199.98px); this only adds what's new to this
+// one page: code/path blocks and small section headings inside a chapter.
+// ---------------------------------------------------------------------------
+.mw-devguide__section {
+  margin: 0 0 2.4rem;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.mw-devguide__h3 {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--mw-ink);
+  margin: 0 0 0.8rem;
+}
+
+.mw-devguide__p {
+  font-size: 1.4rem;
+  line-height: 1.75;
+  color: var(--mw-ink-2);
+  margin: 0 0 1rem;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.mw-devguide__list {
+  margin: 0 0 1rem;
+  padding-inline-start: 2rem;
+  font-size: 1.4rem;
+  line-height: 1.8;
+  color: var(--mw-ink-2);
+
+  li {
+    margin-bottom: 0.4rem;
+  }
+}
+
+// Same visual language as .mw-codearea (the template HTML editor) — this
+// page just displays code/paths, so a <pre> instead of a <textarea>.
+.mw-codeblock {
+  margin: 0 0 1.2rem;
+  padding: 1.2rem 1.6rem;
+  border: 1px solid var(--mw-line-strong);
+  border-radius: 1rem;
+  background-color: var(--mw-code-bg);
+  color: var(--mw-code-ink);
+  font-family: 'SFMono-Regular', 'Menlo', 'Consolas', monospace;
+  font-size: 1.25rem;
+  line-height: 1.7;
+  overflow-x: auto;
+  white-space: pre;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+// A file path / env var name inline in a sentence — .mw-mono alone has no
+// background, easy to miss inside a long paragraph.
+.mw-devguide__inline-code {
+  padding: 0.1rem 0.6rem;
+  border-radius: 0.5rem;
+  background-color: var(--mw-track);
+  color: var(--mw-ink);
+  font-family: 'SFMono-Regular', 'Menlo', 'Consolas', monospace;
+  font-size: 0.92em;
+  word-break: break-word;
+}
+
+// "File -> what depends on it -> safe to change -> be careful about" reference
+// cards — a dl-like grid, not a table (labels vary in length too much for
+// columns to stay readable at 1440px, let alone mobile).
+.mw-devguide__fact {
+  display: grid;
+  grid-template-columns: 12rem minmax(0, 1fr);
+  gap: 0.4rem 1.2rem;
+  padding: 0.6rem 0;
+  border-block-start: 1px solid var(--mw-line);
+  font-size: 1.35rem;
+  line-height: 1.7;
+
+  &:first-child {
+    border-block-start: 0;
+  }
+}
+
+.mw-devguide__fact dt {
+  color: var(--mw-muted);
+  font-weight: 600;
+}
+
+.mw-devguide__fact dd {
+  margin: 0;
+  color: var(--mw-ink-2);
+}
+
+@media (max-width: 575.98px) {
+  .mw-devguide__fact {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.2rem;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Permission matrix
 // ---------------------------------------------------------------------------
 .mw-permtable {

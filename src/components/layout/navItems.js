@@ -1,3 +1,5 @@
+import { appConfig } from '../../config/appConfig';
+
 // Counts are NOT written here — they come from the real data at render time
 // (see countFor() in Sidebar.jsx). A nav item only says WHICH number it wants.
 export const navSections = [
@@ -34,6 +36,12 @@ export const navSections = [
       { to: '/activity', labelKey: 'nav.activity', icon: 'bi-clock-history', module: 'activity' },
       { to: '/system-emails', labelKey: 'nav.systemEmails', icon: 'bi-envelope-paper', module: 'settings' },
       { to: '/backups', labelKey: 'nav.backups', icon: 'bi-shield-check', module: 'settings' },
+      // Same brand.config.js flag that gates the route itself in App.jsx —
+      // this array is only built once at module load, so when the flag is
+      // false the item is never added at all, not merely filtered/hidden.
+      ...(appConfig.developerGuide
+        ? [{ to: '/developer-guide', labelKey: 'nav.developerGuide', icon: 'bi-code-square', module: 'settings' }]
+        : []),
     ],
   },
 ];
@@ -67,6 +75,7 @@ export const pageTitleKeys = {
   '/activity': 'nav.activity',
   '/system-emails': 'nav.systemEmails',
   '/backups': 'nav.backups',
+  '/developer-guide': 'nav.developerGuide',
   '/onboarding': 'ob.title',
   '/404': 'nf.title',
 };

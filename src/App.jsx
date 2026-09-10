@@ -6,6 +6,7 @@ import PageLoader from './components/ui/PageLoader';
 import RequireAuth from './components/routing/RequireAuth';
 import RequireModule from './components/routing/RequireModule';
 import LoginPage from './pages/LoginPage';
+import { appConfig } from './config/appConfig';
 
 // Every screen behind the login is its own chunk, so a visitor who only ever
 // sees the sign-in page never downloads the charts, the template editor or the
@@ -39,6 +40,7 @@ const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'));
 const ConfirmEmailPage = lazy(() => import('./pages/ConfirmEmailPage'));
 const SystemEmailsPage = lazy(() => import('./pages/SystemEmailsPage'));
 const BackupPage = lazy(() => import('./pages/BackupPage'));
+const DeveloperGuidePage = lazy(() => import('./pages/DeveloperGuidePage'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 
 /**
@@ -129,6 +131,18 @@ export default function App() {
             <Route element={<RequireModule module="activity" />}>
               <Route path="/activity" element={<ActivityLogPage />} />
             </Route>
+
+            {/* brand.config.js's `developerGuide` flag gates the ROUTE itself, not
+                just the sidebar link — when false, this <Route> simply isn't
+                registered, so the URL falls through to the catch-all 404 below
+                exactly like any other route that doesn't exist. Still requires
+                sign-in (inherited from the <RequireAuth> wrapper above) and the
+                same "settings" permission as Backups/System Emails. */}
+            {appConfig.developerGuide ? (
+              <Route element={<RequireModule module="settings" />}>
+                <Route path="/developer-guide" element={<DeveloperGuidePage />} />
+              </Route>
+            ) : null}
 
             {/* The guide and the setup checklist are open to everyone. */}
             <Route path="/guide" element={<GuidePage />} />

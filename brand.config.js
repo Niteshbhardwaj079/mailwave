@@ -81,6 +81,22 @@ export const brand = {
    * indigo, blue, teal, green, amber, rose, violet, slate
    */
   defaultAccent: 'indigo',
+
+  // --- Developer Guide -------------------------------------------------------
+
+  /**
+   * `/developer-guide` page (file paths, env vars, deploy steps — for whoever
+   * maintains this codebase next, not for end users).
+   *
+   * `true`  -> sidebar link visible, page reachable (still needs sign-in).
+   * `false` -> sidebar link hidden AND the route itself stops resolving —
+   *            visiting the URL directly lands on the normal 404 page, same
+   *            as any other route that doesn't exist. Not just a hidden link.
+   *
+   * Turn this off before handing a build to a client who shouldn't see how
+   * the app is built — leave it on for your own team's installs.
+   */
+  developerGuide: true,
 };
 
 export default brand;
