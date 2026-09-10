@@ -62,31 +62,62 @@ export default function BackupPage() {
    * Download seedhe `<a href>` se nahi ho sakta: file lene ke liye token
    * chahiye, aur token sirf memory me rehta hai (localStorage me nahi). Isliye
    * file yahan mangwa kar browser ko dete hain.
+   *
+   * `busy` yahan set/reset nahi karta — dono callers (button click, aur
+   * monthly-ready modal ka "Download Backup") apna khud ka busy sambhalte
+   * hain, taaki modal ka apna flow (download + acknowledge) beech me busy
+   * false na kar de.
    */
+  async function downloadByName(name) {
+    const res = await fetch(`${apiBase}/api/backups/${encodeURIComponent(name)}/download`, {
+      credentials: 'include',
+      headers: { Authorization: `Bearer ${getAccessToken()}` },
+    });
+
+    if (!res.ok) throw new ApiError(res.status, 'download_failed', t('bak.downloadFailed'));
+
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+
+    link.href = url;
+    link.download = name;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
   async function download(event) {
     const { name } = event.currentTarget.dataset;
     setBusy(true);
-
     try {
-      const res = await fetch(`${apiBase}/api/backups/${encodeURIComponent(name)}/download`, {
-        credentials: 'include',
-        headers: { Authorization: `Bearer ${getAccessToken()}` },
-      });
-
-      if (!res.ok) throw new ApiError(res.status, 'download_failed', t('bak.downloadFailed'));
-
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-
-      link.href = url;
-      link.download = name;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
-
+      await downloadByName(name);
       toast.success(t('bak.downloaded'), name);
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : t('toast.networkError'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /**
+   * Monthly Backup Ready modal — "Download Backup" ya "Later", dono
+   * server par notified_at set kar dete hain, taaki yeh modal isی backup ke
+   * liye refresh par dobara na dikhe.
+   */
+  async function ackMonthlyNotice(shouldDownload) {
+    const notice = settings?.pendingMonthlyNotice;
+    if (!notice) return;
+
+    setBusy(true);
+    try {
+      if (shouldDownload) {
+        await downloadByName(notice.name);
+        toast.success(t('bak.downloaded'), notice.name);
+      }
+      await api.post(`/api/backups/${encodeURIComponent(notice.name)}/acknowledge`);
+      call.reload();
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : t('toast.networkError'));
     } finally {
@@ -169,12 +200,17 @@ export default function BackupPage() {
         // gayi, list me nahi jud sakti (format hi alag hai).
         setRestartRequired(true);
         setRestartNote(data.message ?? t('bak.restartNote'));
+        toast.success(t('bak.uploaded'), file.name);
+      } else if (data.duplicate) {
+        // Checksum se pehchana gaya: yeh upload abhi ke database jaisa hai,
+        // ya kisi already-saved backup jaisa hai — dobara nahi joda.
+        toast.info(t('bak.duplicateTitle'), data.message);
       } else {
-        // Asli Postgres: file jaanchi jaa chuki, list me aa gayi hai — restore
-        // abhi nahi hua, admin jab chahe wahan se "Restore" dabayega.
+        // Asli Postgres, naya/alag data: file jaanchi jaa chuki, list me aa
+        // gayi hai — restore abhi nahi hua, admin jab chahe "Restore" dabayega.
         call.reload();
+        toast.success(t('bak.differentTitle'), data.message);
       }
-      toast.success(t('bak.uploaded'), file.name);
     } catch (error) {
       toast.error(error instanceof ApiError ? error.message : t('toast.networkError'));
     } finally {
@@ -236,6 +272,35 @@ export default function BackupPage() {
         </Note>
       ) : null}
 
+      {/* Storage usage — configured limit ke against kitni jagah use ho rahi
+          hai, taaki storage-limit cleanup shuru hone se pehle hi pata chal
+          jaaye. */}
+      {settings ? (
+        <Card>
+          <CardBody>
+            <div className="d-flex justify-content-between align-items-baseline mb-2">
+              <span className="mw-fs-13 mw-fw-600">{t('bak.storageUsageTitle')}</span>
+              <span className="mw-fs-13 mw-text-muted">
+                {t('bak.storageUsageValue', { used: settings.usedText, max: settings.maxStorageText })}
+              </span>
+            </div>
+            <div className="progress" style={{ height: '0.8rem' }}>
+              <div
+                className={`progress-bar ${settings.usagePercent >= 90 ? 'bg-danger' : settings.usagePercent >= 70 ? 'bg-warning' : 'bg-primary'}`}
+                role="progressbar"
+                style={{ width: `${settings.usagePercent}%` }}
+                aria-valuenow={settings.usagePercent}
+                aria-valuemin={0}
+                aria-valuemax={100}
+              />
+            </div>
+            <p className="mw-fs-12 mw-text-muted mb-0 mt-2">
+              {t('bak.retentionNote', { months: settings.retentionMonths })}
+            </p>
+          </CardBody>
+        </Card>
+      ) : null}
+
       {/* Sabse zaroori chetavni: agar backup sirf server ki apni disk par hai
           (S3-jaisi jagah set nahi hai), to Render jaisi hosting par yeh deploy
           hote hi mit sakta hai — screen isse chhupati nahi. */}
@@ -271,6 +336,7 @@ export default function BackupPage() {
               <thead>
                 <tr>
                   <th scope="col">{t('bak.file')}</th>
+                  <th scope="col">{t('bak.type')}</th>
                   <th scope="col">{t('bak.when')}</th>
                   <th scope="col">{t('common.status')}</th>
                   <th scope="col" className="mw-table__num">{t('bak.size')}</th>
@@ -289,6 +355,11 @@ export default function BackupPage() {
                           {t('bak.restoredOn', { time: formatDateTime(backup.restoredAt) })}
                         </span>
                       ) : null}
+                    </td>
+                    <td>
+                      <span className={`badge ${backup.kind === 'monthly' ? 'bg-primary' : 'bg-secondary'}`}>
+                        {t(backup.kind === 'monthly' ? 'bak.kindMonthly' : 'bak.kindDaily')}
+                      </span>
                     </td>
                     <td className="mw-table__muted mw-nowrap">{formatDateTime(backup.createdAt)}</td>
                     <td>
@@ -421,6 +492,37 @@ export default function BackupPage() {
         <p className="mw-fs-14 mb-0">
           <span className="mw-mono">{deleteFor}</span> — {t('bak.deleteBody')}
         </p>
+      </Sheet>
+
+      {/* Ek mahina poora ho gaya, uski monthly file ban gayi — ek baar
+          dikhta hai, "Later" dabane par bhi dobara refresh par nahi aata
+          (server par notified_at set ho jata hai). */}
+      <Sheet
+        open={Boolean(settings?.pendingMonthlyNotice)}
+        title={t('bak.monthlyReadyTitle')}
+        onClose={() => ackMonthlyNotice(false)}
+        footer={
+          <>
+            <button
+              type="button"
+              className="btn btn-outline-secondary flex-fill"
+              onClick={() => ackMonthlyNotice(false)}
+              disabled={busy}
+            >
+              {t('bak.later')}
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary flex-fill"
+              onClick={() => ackMonthlyNotice(true)}
+              disabled={busy}
+            >
+              {busy ? t('common.loading') : t('bak.downloadBackup')}
+            </button>
+          </>
+        }
+      >
+        <p className="mw-fs-14 mb-0">{t('bak.monthlyReadyBody')}</p>
       </Sheet>
     </div>
   );

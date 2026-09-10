@@ -109,7 +109,7 @@ export const guideChapters = [
     number: 14,
     key: 'c14',
     icon: 'bi-shield-check',
-    steps: ['s1', 's2', 's3', 's4', 's5', 's6'],
+    steps: ['s1', 's2', 's3', 's4', 's5', 's6', 's7', 's8'],
     minutes: 3,
     link: { to: '/backups', labelKey: 'nav.backups' },
     hasWarning: true,

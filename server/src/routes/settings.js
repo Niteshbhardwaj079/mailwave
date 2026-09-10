@@ -88,6 +88,13 @@ const SCHEMAS = {
       if (keys.some((k) => BUILTIN_DYNAMIC_FIELD_KEYS.includes(k))) return false;
       return new Set(keys).size === keys.length;
     }, 'Each key belongs to one field only — it cannot repeat or duplicate a builtin field key'),
+  // services/backup.js ka enforceRetention() isi ko padhta hai — kitne
+  // mahine ke monthly backup rakhne hain, aur poori backup storage kitni
+  // badi ho sakti hai (bytes me; Settings page ise MB/GB me dikhati hai).
+  backupSettings: z.object({
+    retentionMonths: z.number().int().min(1).max(6),
+    maxStorageBytes: z.number().int().min(50 * 1024 * 1024).max(1_000_000_000_000),
+  }),
 };
 
 router.get(

@@ -226,8 +226,9 @@ async function applyPendingRestore(PGlite) {
  * Lautata hai: khula hua database, ya null agar koi backup hi na mile.
  */
 async function recoverFromNewestBackup(PGlite) {
-  const { cp, readFile, rm } = await import('node:fs/promises');
-  const { listBackups, backupPath } = await import('../services/backup.js');
+  const { cp, rm } = await import('node:fs/promises');
+  const { listBackups } = await import('../services/backup.js');
+  const { getBackupStorage } = await import('../services/backupStorage.js');
 
   let newest = null;
   try {
@@ -239,7 +240,10 @@ async function recoverFromNewestBackup(PGlite) {
 
   if (!newest) return null;
 
-  const file = await readFile(await backupPath(newest.name));
+  // getBackupStorage() ke zariye — disk ho ya S3, dono jagah se sahi tarike
+  // se padhta hai (pehle yahan seedha fs.readFile ho raha tha, jo sirf disk
+  // ke liye kaam karta, S3 par yeh recovery kabhi chal hi nahi paata).
+  const file = await getBackupStorage().read(newest.name);
 
   // Toote hue folder ko ek taraf rakhte hain. Copy karte hain, rename nahi —
   // Windows par rename aksar EPERM de deta hai.
@@ -425,7 +429,13 @@ function sha256(input) {
  * Kaam kisi bhi standard Postgres par chalta hai — sirf information_schema
  * aur SELECT * istemal karte hain, koi Neon/Render-khaas cheez nahi.
  */
-async function dumpPostgres() {
+/**
+ * Har (backup-worthy) table ka poora data uthata hai — dump banane aur
+ * "abhi ka database kaisa dikhta hai" (duplicate-upload jaanchne ke liye)
+ * dono jagah isi ek jagah se hota hai, taaki checksum hamesha ek jaisi
+ * tarah se ban kar comparable rahe.
+ */
+async function collectBackupTables() {
   const conn = await getConnection();
 
   const { rows: tableRows } = await conn.query(
@@ -442,6 +452,27 @@ async function dumpPostgres() {
     tables[name] = rows;
     rowCount += rows.length;
   }
+
+  return { tables, rowCount };
+}
+
+/**
+ * Abhi is waqt live database me kya data hai, uska checksum — bina koi file
+ * banaye. Upload ki hui backup file "yeh to abhi jo hai wahi hai" ya "yeh
+ * alag hai" bata sakti hai, isi ke against compare karke.
+ *
+ * PGlite ke liye null: uska dump poore folder ka binary snapshot hai
+ * (dumpDatabase() dekho), table-by-table JSON nahi — isliye yeh tarika
+ * sirf asli Postgres par lagu hota hai.
+ */
+export async function currentDatabaseChecksum() {
+  if (driver !== 'postgres') return null;
+  const { tables } = await collectBackupTables();
+  return `sha256:${sha256(JSON.stringify(tables))}`;
+}
+
+async function dumpPostgres() {
+  const { tables, rowCount } = await collectBackupTables();
 
   const checksum = `sha256:${sha256(JSON.stringify(tables))}`;
 

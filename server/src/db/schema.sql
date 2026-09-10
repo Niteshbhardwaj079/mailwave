@@ -459,7 +459,15 @@ CREATE TABLE IF NOT EXISTS backups (
   -- warna ek restore attempt fail hone se ek bilkul theek backup bhi
   -- "kharab" dikhne lagta.
   status         text NOT NULL DEFAULT 'pending', -- pending|running|successful|failed
-  reason         text NOT NULL DEFAULT 'manual',  -- manual|automatic|startup|upload
+  -- manual|automatic|startup|upload|safety (restore se pehle khud-ba-khud
+  -- banayi gayi) |monthly-consolidation (kind='monthly' wali row ki wajah)
+  reason         text NOT NULL DEFAULT 'manual',
+  -- 'daily'  = rolling backup (manual/automatic/startup/upload/safety)
+  -- 'monthly' = ek poora, ab-complete-ho-chuka mahina ek hi file me — us
+  --             mahine ke daily backups isi ke banne ke turant baad hata
+  --             diye jaate hain, taaki file dher na lage.
+  kind           text NOT NULL DEFAULT 'daily',
+  month_key      text,                       -- 'YYYY-MM', sirf kind='monthly' ke liye
   storage_driver text,                       -- 'local' ya 's3' — us waqt jahan rakhi gayi
   format_version integer,
   size_bytes     bigint,
@@ -469,14 +477,26 @@ CREATE TABLE IF NOT EXISTS backups (
   error          text,
   restored_at    timestamptz,                -- aakhri baar isse kab restore kiya gaya
   restore_error  text,                       -- aakhri restore koshish fail hui to kyun
+  -- Monthly backup ban gayi — "Monthly Backup Ready" modal ek baar dikha, ab
+  -- null nahi rahega. Modal isi column ko dekh kar dobara nahi dikhta.
+  notified_at    timestamptz,
   created_by     text REFERENCES users(id) ON DELETE SET NULL,
   started_at     timestamptz NOT NULL DEFAULT now(),
   finished_at    timestamptz,
   created_at     timestamptz NOT NULL DEFAULT now()
 );
 
+-- Table pehle se maujood ho sakti hai (is feature se pehle ki production) —
+-- ALTER ... IF NOT EXISTS har Postgres (aur PGlite) par surakshit, do-baar
+-- chalane layak hai.
+ALTER TABLE backups ADD COLUMN IF NOT EXISTS kind text NOT NULL DEFAULT 'daily';
+ALTER TABLE backups ADD COLUMN IF NOT EXISTS month_key text;
+ALTER TABLE backups ADD COLUMN IF NOT EXISTS notified_at timestamptz;
+
 CREATE INDEX IF NOT EXISTS backups_created_at_idx ON backups (created_at DESC);
 CREATE INDEX IF NOT EXISTS backups_status_idx ON backups (status);
+CREATE INDEX IF NOT EXISTS backups_month_key_idx ON backups (month_key);
+CREATE INDEX IF NOT EXISTS backups_checksum_idx ON backups (checksum);
 
 -- --- API keys -------------------------------------------------------------
 --

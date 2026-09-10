@@ -35,6 +35,7 @@ const SECTIONS = [
   { key: 'unsubscribe', labelKey: 'set.unsubscribe', icon: 'bi-box-arrow-right' },
   { key: 'storage', labelKey: 'set.storage', icon: 'bi-hdd-network' },
   { key: 'imageStorage', labelKey: 'set.imageStorageTitle', icon: 'bi-images' },
+  { key: 'backup', labelKey: 'set.backup', icon: 'bi-shield-check' },
   { key: 'security', labelKey: 'topbar.security', icon: 'bi-shield-lock' },
   { key: 'api', labelKey: 'set.api', icon: 'bi-code-slash' },
   { key: 'webhooks', labelKey: 'set.webhooks', icon: 'bi-broadcast' },
@@ -173,6 +174,9 @@ export default function SettingsPage() {
   // kuch nahi jaata).
   const [imageStorageDraft, setImageStorageDraft] = useState(null);
   const [imageStorageSaved, setImageStorageSaved] = useState(null);
+  // backupDraft.maxStorageValue/Unit — server sirf bytes rakhta hai; yeh
+  // draft me MB/GB me dikhata hai, save karte waqt hi bytes me wapas jodta hai.
+  const [backupDraft, setBackupDraft] = useState(null);
   const [savingKey, setSavingKey] = useState('');
 
   useEffect(() => {
@@ -203,6 +207,19 @@ export default function SettingsPage() {
       const value = { db: true, external: true, ...(serverSettings.imageStorage || {}) };
       setImageStorageDraft(value);
       setImageStorageSaved(value);
+    }
+    // Row missing ho (is setting se pehle ki production) to bhi backend ke
+    // defaults (2 mahine, 500 MB) hi dikhate hain — services/backup.js ka
+    // getBackupSettings() bhi isi tarah default karta hai.
+    if (!settingsCall.loading && !backupDraft) {
+      const raw = serverSettings.backupSettings || {};
+      const bytes = Number.isInteger(raw.maxStorageBytes) ? raw.maxStorageBytes : 500 * 1024 * 1024;
+      const useGb = bytes >= 1024 * 1024 * 1024 && bytes % (1024 * 1024 * 1024) === 0;
+      setBackupDraft({
+        retentionMonths: Number.isInteger(raw.retentionMonths) ? raw.retentionMonths : 2,
+        maxStorageValue: useGb ? bytes / 1024 / 1024 / 1024 : Math.round(bytes / 1024 / 1024),
+        maxStorageUnit: useGb ? 'GB' : 'MB',
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serverSettings, settingsCall.loading]);
@@ -244,6 +261,14 @@ export default function SettingsPage() {
   async function saveImageStorage() {
     const ok = await saveWorkspaceSetting('imageStorage', imageStorageDraft);
     if (ok) setImageStorageSaved(imageStorageDraft);
+  }
+
+  async function saveBackupSettings() {
+    const mult = backupDraft.maxStorageUnit === 'GB' ? 1024 * 1024 * 1024 : 1024 * 1024;
+    await saveWorkspaceSetting('backupSettings', {
+      retentionMonths: backupDraft.retentionMonths,
+      maxStorageBytes: Math.round(Number(backupDraft.maxStorageValue || 0) * mult),
+    });
   }
 
   // --- API keys ---------------------------------------------------------------
@@ -1292,6 +1317,86 @@ export default function SettingsPage() {
                   disabled={!isImageStorageDirty || savingKey === 'imageStorage'}
                 >
                   {t('common.cancel')}
+                </button>
+              </CardFoot>
+            </Card>
+          ) : null}
+
+          {section === 'backup' ? (
+            <Card>
+              <CardHead title={t('set.backupTitle')} subtitle={t('set.backupSub')} />
+              <CardBody>
+                {!backupDraft ? (
+                  <div className="p-3 text-center mw-text-muted">
+                    <div className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" />
+                    {t('common.loading')}
+                  </div>
+                ) : (
+                  <>
+                    <div className="row g-3 mb-3">
+                      <div className="col-12 col-md-6">
+                        <label className="form-label" htmlFor="s-bak-retention">{t('set.backupRetention')}</label>
+                        <select
+                          id="s-bak-retention"
+                          className="form-select"
+                          value={backupDraft.retentionMonths}
+                          onChange={(event) =>
+                            setBackupDraft((current) => ({ ...current, retentionMonths: Number(event.target.value) }))
+                          }
+                        >
+                          {[1, 2, 3, 4, 5, 6].map((n) => (
+                            <option key={n} value={n}>
+                              {t(n === 1 ? 'set.backupRetentionMonth' : 'set.backupRetentionMonths', { count: n })}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="col-12 col-md-6">
+                        <label className="form-label" htmlFor="s-bak-storage">{t('set.backupMaxStorage')}</label>
+                        <div className="input-group">
+                          <input
+                            id="s-bak-storage"
+                            type="number"
+                            className="form-control"
+                            min={1}
+                            value={backupDraft.maxStorageValue}
+                            onChange={(event) =>
+                              setBackupDraft((current) => ({
+                                ...current,
+                                maxStorageValue: Math.max(1, Number(event.target.value) || 0),
+                              }))
+                            }
+                          />
+                          <select
+                            className="form-select"
+                            style={{ maxWidth: '6.5rem' }}
+                            value={backupDraft.maxStorageUnit}
+                            aria-label={t('set.backupMaxStorageUnit')}
+                            onChange={(event) =>
+                              setBackupDraft((current) => ({ ...current, maxStorageUnit: event.target.value }))
+                            }
+                          >
+                            <option value="MB">MB</option>
+                            <option value="GB">GB</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+
+                    <Note tone="info" icon="bi-info-circle">
+                      {t('set.backupNote')}
+                    </Note>
+                  </>
+                )}
+              </CardBody>
+              <CardFoot>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={saveBackupSettings}
+                  disabled={!backupDraft || savingKey === 'backupSettings'}
+                >
+                  {savingKey === 'backupSettings' ? t('common.loading') : t('common.saveChanges')}
                 </button>
               </CardFoot>
             </Card>

@@ -14,10 +14,14 @@ import { validate } from '../lib/validate.js';
 import { getBackupStorage } from '../services/backupStorage.js';
 import {
   EVERY_DAYS,
-  KEEP_COUNT,
+  acknowledgeMonthlyNotice,
+  bytesToText,
   createBackup,
   deleteBackup,
   getBackup,
+  getBackupSettings,
+  getBackupUsage,
+  getPendingMonthlyNotice,
   listBackups,
   markForRestore,
   pendingRestorePath,
@@ -46,17 +50,31 @@ router.get(
     const storage = getBackupStorage();
     const lastGood = backups.find((b) => b.status === 'successful');
 
+    const [backupSettings, usedBytes, pendingMonthlyNotice] = await Promise.all([
+      getBackupSettings(),
+      getBackupUsage(),
+      getPendingMonthlyNotice(),
+    ]);
+
     res.json({
       backups,
       settings: {
         everyDays: EVERY_DAYS,
-        keepCount: KEEP_COUNT,
-        note: `Har ${EVERY_DAYS} din me apne aap backup banta hai. Sabse naye ${KEEP_COUNT} rakhe jate hain, purane apne aap hat jate hain.`,
+        retentionMonths: backupSettings.retentionMonths,
+        maxStorageBytes: backupSettings.maxStorageBytes,
+        maxStorageText: bytesToText(backupSettings.maxStorageBytes),
+        usedBytes,
+        usedText: bytesToText(usedBytes),
+        usagePercent: backupSettings.maxStorageBytes > 0
+          ? Math.min(100, Math.round((usedBytes / backupSettings.maxStorageBytes) * 100))
+          : 0,
+        note: `Har ${EVERY_DAYS} din me apne aap backup banta hai. Mahina poora hote hi ek monthly file ban jaati hai. Retention: ${backupSettings.retentionMonths} mahine, storage limit: ${bytesToText(backupSettings.maxStorageBytes)}.`,
         storage: {
           durable: storage.isDurable(),
           description: storage.describe(),
         },
         lastSuccessfulAt: lastGood?.createdAt ?? null,
+        pendingMonthlyNotice,
       },
     });
   })
@@ -126,6 +144,18 @@ router.delete(
       detail: 'Backup hataya gaya',
     });
 
+    res.json({ ok: true });
+  })
+);
+
+// --- "Monthly Backup Ready" modal band karo ---------------------------------
+// Download ya Later, dono se — is monthly backup ka modal dobara refresh par
+// nahi dikhna chahiye, isliye response ka button dabte hi yeh bulaya jata hai.
+router.post(
+  '/:name/acknowledge',
+  asyncHandler(async (req, res) => {
+    const ok = await acknowledgeMonthlyNotice(req.params.name);
+    if (!ok) throw notFound('This monthly backup was not found');
     res.json({ ok: true });
   })
 );
@@ -207,23 +237,50 @@ router.post(
     const buffer = Buffer.concat(chunks);
 
     if (currentDriver() === 'postgres') {
-      let backup;
+      let result;
       try {
-        backup = await storeUploadedBackup(buffer, { userId: req.user.id });
+        result = await storeUploadedBackup(buffer, { userId: req.user.id });
       } catch (error) {
         // Kharab file, purana/naya format, checksum match nahi — yeh saari
         // wajah pehle se saaf Hinglish me likhi hain.
         throw badRequest(String(error?.message || error));
       }
 
+      // Sirf filename se nahi — asli data checksum se pehchana gaya ki yeh
+      // upload abhi ke database jaisa hi hai, ya kisi already-saved backup
+      // jaisa hi hai. Dono surat me kuch naya nahi jodte, restore/copy nahi
+      // karte.
+      if (result.duplicate) {
+        await logActivity(req, {
+          action: 'updated',
+          module: 'settings',
+          item: 'upload',
+          detail: 'Upload ki hui backup already maujood/current jaisi hai — nayi copy nahi jodi',
+        });
+
+        res.status(200).json({
+          ok: true,
+          duplicate: true,
+          message: result.message,
+          matchedBackup: result.matchedBackup ?? null,
+        });
+        return;
+      }
+
       await logActivity(req, {
         action: 'created',
         module: 'settings',
-        item: backup.name,
-        detail: `Upload ki hui backup jaanchi aur list me jodi — ${backup.tableCount} tables, ${backup.rowCount} rows`,
+        item: result.backup.name,
+        detail: `Upload ki hui backup jaanchi aur list me jodi — ${result.backup.tableCount} tables, ${result.backup.rowCount} rows`,
       });
 
-      res.status(201).json({ ok: true, backup, message: 'File checked and added to the list. Press "Restore" on it now.' });
+      res.status(201).json({
+        ok: true,
+        duplicate: false,
+        different: true,
+        backup: result.backup,
+        message: 'Different backup detected — checked and added to the list. Press "Restore" on it now.',
+      });
       return;
     }
 
