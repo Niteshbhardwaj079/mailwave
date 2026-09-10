@@ -55,7 +55,7 @@ const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
  */
 export default function App() {
   return (
-    <Suspense fallback={<PageLoader />}>
+    <Suspense fallback={<PageLoader fullScreen />}>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage mode="reset" />} />

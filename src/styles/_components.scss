@@ -1301,13 +1301,42 @@
 }
 
 // ---------------------------------------------------------------------------
-// Page loader — shown while a route's code-split chunk arrives
+// Page loader — shown while a route's code-split chunk arrives, or while the
+// session is being checked on first load
 // ---------------------------------------------------------------------------
 .mw-pageloader {
   display: grid;
   place-items: center;
   min-height: 40vh;
   color: var(--mw-primary);
+  animation: mw-fullloader-fade 0.15s ease-out;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+// Sidebar/topbar abhi nahi bane hain (app ka pehla load, session check) —
+// isliye poori viewport height le kar screen ke bilkul beech me aana chahiye.
+.mw-pageloader--full {
+  min-height: 100vh;
+}
+
+.mw-pageloader__mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 4.4rem;
+  height: 4.4rem;
+  border-radius: 50%;
+  background: var(--mw-primary);
+  color: var(--mw-on-primary);
+  font-size: 2rem;
+  animation: mw-fullloader-pulse 1.3s ease-in-out infinite;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
 }
 
 // ---------------------------------------------------------------------------

@@ -16,7 +16,7 @@ export default function RequireAuth() {
   const { isSignedIn, checking } = useAuth();
   const location = useLocation();
 
-  if (checking) return <PageLoader />;
+  if (checking) return <PageLoader fullScreen />;
 
   if (!isSignedIn) {
     // Jo page kholna chahte the wo yaad rakhte hain, taki sign in ke baad
