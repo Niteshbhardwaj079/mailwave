@@ -45,7 +45,7 @@ export function AccentPicker() {
   }
 
   return (
-    <div className="position-relative" ref={wrapRef}>
+    <div className="position-relative mw-hide-mobile" ref={wrapRef}>
       <button
         type="button"
         className={`mw-iconbtn ${open ? 'is-active' : ''}`.trim()}

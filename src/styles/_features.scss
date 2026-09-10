@@ -984,12 +984,22 @@
     flex: 1 1 100%;
   }
 
+  // .mw-topbar has backdrop-filter, which makes it — not the viewport — the
+  // containing block for any position:fixed descendant (CSS spec: filter/
+  // backdrop-filter/transform on an ancestor does this). So `bottom: 0` here
+  // used to resolve against the topbar's own ~5.8rem-tall box, launching the
+  // menu almost entirely off-screen above it instead of sitting at the
+  // bottom of the screen. Anchoring from the top of that same box (i.e.
+  // right under the topbar) instead of its bottom sidesteps the bug
+  // entirely, without touching the topbar's blur.
   .mw-langmenu {
     position: fixed;
-    inset: auto 0 0 0;
+    inset-block-start: 100%;
+    inset-block-end: auto;
+    inset-inline: 0;
     width: 100%;
     max-height: 70vh;
-    border-radius: 1.6rem 1.6rem 0 0;
+    border-radius: 0 0 1.6rem 1.6rem;
   }
 
   .mw-imggrid {

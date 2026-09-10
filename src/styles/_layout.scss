@@ -349,6 +349,31 @@
   margin-inline: auto;
 }
 
+// The rem-scaled max-width above (only ~1584-2088px wide at the large-screen
+// root sizes set in _base.scss) still leaves a visibly large empty margin on
+// very wide screens. These are deliberate PIXEL values (not rem — kept
+// independent of the root-font bump, so the two don't compound into
+// something unpredictable): they use much more of the available width
+// instead, without going full edge-to-edge, so long table/text rows stay
+// readable.
+@media (min-width: 1920px) {
+  .mw-main__inner {
+    max-width: 1680px;
+  }
+}
+
+@media (min-width: 2560px) {
+  .mw-main__inner {
+    max-width: 2000px;
+  }
+}
+
+@media (min-width: 3840px) {
+  .mw-main__inner {
+    max-width: 2400px;
+  }
+}
+
 // --- Bottom tab bar (mobile only) -----------------------------------------
 .mw-tabbar {
   position: fixed;

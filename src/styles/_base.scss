@@ -30,21 +30,26 @@ html {
 // ---------------------------------------------------------------------------
 @media (min-width: 1920px) {
   :root {
-    --bs-root-font-size: 10.5px;
+    --bs-root-font-size: 11px;
   }
 }
 
 @media (min-width: 2560px) {
   :root {
-    --bs-root-font-size: 11.5px;
+    --bs-root-font-size: 12.5px;
   }
 }
 
 @media (min-width: 3840px) {
   :root {
-    --bs-root-font-size: 13px;
+    --bs-root-font-size: 14.5px;
   }
 }
+
+// .mw-main__inner's own max-width overrides for these same breakpoints live
+// in _layout.scss, right next to its base rule — _base.scss compiles before
+// _layout.scss (see main.scss), so a rule here would just get overwritten
+// back down by that later base rule.
 
 body {
   margin: 0;

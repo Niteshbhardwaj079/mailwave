@@ -1,6 +1,21 @@
 @use 'variables' as v;
 
 // ---------------------------------------------------------------------------
+// Dropdown menus (notifications, profile) — opened/closed by our own React
+// state, never by Bootstrap's JS. That means Popper never runs and never
+// adds the `data-bs-popper` attribute — and Bootstrap's own CSS only
+// right-aligns `.dropdown-menu-end` when that attribute is present
+// (`.dropdown-menu-end[data-bs-popper] { right: 0; left: auto; }`). Without
+// it, the menu silently falls back to left-aligned, which pushes it off the
+// right edge of the screen on narrow viewports when the toggle button sits
+// near the right of the topbar. Force the same right-alignment always.
+// ---------------------------------------------------------------------------
+.dropdown-menu-end {
+  right: 0;
+  left: auto;
+}
+
+// ---------------------------------------------------------------------------
 // Page header
 // ---------------------------------------------------------------------------
 .mw-pagehead {
