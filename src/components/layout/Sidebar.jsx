@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom';
+import { Link, NavLink } from 'react-router-dom';
 
 import { navSections } from './navItems';
 import ProgressBar from '../ui/ProgressBar';
@@ -57,13 +57,15 @@ export default function Sidebar({ open, onClose }) {
   return (
     <aside className={`mw-sidebar ${open ? 'is-open' : ''}`.trim()} aria-label={t('nav.mainNav')}>
       <div className="mw-sidebar__brand">
-        <span className="mw-sidebar__logo" aria-hidden="true">
-          <i className={`bi ${appConfig.logoIcon}`} />
-        </span>
-        <span className="mw-sidebar__text">
-          <span className="mw-sidebar__name">{appConfig.name}</span>
-          <span className="mw-sidebar__tagline">{appConfig.tagline}</span>
-        </span>
+        <Link to="/" className="mw-sidebar__brand-link" onClick={onClose}>
+          <span className="mw-sidebar__logo" aria-hidden="true">
+            <i className={`bi ${appConfig.logoIcon}`} />
+          </span>
+          <span className="mw-sidebar__text">
+            <span className="mw-sidebar__name">{appConfig.name}</span>
+            <span className="mw-sidebar__tagline">{appConfig.tagline}</span>
+          </span>
+        </Link>
         <button type="button" className="mw-iconbtn mw-sidebar__close" onClick={onClose} aria-label={t('topbar.closeMenu')}>
           <i className="bi bi-x-lg" />
         </button>
