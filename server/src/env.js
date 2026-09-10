@@ -19,6 +19,22 @@ dotenv.config({ path: resolve(serverRoot, '.env') });
  * everyone out. If none is configured we generate one once and write it to
  * .env, so a fresh clone just works without a setup step — but a real
  * deployment should set JWT_SECRET itself.
+ *
+ * This matters for MORE than sign-in: lib/secretbox.js (connected email
+ * accounts' SMTP passwords) and lib/crypto.js (Object Storage's secret key)
+ * both derive their own encryption key from THIS SAME value. Losing or
+ * changing JWT_SECRET does not just sign people out — every connected email
+ * account and any connected Object Storage bucket becomes undecryptable and
+ * has to be reconnected. This is the single most common way this app breaks
+ * when moved to different hosting: writing the generated value back to a
+ * local `.env` file only helps if that file itself survives the move — many
+ * platforms (Render, most container-based hosts) rebuild the filesystem on
+ * every deploy, so an unset JWT_SECRET silently gets a NEW random value each
+ * time. A plain VPS (Hostinger or otherwise) with a persistent disk and a
+ * `.env` file that isn't touched by the deploy process is the one case where
+ * this auto-write is actually durable — everywhere else, JWT_SECRET must be
+ * set as a real environment variable in the hosting platform's own config,
+ * not left to this fallback.
  */
 function resolveSecret() {
   if (process.env.JWT_SECRET) return process.env.JWT_SECRET;
@@ -26,6 +42,22 @@ function resolveSecret() {
   const generated = randomBytes(48).toString('base64url');
   const envPath = resolve(serverRoot, '.env');
   const line = `JWT_SECRET=${generated}\n`;
+
+  if (process.env.NODE_ENV === 'production') {
+    console.warn(
+      '\n[env] ################################################################\n' +
+        '[env] # No JWT_SECRET set. A random one was generated for THIS RUN ONLY.\n' +
+        '[env] # Every restart/redeploy that loses it will:\n' +
+        '[env] #   - sign every user out\n' +
+        '[env] #   - make every connected email account\'s SMTP password unreadable\n' +
+        '[env] #   - make any connected Object Storage bucket\'s secret key unreadable\n' +
+        '[env] # (both would need to be re-entered by hand afterwards.)\n' +
+        '[env] # Set JWT_SECRET as a real, persistent environment variable in your\n' +
+        '[env] # hosting platform\'s own settings — do not rely on this auto-generated\n' +
+        '[env] # value surviving a redeploy.\n' +
+        '[env] ################################################################\n'
+    );
+  }
 
   try {
     const existing = existsSync(envPath) ? readFileSync(envPath, 'utf8') : '';

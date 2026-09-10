@@ -99,7 +99,15 @@ async function resolveConfig() {
   if (!row?.provider || !row.bucket || !row.access_key_id || !row.secret_access_key_enc) return null;
 
   const secret = decrypt(row.secret_access_key_enc);
-  if (!secret) return null;
+  if (!secret) {
+    // The secret IS saved — decrypt() only fails this way if JWT_SECRET is
+    // now different from whatever encrypted it (a fresh auto-generated value
+    // after a redeploy/host move, or a deliberate rotation). That's a very
+    // different situation from "nothing configured yet", and callers should
+    // say so rather than implying the bucket/region/keys need re-entering
+    // when they're actually still sitting there, just unreadable.
+    return { keyMismatch: true };
+  }
 
   const meta = findStorageProvider(row.provider);
   return {
@@ -142,6 +150,15 @@ export async function isConfigured() {
  */
 export async function testConnection(overrideConfig) {
   const config = overrideConfig ?? (await resolveConfig());
+  if (config?.keyMismatch) {
+    return {
+      ok: false,
+      message:
+        'The saved Secret Access Key could not be decrypted. This usually means JWT_SECRET changed ' +
+        '(for example, after moving to a different server without carrying it over). Re-enter the ' +
+        'Secret Access Key below to reconnect.',
+    };
+  }
   if (!config) return { ok: false, message: 'Bucket, region ya keys me se kuch bhara nahi hai.' };
 
   const { HeadBucketCommand, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } = await import(
@@ -184,8 +201,24 @@ export async function testConnection(overrideConfig) {
   return { ok: true, message: 'Connection theek hai — likhna, padhna aur mitana teeno kaam kiye.' };
 }
 
+/**
+ * `resolveConfig()` returns a truthy `{ keyMismatch: true }` sentinel (not
+ * null) when the secret is saved but can't be decrypted — a naive `if
+ * (!config)` guard would miss that and go on to call the S3 SDK with
+ * `undefined` credentials, turning a clear "reconnect storage" message into
+ * a confusing low-level auth error instead.
+ */
+function assertUsableConfig(config) {
+  if (config?.keyMismatch) {
+    throw new Error(
+      'Object storage credentials could not be decrypted (JWT_SECRET changed?) — reconnect Object Storage in Settings.'
+    );
+  }
+}
+
 export async function uploadObject(key, buffer, contentType) {
   const config = await resolveConfig();
+  assertUsableConfig(config);
   if (!config?.connected) throw new Error('Object storage connected nahi hai.');
 
   const { PutObjectCommand } = await import('@aws-sdk/client-s3');
@@ -198,6 +231,7 @@ export async function uploadObject(key, buffer, contentType) {
 /** Buffer lautata hai (files.js seedha stream karta hai res ko). */
 export async function getObjectBuffer(key) {
   const config = await resolveConfig();
+  assertUsableConfig(config);
   if (!config) throw new Error('Object storage configured nahi hai.');
 
   const { GetObjectCommand } = await import('@aws-sdk/client-s3');
@@ -210,6 +244,7 @@ export async function getObjectBuffer(key) {
 
 export async function deleteObject(key) {
   const config = await resolveConfig();
+  assertUsableConfig(config);
   if (!config) return;
 
   const { DeleteObjectCommand } = await import('@aws-sdk/client-s3');

@@ -40,9 +40,6 @@ import { serverRoot } from '../env.js';
 import { newId } from '../lib/ids.js';
 import { getBackupStorage } from './backupStorage.js';
 
-/** Purani KEEP_COUNT-style env var — ab sirf ek fallback floor hai, asli control Settings ke backupSettings (retention/storage) se hota hai. */
-export const KEEP_COUNT = Number.parseInt(process.env.BACKUP_KEEP ?? '8', 10) || 8;
-
 /** Har kitne din me apne aap backup bane. */
 export const EVERY_DAYS = Number.parseInt(process.env.BACKUP_EVERY_DAYS ?? '7', 10) || 7;
 

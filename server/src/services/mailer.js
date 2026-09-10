@@ -55,9 +55,16 @@ function buildSmtpTransport(account) {
   const secrets = openSecrets(account.secrets || {});
 
   if (!secrets.host || !secrets.user || !secrets.pass) {
+    // host/user present but pass specifically missing usually means the
+    // stored password could not be decrypted (JWT_SECRET changed, e.g. after
+    // a host move) rather than the account never having been finished.
+    const likelyKeyMismatch = Boolean(secrets.host) && Boolean(secrets.user) && !secrets.pass && account.secrets?.pass;
     throw badRequest(
-      `"${account.email}" is missing its SMTP details. ` +
-        'Go to the Email Accounts page and enter the host, port, username and password.'
+      likelyKeyMismatch
+        ? `"${account.email}"'s saved password could not be decrypted (JWT_SECRET changed?). ` +
+          'Go to the Email Accounts page and re-enter the password to reconnect it.'
+        : `"${account.email}" is missing its SMTP details. ` +
+          'Go to the Email Accounts page and enter the host, port, username and password.'
     );
   }
 

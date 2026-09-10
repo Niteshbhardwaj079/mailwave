@@ -170,6 +170,36 @@ phir chalao:
 Client isi email/password se login karke khud apne contacts, templates, aur
 email account jod sakta hai.
 
+### Kisi doosre hosting par move karna (Render → VPS, ya kahin bhi)
+
+Code me kahin bhi kisi provider ka naam hardcode nahi hai — Postgres koi bhi
+ho (Neon, Supabase, Render, apna VPS), backup storage koi bhi S3-compatible
+jagah ho, ya app khud Render/Hostinger/kisi VPS par ho, sab kuch sirf
+`server\.env` ki values se chalta hai. Move karte waqt bas yeh dhyan rakhna:
+
+1. **`JWT_SECRET` sabse pehle, khud set karo aur naye server par bhi wahi
+   value daalo.** Chhod doge to server khud ek naya bana lega — aur sirf sabko
+   sign-out hi nahi karega, connected email accounts ke SMTP password aur
+   connected Object Storage ki secret key bhi (dono isi value se encrypt hoti
+   hain) na-padhi-jaane-layak ho jayengi, dono dobara se jodne padenge. Isi
+   `.env` ki JWT_SECRET wali line dekho, poori detail wahan hai.
+2. **`DATABASE_URL`** naye Postgres ka do — data khud us database me hai, kahin
+   copy karne ki zarurat nahi (jab tak database provider bhi na badle; badle
+   to backup lekar naye database par **Upload a backup → Restore** se le aao).
+3. **`PUBLIC_URL`**, **`APP_URL`**, **`CORS_ORIGINS`** naye domain/URL ke
+   hisaab se badlo — purane rakhoge to tracking links aur login dono toot
+   jayenge.
+4. **`node_modules` copy mat karo** — naye server par `npm install` (aur
+   `npm --prefix server install`) fresh chalao. `sharp` (images resize karne
+   wali library) har OS/computer ke liye apna alag binary banati hai; purane
+   server se copy kiya hua `node_modules` naye server par (khaaskar Windows se
+   Linux jaate waqt) kaam nahi karega.
+5. Backup **S3-jaisi jagah** (`BACKUP_STORAGE=s3`) par ho to naye server ka
+   `.env` wahi bucket/keys dekhe — backup files khud kahin move nahi karni
+   padti. Local disk (`BACKUP_STORAGE=local`, default) par ho to move se
+   PEHLE ek backup download kar lo, naye server par **Upload a backup** se
+   daal do.
+
 ---
 
 ## 6. Backup
@@ -186,20 +216,32 @@ chun lo.
 
 ### Apne aap backup
 
-Har **7 din** me backup khud ban jata hai. Sabse naye **8** rakhe jate hain,
-usse purane apne aap hat jate hain — disk kabhi nahi bharegi.
+Server chalu hote hi ek backup banta hai, aur uske baad har **`BACKUP_EVERY_DAYS`**
+din me (default **7**). Kitne backup rakhne hain aur kitni jagah tak — yeh ab
+env var nahi hai, **Backups page > Settings > Backup** se set hota hai (bina
+redeploy kiye badal sakte ho):
 
-Badalna ho to `server\.env` me:
+- **Backup Retention** — 1 se 6 mahine
+- **Maximum Backup Storage** — MB ya GB me
 
-```
-BACKUP_EVERY_DAYS=7
-BACKUP_KEEP=8
-```
+Jab ek poora calendar mahina complete ho jata hai, uske us mahine ke saare
+backup **ek hi file** (`mailwave-backup-2026-09.tar.gz` jaisa naam) me jud
+jaate hain — us mahine ke baaki chhote backup apne aap hat jaate hain, taaki
+faltu ki dher na lage. Jab yeh file taiyaar ho, Backups page par ek baar
+**"Monthly Backup Ready"** modal dikhta hai (Download ya Later — dono se woh
+dobara refresh par nahi dikhta).
+
+Storage limit poori ho rahi ho to sabse purane, abhi zaroori na bache backup
+apne aap hat jaate hain — **sabse naya backup aur abhi-abhi bana naya backup
+verify hone tak purana kabhi nahi hataya jata**, data loss kabhi nahi hota.
 
 ### Backup se wapas laana (restore)
 
 1. Backup ke aage **Restore** dabao — pakka karne ke liye `RESTORE` likhna padega
-2. **Asli Postgres par** (client ke server par yahi hota hai): usi second ho
+2. **Asli Postgres par** (client ke server par yahi hota hai): restore shuru
+   hone se **pehle** khud-ba-khud abhi ke database ki ek nayi, verify ki hui
+   safety backup ban jati hai — yeh safal na ho to restore shuru hi nahi hota,
+   aapka maujooda data chhua tak nahi jata. Uske baad restore usi second ho
    jata hai — restart ki zarurat nahi. Data us backup wale pal jaisa ho jayega,
    aur sab (aapko bhi) dobara sign in karna padega.
 3. **PGlite par** (sirf apne computer par test karte waqt): nishaan lagta hai,
@@ -208,10 +250,11 @@ BACKUP_KEEP=8
 > **`RESTORE` kyun likhwate hain:** restore poora data badal deta hai. Sirf ek
 > button hota to galti se dab sakta tha. Naam likhna padta hai, isliye galti se
 > kabhi nahi hota.
->
-> **Restore se pehle aaj ka data bhi bacha lo:** restore khud aaj ka data
-> pehle se safe nahi karta — agar aaj ka kaam bhi chahiye, restore dabane se
-> **pehle** ek naya "Back up now" bana lo.
+
+Purane downloaded backup ko **"Upload a backup"** se wapas bhi daal sakte ho —
+app usse jaanchta hai aur pehchanta hai ki yeh abhi ke data jaisa hi hai
+(dobara nahi jodta) ya alag hai (list me jodkar restore ke liye taiyaar rakhta
+hai), sirf filename se nahi — asli data ke checksum se.
 
 PGlite wale case me, restore se pehle purane data ka copy
 `server\data\pgdata.before-restore` me rakh diya jata hai.
@@ -433,6 +476,7 @@ bigad jaye to "Reset" se wapas asli matter aa jata hai.
 | `PUBLIC_URL` | `server\.env` | Tracking, unsubscribe **aur image ke link** isi se bante hain. Galat raha to email me image tooti dikhegi |
 | `APP_URL` | `server\.env` | Website ka asli pata — email ke andar "yahan click karo" jaise links isi se bante hain |
 | `CORS_ORIGINS` | `server\.env` | Website ka pata yahan na ho to browser API se baat hi nahi karne dega — poori website "kuch load nahi ho raha" dikhegi |
+| `BACKUP_STORAGE` | `server\.env` | `local` (default) hosting restart/redeploy par mit sakta hai — asli client ke liye `s3` behtar hai |
 | Company naam, logo | `brand.config.js` | Poore app me ek jagah se badalta hai |
 | Postal address | `brand.config.js` me `address` | Bulk email me kanoonan zaroori hai |
 | Email account | App me Email Accounts | Bina iske mail jayegi hi nahi (invite/reset bhi) |
