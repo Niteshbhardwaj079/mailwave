@@ -18,6 +18,8 @@ import { useApi } from '../api/useApi';
 import { api } from '../api/client';
 import { formatDate } from '../utils/format';
 import { findLanguage, LANGUAGES } from '../i18n/languages';
+import { resolveTemplateFieldTokens } from '../data/templateBuilder';
+import { combineDynamicFields, fillDynamicPreview } from '../data/dynamicFields';
 
 export default function TemplatesPage() {
   const t = useT();
@@ -48,6 +50,13 @@ export default function TemplatesPage() {
   const settingsCall = useApi('/api/settings');
   const templateSourcesSetting = settingsCall.data?.settings?.templateSources;
   const enabledSources = TEMPLATE_SOURCE_ORDER.filter((source) => templateSourcesSetting?.[source] !== false);
+  // Thumbnail me bhi wahi resolved HTML dikhna chahiye jo Preview page
+  // dikhata hai — raw {{tokens}} (ya ek unresolved token wali image jo
+  // top section ko hi tod de) card me nahi dikhne chahiye.
+  const dynamicFields = useMemo(
+    () => combineDynamicFields(settingsCall.data?.settings?.dynamicFields ?? []),
+    [settingsCall.data]
+  );
 
   const pager = useServerList('/api/templates', {
     key: 'templates',
@@ -158,7 +167,10 @@ export default function TemplatesPage() {
                     <iframe
                       className="mw-tplframe"
                       title={template.name}
-                      srcDoc={template.html}
+                      srcDoc={fillDynamicPreview(
+                        resolveTemplateFieldTokens(template.html, template.contentSchema || {}),
+                        dynamicFields
+                      )}
                       sandbox=""
                       tabIndex={-1}
                     />

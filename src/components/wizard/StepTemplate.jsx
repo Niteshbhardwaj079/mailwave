@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import FilterSelect from '../ui/FilterSelect';
@@ -6,14 +6,23 @@ import EmptyState from '../ui/EmptyState';
 import { useT } from '../../i18n/I18nProvider';
 import { useWorkspace } from '../../store/WorkspaceProvider';
 import { api } from '../../api/client';
+import { useApi } from '../../api/useApi';
 import { formatDate } from '../../utils/format';
 import { findLanguage } from '../../i18n/languages';
 import { resolveTemplateFieldTokens } from '../../data/templateBuilder';
+import { combineDynamicFields, fillDynamicPreview } from '../../data/dynamicFields';
 
 export default function StepTemplate({ draft, onChange, category, onCategoryChange }) {
   const t = useT();
   const { templates } = useWorkspace();
   const [categories, setCategories] = useState([]);
+  const settingsCall = useApi('/api/settings');
+  // Thumbnail me bhi wahi resolved HTML dikhna chahiye jo Templates page aur
+  // asli Preview dikhate hain — raw {{tokens}} nahi.
+  const dynamicFields = useMemo(
+    () => combineDynamicFields(settingsCall.data?.settings?.dynamicFields ?? []),
+    [settingsCall.data]
+  );
 
   useEffect(() => {
     api
@@ -83,7 +92,13 @@ export default function StepTemplate({ draft, onChange, category, onCategoryChan
               className={`mw-tpl ${draft.templateId === template.id ? 'is-selected' : ''}`.trim()}
             >
               <div className="mw-tpl__thumb mw-tpl__thumb--frame">
-                <iframe className="mw-tplframe" title={template.name} srcDoc={template.html} sandbox="" tabIndex={-1} />
+                <iframe
+                  className="mw-tplframe"
+                  title={template.name}
+                  srcDoc={fillDynamicPreview(resolveTemplateFieldTokens(template.html, template.contentSchema || {}), dynamicFields)}
+                  sandbox=""
+                  tabIndex={-1}
+                />
                 <button
                   type="button"
                   className="mw-tpl__thumbcover"
