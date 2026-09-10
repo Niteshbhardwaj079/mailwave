@@ -432,11 +432,41 @@
 }
 
 // ---------------------------------------------------------------------------
-// Sidebar collapse toggle (tablet & desktop) — same transform mechanic as
-// the mobile drawer, just triggered by the desktop hamburger instead of a
-// breakpoint.
+// Sidebar collapse toggle
+// Desktop (>=1200px): collapses to the same icon-only rail the tablet
+// breakpoint already shows permanently below — icons stay visible, only
+// the labels/text hide. Tablet's own rail (768-1199.98px) is already
+// minimal, so its toggle instead hides it completely.
 // ---------------------------------------------------------------------------
-@media (min-width: 768px) {
+@media (min-width: 1200px) {
+  .mw-shell.is-sidebar-collapsed .mw-sidebar {
+    width: v.$mw-sidebar-w-collapsed;
+  }
+
+  .mw-shell.is-sidebar-collapsed .mw-sidebar__brand {
+    justify-content: center;
+    padding-inline: 0;
+  }
+
+  .mw-shell.is-sidebar-collapsed .mw-sidebar__text,
+  .mw-shell.is-sidebar-collapsed .mw-navlink__label,
+  .mw-shell.is-sidebar-collapsed .mw-navlink__count,
+  .mw-shell.is-sidebar-collapsed .mw-sidebar__section,
+  .mw-shell.is-sidebar-collapsed .mw-sidebar__footer {
+    display: none;
+  }
+
+  .mw-shell.is-sidebar-collapsed .mw-navlink {
+    justify-content: center;
+    padding-inline: 0;
+  }
+
+  .mw-shell.is-sidebar-collapsed .mw-content {
+    margin-inline-start: v.$mw-sidebar-w-collapsed;
+  }
+}
+
+@media (max-width: 1199.98px) and (min-width: 768px) {
   .mw-shell.is-sidebar-collapsed .mw-sidebar {
     transform: translateX(-102%);
   }
