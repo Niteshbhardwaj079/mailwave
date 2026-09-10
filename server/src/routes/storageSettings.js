@@ -5,7 +5,7 @@
 // Kaam ka tareeka: PUT se pehle details save hoti hain (connected=false rehta
 // hai), phir POST /test asli round-trip (write+read+delete) karke connected
 // flag set karta hai. POST /test-upload ek asli image bhej kar poora
-// "Upload → Storage → MailWave URL → Image Load" chain confirm karta hai.
+// "Upload → Storage → App URL → Image Load" chain confirm karta hai.
 // ---------------------------------------------------------------------------
 import { Router } from 'express';
 import { z } from 'zod';
@@ -123,7 +123,7 @@ router.post(
       action: 'created',
       module: 'settings',
       item: 'Image Storage',
-      detail: 'Test image bucket me upload karke MailWave URL se load karke dikhaya gaya',
+      detail: `Test image bucket me upload karke ${env.brand.name} URL se load karke dikhaya gaya`,
     });
 
     res.status(201).json({ ok: true, url, imageId: id });

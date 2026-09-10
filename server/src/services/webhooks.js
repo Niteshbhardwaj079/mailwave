@@ -10,19 +10,25 @@
 //      hai (badhta hua wait), aur ek limit ke baad haar maan leta hai.
 //
 // Har bheji hui request par ek signature (HMAC-SHA256) lagti hai, taki
-// client apne server par jaanch sake ki request sach me MailWave se aayi
+// client apne server par jaanch sake ki request sach me is app se aayi
 // hai, kisi aur ne bhej kar spoof nahi kiya.
 // ---------------------------------------------------------------------------
 import { createHmac, randomBytes } from 'node:crypto';
 
 import { many, one, query } from '../db/client.js';
 import { newId } from '../lib/ids.js';
+import { env } from '../env.js';
 
 /** Kitne events ek baar me bhejne ki koshish. Bahut zyada ek saath bhejna client ke server ko dubo sakta hai. */
 const BATCH_SIZE = 20;
 
 /** Fail hone par kitni der ruk kar dobara try karein — har baar zyada. */
 const RETRY_DELAYS_MINUTES = [1, 5, 30, 120];
+
+// brand.config.js se naam aata hai, isliye header names me letters/digits ke
+// alawa kuch bhi aa sakta hai (space, punctuation) — HTTP header naam me
+// wo chalta nahi, isliye yahan saaf kar dete hain.
+const HEADER_BRAND = String(env.brand.name || 'App').replace(/[^A-Za-z0-9]/g, '') || 'App';
 
 let timer = null;
 
@@ -128,9 +134,9 @@ async function deliverOne(row, config) {
   try {
     const res = await postWithTimeout(config.url, body, {
       'Content-Type': 'application/json',
-      'X-MailWave-Event': row.event,
-      'X-MailWave-Signature': signature,
-      'User-Agent': 'MailWave-Webhooks/1.0',
+      [`X-${HEADER_BRAND}-Event`]: row.event,
+      [`X-${HEADER_BRAND}-Signature`]: signature,
+      'User-Agent': `${HEADER_BRAND}-Webhooks/1.0`,
     });
 
     if (res.ok) {
@@ -210,9 +216,9 @@ export async function sendTestWebhook() {
   try {
     const res = await postWithTimeout(config.url, body, {
       'Content-Type': 'application/json',
-      'X-MailWave-Event': 'webhook.test',
-      'X-MailWave-Signature': signature,
-      'User-Agent': 'MailWave-Webhooks/1.0',
+      [`X-${HEADER_BRAND}-Event`]: 'webhook.test',
+      [`X-${HEADER_BRAND}-Signature`]: signature,
+      'User-Agent': `${HEADER_BRAND}-Webhooks/1.0`,
     });
     return { ok: res.ok, statusCode: res.status };
   } catch (error) {
