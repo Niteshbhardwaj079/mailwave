@@ -22,7 +22,7 @@ function describeNotification(item, t) {
   return { title: t('notif.accountTitle'), text: t('notif.accountText', { email: item.email, status: item.status }) };
 }
 
-export default function Topbar({ title, onOpenMenu }) {
+export default function Topbar({ title, onOpenMenu, sidebarCollapsed, onToggleSidebar }) {
   const t = useT();
   const { roles, viewAs, setViewAs } = useWorkspace();
   const { user, signOut } = useAuth();
@@ -78,6 +78,16 @@ export default function Topbar({ title, onOpenMenu }) {
   return (
     <header className="mw-topbar">
       <button type="button" className="mw-iconbtn d-md-none" onClick={onOpenMenu} aria-label={t('topbar.openMenu')}>
+        <i className="bi bi-list" />
+      </button>
+
+      <button
+        type="button"
+        className="mw-iconbtn mw-hide-mobile"
+        onClick={onToggleSidebar}
+        aria-label={sidebarCollapsed ? t('topbar.openMenu') : t('topbar.closeMenu')}
+        aria-expanded={!sidebarCollapsed}
+      >
         <i className="bi bi-list" />
       </button>
 

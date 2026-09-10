@@ -14,10 +14,25 @@ function tabClass({ isActive }) {
   return `mw-tabbar__item ${isActive ? 'is-active' : ''}`.trim();
 }
 
+// Desktop/tablet par sidebar collapse hui thi ya nahi — page reload/navigate
+// ke baad bhi yaad rahe, isliye localStorage me. Mobile drawer (`menuOpen`)
+// jaan-boojh kar alag state hai: wo har route change par apne aap band hoti
+// hai, par collapse ek settings jaisi hai, kabhi apne aap nahi palatni chahiye.
+const SIDEBAR_COLLAPSED_KEY = 'mw-sidebar-collapsed';
+
+function readSidebarCollapsed() {
+  try {
+    return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
 export default function AppLayout() {
   const t = useT();
   const { can } = useWorkspace();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(readSidebarCollapsed);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -39,6 +54,18 @@ export default function AppLayout() {
     setMenuOpen(false);
   }
 
+  function toggleSidebarCollapse() {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(SIDEBAR_COLLAPSED_KEY, next ? '1' : '0');
+      } catch {
+        // localStorage blocked (private mode etc.) — collapse state just won't persist.
+      }
+      return next;
+    });
+  }
+
   function goToNewCampaign() {
     navigate('/campaigns/new');
   }
@@ -48,7 +75,7 @@ export default function AppLayout() {
   const title = titleKey ? t(titleKey) : appConfig.name;
 
   return (
-    <div className="mw-shell">
+    <div className={`mw-shell ${sidebarCollapsed ? 'is-sidebar-collapsed' : ''}`.trim()}>
       <Sidebar open={menuOpen} onClose={closeMenu} />
 
       {menuOpen ? (
@@ -56,7 +83,12 @@ export default function AppLayout() {
       ) : null}
 
       <div className="mw-content">
-        <Topbar title={title} onOpenMenu={openMenu} />
+        <Topbar
+          title={title}
+          onOpenMenu={openMenu}
+          sidebarCollapsed={sidebarCollapsed}
+          onToggleSidebar={toggleSidebarCollapse}
+        />
 
         <main className="mw-main">
           <div className="mw-main__inner">

@@ -432,6 +432,21 @@
 }
 
 // ---------------------------------------------------------------------------
+// Sidebar collapse toggle (tablet & desktop) — same transform mechanic as
+// the mobile drawer, just triggered by the desktop hamburger instead of a
+// breakpoint.
+// ---------------------------------------------------------------------------
+@media (min-width: 768px) {
+  .mw-shell.is-sidebar-collapsed .mw-sidebar {
+    transform: translateX(-102%);
+  }
+
+  .mw-shell.is-sidebar-collapsed .mw-content {
+    margin-inline-start: 0;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Mobile — native app feel
 // ---------------------------------------------------------------------------
 @media (max-width: 767.98px) {
