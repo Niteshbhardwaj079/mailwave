@@ -1307,12 +1307,23 @@
 .mw-pageloader {
   display: grid;
   place-items: center;
-  min-height: 40vh;
+  // Topbar ke neeche jitni jagah bachti hai utne me hi center karo — warna
+  // (jaisa pehle tha) sirf 40vh ka box upar-left me tika reh jata hai, aur
+  // jab yeh full-screen loader (poore page ke beech me) ke turant baad aata
+  // hai to acchi tarah dikhta hai ki loader "upar-right me chala gaya".
+  min-height: calc(100vh - #{v.$mw-topbar-h});
   color: var(--mw-primary);
   animation: mw-fullloader-fade 0.15s ease-out;
 
   @media (prefers-reduced-motion: reduce) {
     animation: none;
+  }
+}
+
+@media (max-width: 767.98px) {
+  .mw-pageloader {
+    // Mobile par topbar chhota hai (5.8rem, _layout.scss dekho).
+    min-height: calc(100vh - 5.8rem);
   }
 }
 
