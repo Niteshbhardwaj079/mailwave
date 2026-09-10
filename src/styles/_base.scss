@@ -13,6 +13,39 @@ html {
   -webkit-text-size-adjust: 100%;
 }
 
+// ---------------------------------------------------------------------------
+// Large screens (1920/2560/3840px — 1080p/QHD/4K desktop monitors)
+//
+// Bootstrap's root font-size compiles to ONE CSS variable, read by :root's
+// own font-size rule (`:root { font-size: var(--bs-root-font-size) }`,
+// generated from `$font-size-root` in _variables.scss). Every size in this
+// entire app — type, spacing, sidebar/topbar, buttons, icons, the main
+// content max-width — is written in rem off that single root value (see the
+// comment above). So changing just this one variable at a few breakpoints
+// scales the whole UI up together, proportionally, without ever touching
+// individual components.
+//
+// 1440px and below (current desktop, tablet, mobile) are completely
+// untouched — this only takes effect above 1920px.
+// ---------------------------------------------------------------------------
+@media (min-width: 1920px) {
+  :root {
+    --bs-root-font-size: 10.5px;
+  }
+}
+
+@media (min-width: 2560px) {
+  :root {
+    --bs-root-font-size: 11.5px;
+  }
+}
+
+@media (min-width: 3840px) {
+  :root {
+    --bs-root-font-size: 13px;
+  }
+}
+
 body {
   margin: 0;
   background-color: var(--mw-bg);
