@@ -20,6 +20,22 @@ function readableSize(bytes) {
   return `${Math.round(bytes / 1024)} KB`;
 }
 
+/**
+ * Yeh image abhi KAHAN padi hai — data ka source hamesha `toApi()`
+ * (`server/src/routes/images.js`) se aata hai, yeh sirf usko ek badge me
+ * badalta hai. Kahin bhi migrate karo (Render/VPS/koi bhi), ya storage
+ * provider badlo — yeh badge apne aap sahi dikhata rehta hai kyunki asli
+ * data hi badal jata hai; koi hardcoded jagah nahi hai. Public URL (jo
+ * copy hoti hai) hamesha isi app ke apne domain se hi jaati hai, kabhi
+ * seedha bucket se nahi — isliye storage provider ya hosting badalne par
+ * bhi pehle se bheji hui email me lagi image kabhi nahi tootti.
+ */
+function storageBadge(image, t) {
+  if (image.source === 'url') return { text: t('img.storageExternal'), cls: 'bg-secondary' };
+  if (image.storageProvider === 'object') return { text: t('img.storageObject'), cls: 'bg-success' };
+  return { text: t('img.storageDb'), cls: 'bg-primary' };
+}
+
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -331,7 +347,10 @@ export default function ImageLibrary({ onInsert, onPick }) {
               </div>
 
               <figcaption className="mw-imgcard__body">
-                <div className="mw-imgcard__name mw-truncate">{image.name}</div>
+                <div className="mw-row align-items-center mw-fs-12 mb-1">
+                  <div className="mw-imgcard__name mw-truncate flex-grow-1">{image.name}</div>
+                  <span className={`badge ${storageBadge(image, t).cls}`}>{storageBadge(image, t).text}</span>
+                </div>
                 <div className="mw-imgcard__meta">
                   {image.width && image.height ? `${image.width} × ${image.height} px · ` : ''}
                   {image.size ? `${t('img.size')}: ${readableSize(image.size)} · ` : ''}

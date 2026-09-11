@@ -96,16 +96,16 @@ const accountValue = await page.locator('#campaign-account').inputValue();
 check('email account apne aap chun liya gaya', accountValue.includes('@'), accountValue);
 await page.fill('#campaign-subject, input[name="subject"]', 'Hello {{name}}, test from MailWave');
 
-await page.getByRole('button', { name: /continue/i }).click();
+await page.getByRole('button', { name: /continue/i }).first().click();
 await page.waitForTimeout(1500);
 
 // Step 2 — recipients. Screen par asli ginti dikhni chahiye.
 body = await page.locator('body').innerText();
-await page.getByRole('button', { name: /continue/i }).click();
+await page.getByRole('button', { name: /continue/i }).first().click();
 await page.waitForTimeout(1000);
 
 // Step 3 — template
-await page.getByRole('button', { name: /continue/i }).click();
+await page.getByRole('button', { name: /continue/i }).first().click();
 await page.waitForTimeout(1000);
 
 // Step 4 — content (subject zaroori hai)
@@ -113,14 +113,14 @@ const subjectBox = page.locator('#content-subject, input[name="subject"]').first
 if (await subjectBox.count()) {
   await subjectBox.fill('Hello {{name}}, test from MailWave');
 }
-await page.getByRole('button', { name: /continue/i }).click();
+await page.getByRole('button', { name: /continue/i }).first().click();
 await page.waitForTimeout(1000);
 
 // Step 5 — settings. Yahan batch ki ginti asli hone chahiye.
 body = await page.locator('body').innerText();
 check('settings par asli ginti dikhi', body.includes(String(willReach)), `${willReach} dhoondha`);
 
-await page.getByRole('button', { name: /continue/i }).click();
+await page.getByRole('button', { name: /continue/i }).first().click();
 await page.waitForTimeout(1000);
 
 // Step 6 — review aur bhejo

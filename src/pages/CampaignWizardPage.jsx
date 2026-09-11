@@ -880,7 +880,7 @@ export default function CampaignWizardPage() {
             />
           ) : null}
           {step === 2 ? (
-            <StepTemplate draft={draft} onChange={updateDraft} category={category} onCategoryChange={setCategory} />
+            <StepTemplate draft={draft} onChange={updateDraft} category={category} onCategoryChange={setCategory} onNext={goNext} />
           ) : null}
           {step === 3 ? <StepContent draft={draft} onChange={updateDraft} showErrors={showErrors} /> : null}
           {step === 4 ? (

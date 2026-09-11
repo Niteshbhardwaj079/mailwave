@@ -12,7 +12,7 @@ import { findLanguage } from '../../i18n/languages';
 import { resolveTemplateFieldTokens } from '../../data/templateBuilder';
 import { combineDynamicFields, fillDynamicPreview } from '../../data/dynamicFields';
 
-export default function StepTemplate({ draft, onChange, category, onCategoryChange }) {
+export default function StepTemplate({ draft, onChange, category, onCategoryChange, onNext }) {
   const t = useT();
   const { templates } = useWorkspace();
   const [categories, setCategories] = useState([]);
@@ -71,6 +71,14 @@ export default function StepTemplate({ draft, onChange, category, onCategoryChan
           <i className="bi bi-plus-lg me-2" />
           {t('tpl.create')}
         </Link>
+        {/* Yahi button neeche wizard footer me bhi hai — templates bahut hon to
+            har baar poora neeche scroll karna na pade, isliye yahan bhi. */}
+        {onNext ? (
+          <button type="button" className="btn btn-primary ms-auto" onClick={onNext}>
+            {t('common.continue')}
+            <i className="bi bi-arrow-right ms-2" />
+          </button>
+        ) : null}
       </div>
 
       {visible.length === 0 ? (
