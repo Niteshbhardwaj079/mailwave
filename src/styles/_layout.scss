@@ -286,6 +286,26 @@
   border: 2px solid var(--mw-surface);
 }
 
+// The bell's actual unread count — .mw-iconbtn__dot (above) is still used
+// elsewhere as a plain "something's new" marker with no number attached.
+.mw-iconbtn__badge {
+  position: absolute;
+  inset-block-start: 0.3rem;
+  inset-inline-end: 0.3rem;
+  min-width: 1.7rem;
+  height: 1.7rem;
+  padding: 0 0.4rem;
+  display: grid;
+  place-items: center;
+  border-radius: 10rem;
+  background-color: var(--mw-danger);
+  border: 2px solid var(--mw-surface);
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
 .mw-avatar {
   display: grid;
   place-items: center;

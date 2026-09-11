@@ -367,6 +367,11 @@ export default function CampaignWizardPage() {
     if (missing) {
       setError(missing);
       setShowErrors(true);
+      // Yeh banner card ke UPAR dikhta hai — agar screen scroll ki hui hai
+      // (jaise Template step me 20+ templates ke beech), to woh dikhta hi
+      // nahi. Toast hamesha fixed-position hota hai, isliye scroll kahin
+      // bhi ho, turant dikh jata hai.
+      toast.error(missing);
       return;
     }
     setError('');
@@ -399,6 +404,7 @@ export default function CampaignWizardPage() {
       if (missing) {
         setError(missing);
         setShowErrors(true);
+        toast.error(missing);
         setStep(i);
         return;
       }
@@ -417,6 +423,7 @@ export default function CampaignWizardPage() {
       if (missing) {
         setError(missing);
         setShowErrors(true);
+        toast.error(missing);
         setStep(i);
         return;
       }
@@ -425,6 +432,7 @@ export default function CampaignWizardPage() {
     const missing = whatIsMissing();
     if (missing) {
       setError(missing);
+      toast.error(missing);
       return;
     }
     setError('');

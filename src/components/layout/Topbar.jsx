@@ -105,18 +105,22 @@ export default function Topbar({ title, onOpenMenu, sidebarCollapsed, onToggleSi
             aria-expanded={openPanel === 'notifications'}
           >
             <i className="bi bi-bell" />
-            {notifications.length > 0 ? <span className="mw-iconbtn__dot" aria-hidden="true" /> : null}
+            {notifications.length > 0 ? (
+              <span className="mw-iconbtn__badge" aria-hidden="true">
+                {notifications.length > 9 ? '9+' : notifications.length}
+              </span>
+            ) : null}
           </button>
 
           {openPanel === 'notifications' ? (
-            <div className="dropdown-menu dropdown-menu-end show p-0 shadow border-0 mt-2">
+            <div className="dropdown-menu dropdown-menu-end show p-0 shadow border-0 mt-2 mw-notifpanel">
               <div className="px-3 py-3 border-bottom">
                 <span className="mw-fs-14 mw-fw-700">{t('topbar.notifications')}</span>
               </div>
               {notifications.length === 0 ? (
                 <p className="mw-fs-13 mw-text-muted px-3 py-4 mb-0 text-center">{t('topbar.noNotifications')}</p>
               ) : (
-                <ul className="list-unstyled m-0 p-0">
+                <ul className="list-unstyled m-0 p-0 mw-notifpanel__list">
                   {notifications.map((item) => {
                     const { title, text } = describeNotification(item, t);
                     return (

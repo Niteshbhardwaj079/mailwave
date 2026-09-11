@@ -277,6 +277,28 @@
 }
 
 // ---------------------------------------------------------------------------
+// Notifications panel (topbar bell) — same shape as .mw-langmenu above: a
+// fixed-height shell with its own internal scroll, so a full 10-item list
+// (the server caps it at 10) never pushes "View all activity" off the
+// bottom of the screen or grows the page itself.
+// ---------------------------------------------------------------------------
+.mw-notifpanel {
+  width: 36rem;
+  max-width: calc(100vw - 3.2rem);
+  // `display: flex` yahan kaam nahi karta — is div par Bootstrap ke
+  // `.dropdown-menu.show` (do classes, zyada specificity) ka `display: block`
+  // hamesha jeetta hai. Isliye flex-column layout ke bajaye seedha list ko
+  // hi apni max-height di hai — header aur footer apni normal height lete
+  // hain, list ke andar hi scroll hota hai.
+  overflow: hidden;
+}
+
+.mw-notifpanel__list {
+  max-height: 34rem;
+  overflow-y: auto;
+}
+
+// ---------------------------------------------------------------------------
 // HTML template editor
 // ---------------------------------------------------------------------------
 .mw-editor {
@@ -1107,6 +1129,19 @@
     inset-block-end: auto;
     inset-inline: 0;
     width: 100%;
+    max-height: 70vh;
+    border-radius: 0 0 1.6rem 1.6rem;
+  }
+
+  // Same reasoning as .mw-langmenu just above — the topbar's blur makes it
+  // the containing block for position:fixed, so anchor from its top edge.
+  .mw-notifpanel {
+    position: fixed;
+    inset-block-start: 100%;
+    inset-block-end: auto;
+    inset-inline: 0;
+    width: 100%;
+    max-width: none;
     max-height: 70vh;
     border-radius: 0 0 1.6rem 1.6rem;
   }
