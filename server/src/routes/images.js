@@ -22,6 +22,7 @@ import { validate } from '../lib/validate.js';
 import { requireModule } from '../middleware/permissions.js';
 import { env } from '../env.js';
 import { isConfigured as objectStorageConfigured, uploadObject } from '../services/objectStorage.js';
+import { bytesToText } from '../services/backup.js';
 
 const router = Router();
 
@@ -118,9 +119,41 @@ router.get(
             : 'i.created_at DESC';
 
     const rows = await many(`${SELECT} ${where} ORDER BY ${orderBy}`, params);
-    res.json({ images: rows.map(toApi) });
+    const usage = await imageStorageUsage();
+    res.json({ images: rows.map(toApi), usage });
   })
 );
+
+/**
+ * Kitni jagah Media Library abhi le rahi hai — `source = 'url'` wali images
+ * ginti me nahi aatin, wo kisi aur website par padi hain, apni storage nahi
+ * khaatin. `db`/`object` ka alag total isliye ki dono jagah ki apni-apni
+ * limit ho sakti hai (apna database vs. connected S3-compatible bucket).
+ */
+async function imageStorageUsage() {
+  const [dbRow, objectRow, limitsRow] = await Promise.all([
+    one(`SELECT COALESCE(SUM(size_bytes), 0)::bigint AS bytes FROM images WHERE source = 'upload' AND storage_provider = 'db'`),
+    one(`SELECT COALESCE(SUM(size_bytes), 0)::bigint AS bytes FROM images WHERE source = 'upload' AND storage_provider = 'object'`),
+    one("SELECT value FROM settings WHERE key = 'storageLimits'"),
+  ]);
+
+  const dbBytes = Number(dbRow?.bytes ?? 0);
+  const objectBytes = Number(objectRow?.bytes ?? 0);
+  const totalBytes = dbBytes + objectBytes;
+  const limitBytes = limitsRow?.value?.mediaBytes ?? null;
+
+  return {
+    dbBytes,
+    dbText: bytesToText(dbBytes),
+    objectBytes,
+    objectText: bytesToText(objectBytes),
+    totalBytes,
+    totalText: bytesToText(totalBytes),
+    limitBytes,
+    limitText: limitBytes ? bytesToText(limitBytes) : null,
+    usagePercent: limitBytes ? Math.min(100, Math.round((totalBytes / limitBytes) * 100)) : null,
+  };
+}
 
 /**
  * Naya upload/edit kis backend me jayega — 'db' | 'object' | null (dono

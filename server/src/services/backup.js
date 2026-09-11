@@ -126,6 +126,24 @@ export async function getBackupUsage() {
   return Number(row?.used ?? 0);
 }
 
+/**
+ * Asli database abhi kitni jagah le rahi hai — `pg_database_size()` har real
+ * Postgres (kisi bhi host — Render/Neon/Supabase/apna VPS/kal koi aur) aur
+ * PGlite, dono par kaam karta hai, isliye yahan koi provider-specific cheez
+ * nahi hai. Kabhi bhi database migrate ho, yeh function jaisa hai waisa hi
+ * kaam karta rahega.
+ */
+export async function getDatabaseSizeBytes() {
+  try {
+    const row = await one(`SELECT pg_database_size(current_database()) AS bytes`);
+    return row?.bytes != null ? Number(row.bytes) : null;
+  } catch (error) {
+    // Koi bahut purana/anjaan driver ho jo yeh function na jaanta ho — chup-
+    // chap "pata nahi" bol dete hain, screen isse crash nahi karti.
+    return null;
+  }
+}
+
 /** Sabse nayi monthly backup jiska modal abhi dikhana baaki hai — ek baar dikh jaaye to dobara nahi (notified_at). */
 export async function getPendingMonthlyNotice() {
   const row = await one(

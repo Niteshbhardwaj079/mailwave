@@ -53,6 +53,7 @@ export function WorkspaceProvider({ children }) {
 
   const [templates, setTemplates] = useState([]);
   const [images, setImages] = useState([]);
+  const [imageUsage, setImageUsage] = useState(null);
   const [roles, setRoles] = useState([]);
   const [users, setUsers] = useState([]);
   const [activity, setActivity] = useState([]);
@@ -104,7 +105,10 @@ export function WorkspaceProvider({ children }) {
     // galti nahi hai — us user ko wo hissa dikhna hi nahi chahiye. Isliye
     // khali list rakh dete hain aur baaki app chalta rehta hai.
     if (tpl) setTemplates(tpl.templates ?? []);
-    if (img) setImages(img.images ?? []);
+    if (img) {
+      setImages(img.images ?? []);
+      setImageUsage(img.usage ?? null);
+    }
     if (rol) setRoles(rol.roles ?? []);
     if (usr) setUsers(usr.users ?? []);
     if (act) setActivity(act.activity ?? []);
@@ -826,6 +830,7 @@ export function WorkspaceProvider({ children }) {
       duplicateTemplate,
       getTemplate,
       images,
+      imageUsage,
       addImage,
       removeImage,
       updateImage,
@@ -868,6 +873,7 @@ export function WorkspaceProvider({ children }) {
       duplicateTemplate,
       getTemplate,
       images,
+      imageUsage,
       addImage,
       removeImage,
       updateImage,

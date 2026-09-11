@@ -43,6 +43,23 @@ const SECTIONS = [
 
 const DELIVERY_TONE = { pending: 'warning', delivered: 'success', failed: 'danger' };
 
+/** null/0 -> khali field (koi limit set nahi) — {value:'', unit:'MB'}. Warna MB/GB me, jo bhi saaf number bane. */
+function bytesToDraftField(bytes) {
+  if (!Number.isInteger(bytes) || bytes <= 0) return { value: '', unit: 'MB' };
+  const useGb = bytes >= 1024 * 1024 * 1024 && bytes % (1024 * 1024 * 1024) === 0;
+  return {
+    value: useGb ? bytes / 1024 / 1024 / 1024 : Math.round(bytes / 1024 / 1024),
+    unit: useGb ? 'GB' : 'MB',
+  };
+}
+
+/** Ulta: draft ki value/unit se bytes — khali value ho to null (koi limit set nahi). */
+function draftFieldToBytes(value, unit) {
+  if (value === '' || value === null || value === undefined) return null;
+  const mult = unit === 'GB' ? 1024 * 1024 * 1024 : 1024 * 1024;
+  return Math.round(Number(value) * mult);
+}
+
 function SwitchRow({ id, title, desc, checked, onChange, disabled }) {
   return (
     <div className="mw-switchrow">
@@ -177,6 +194,10 @@ export default function SettingsPage() {
   // backupDraft.maxStorageValue/Unit — server sirf bytes rakhta hai; yeh
   // draft me MB/GB me dikhata hai, save karte waqt hi bytes me wapas jodta hai.
   const [backupDraft, setBackupDraft] = useState(null);
+  // Dono khali (null) rakh sakte ho — tab Backups/Media Library sirf "kitna
+  // use hua" dikhate hain, percentage nahi (koi fake number banaya nahi jata).
+  const [storageLimitsDraft, setStorageLimitsDraft] = useState(null);
+  const [storageLimitsSaved, setStorageLimitsSaved] = useState(null);
   const [savingKey, setSavingKey] = useState('');
 
   useEffect(() => {
@@ -221,6 +242,22 @@ export default function SettingsPage() {
         maxStorageUnit: useGb ? 'GB' : 'MB',
       });
     }
+    // Yeh dono hamesha OPTIONAL hain (schema `.nullable()`) — na set kiya ho
+    // to draft me khali string rakhte hain, "0 MB" nahi (warna lagta jaise
+    // koi asli limit hai).
+    if (!settingsCall.loading && !storageLimitsDraft) {
+      const raw = serverSettings.storageLimits || {};
+      const db = bytesToDraftField(raw.databaseBytes);
+      const media = bytesToDraftField(raw.mediaBytes);
+      const value = {
+        databaseValue: db.value,
+        databaseUnit: db.unit,
+        mediaValue: media.value,
+        mediaUnit: media.unit,
+      };
+      setStorageLimitsDraft(value);
+      setStorageLimitsSaved(value);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serverSettings, settingsCall.loading]);
 
@@ -231,11 +268,23 @@ export default function SettingsPage() {
     setTemplateSourcesDraft(templateSourcesSaved);
   }
 
+  const isMediaLimitDirty =
+    storageLimitsDraft &&
+    storageLimitsSaved &&
+    (storageLimitsDraft.mediaValue !== storageLimitsSaved.mediaValue ||
+      storageLimitsDraft.mediaUnit !== storageLimitsSaved.mediaUnit);
+
   const isImageStorageDirty =
-    imageStorageDraft && imageStorageSaved && JSON.stringify(imageStorageDraft) !== JSON.stringify(imageStorageSaved);
+    (imageStorageDraft && imageStorageSaved && JSON.stringify(imageStorageDraft) !== JSON.stringify(imageStorageSaved)) ||
+    isMediaLimitDirty;
 
   function cancelImageStorageDraft() {
     setImageStorageDraft(imageStorageSaved);
+    setStorageLimitsDraft((current) => ({
+      ...current,
+      mediaValue: storageLimitsSaved.mediaValue,
+      mediaUnit: storageLimitsSaved.mediaUnit,
+    }));
   }
 
   /** Returns true on success — kuch callers (jaise Template Options) ko save ke baad apna "last saved" snapshot bhi update karna hota hai. */
@@ -261,6 +310,7 @@ export default function SettingsPage() {
   async function saveImageStorage() {
     const ok = await saveWorkspaceSetting('imageStorage', imageStorageDraft);
     if (ok) setImageStorageSaved(imageStorageDraft);
+    await saveStorageLimits();
   }
 
   async function saveBackupSettings() {
@@ -269,6 +319,16 @@ export default function SettingsPage() {
       retentionMonths: backupDraft.retentionMonths,
       maxStorageBytes: Math.round(Number(backupDraft.maxStorageValue || 0) * mult),
     });
+    await saveStorageLimits();
+  }
+
+  /** Backups aur Media Library, dono ke "kitna bhara hai" bar ke liye — dono optional. */
+  async function saveStorageLimits() {
+    const ok = await saveWorkspaceSetting('storageLimits', {
+      databaseBytes: draftFieldToBytes(storageLimitsDraft.databaseValue, storageLimitsDraft.databaseUnit),
+      mediaBytes: draftFieldToBytes(storageLimitsDraft.mediaValue, storageLimitsDraft.mediaUnit),
+    });
+    if (ok) setStorageLimitsSaved(storageLimitsDraft);
   }
 
   // --- API keys ---------------------------------------------------------------
@@ -1298,6 +1358,41 @@ export default function SettingsPage() {
                     <Note tone="info" icon="bi-info-circle">
                       {t('set.imageStorageNote')}
                     </Note>
+
+                    {storageLimitsDraft ? (
+                      <div className="mt-3">
+                        <label className="form-label" htmlFor="s-media-storage">{t('set.mediaStorageLimit')}</label>
+                        <div className="input-group" style={{ maxWidth: '22rem' }}>
+                          <input
+                            id="s-media-storage"
+                            type="number"
+                            className="form-control"
+                            min={0}
+                            placeholder={t('set.storageLimitNone')}
+                            value={storageLimitsDraft.mediaValue}
+                            onChange={(event) =>
+                              setStorageLimitsDraft((current) => ({
+                                ...current,
+                                mediaValue: event.target.value === '' ? '' : Math.max(0, Number(event.target.value) || 0),
+                              }))
+                            }
+                          />
+                          <select
+                            className="form-select"
+                            style={{ maxWidth: '6.5rem' }}
+                            value={storageLimitsDraft.mediaUnit}
+                            aria-label={t('set.backupMaxStorageUnit')}
+                            onChange={(event) =>
+                              setStorageLimitsDraft((current) => ({ ...current, mediaUnit: event.target.value }))
+                            }
+                          >
+                            <option value="MB">MB</option>
+                            <option value="GB">GB</option>
+                          </select>
+                        </div>
+                        <p className="form-text mb-0">{t('set.mediaStorageLimitHelp')}</p>
+                      </div>
+                    ) : null}
                   </>
                 )}
               </CardBody>
@@ -1386,6 +1481,41 @@ export default function SettingsPage() {
                     <Note tone="info" icon="bi-info-circle">
                       {t('set.backupNote')}
                     </Note>
+
+                    {storageLimitsDraft ? (
+                      <div className="mt-3">
+                        <label className="form-label" htmlFor="s-db-storage">{t('set.dbStorageLimit')}</label>
+                        <div className="input-group" style={{ maxWidth: '22rem' }}>
+                          <input
+                            id="s-db-storage"
+                            type="number"
+                            className="form-control"
+                            min={0}
+                            placeholder={t('set.storageLimitNone')}
+                            value={storageLimitsDraft.databaseValue}
+                            onChange={(event) =>
+                              setStorageLimitsDraft((current) => ({
+                                ...current,
+                                databaseValue: event.target.value === '' ? '' : Math.max(0, Number(event.target.value) || 0),
+                              }))
+                            }
+                          />
+                          <select
+                            className="form-select"
+                            style={{ maxWidth: '6.5rem' }}
+                            value={storageLimitsDraft.databaseUnit}
+                            aria-label={t('set.backupMaxStorageUnit')}
+                            onChange={(event) =>
+                              setStorageLimitsDraft((current) => ({ ...current, databaseUnit: event.target.value }))
+                            }
+                          >
+                            <option value="MB">MB</option>
+                            <option value="GB">GB</option>
+                          </select>
+                        </div>
+                        <p className="form-text mb-0">{t('set.dbStorageLimitHelp')}</p>
+                      </div>
+                    ) : null}
                   </>
                 )}
               </CardBody>

@@ -27,6 +27,7 @@ export default function BackupPage() {
   const call = useApi('/api/backups');
   const backups = call.data?.backups ?? [];
   const settings = call.data?.settings ?? null;
+  const database = call.data?.database ?? null;
 
   const [busy, setBusy] = useState(false);
   const [restoreFor, setRestoreFor] = useState(null);
@@ -297,6 +298,45 @@ export default function BackupPage() {
             <p className="mw-fs-12 mw-text-muted mb-0 mt-2">
               {t('bak.retentionNote', { months: settings.retentionMonths })}
             </p>
+          </CardBody>
+        </Card>
+      ) : null}
+
+      {/* Backup FILES kitni jagah le rahe hain, uske upar wala card dikha
+          chuka — yeh asli DATABASE (contacts, campaigns, sab kuch) ki apni
+          size hai, alag cheez. `pg_database_size()` se aata hai isliye kisi
+          bhi Postgres host par (aaj ka ho ya kal koi aur) kaam karta hai. */}
+      {database ? (
+        <Card>
+          <CardBody>
+            <div className="d-flex justify-content-between align-items-baseline mb-2">
+              <span className="mw-fs-13 mw-fw-600">{t('bak.dbUsageTitle')}</span>
+              <span className="mw-fs-13 mw-text-muted">
+                {database.supported
+                  ? database.limitBytes
+                    ? t('bak.dbUsageValue', { used: database.usedText, max: database.limitText })
+                    : t('bak.dbUsageNoLimit', { used: database.usedText })
+                  : ''}
+              </span>
+            </div>
+            {database.supported ? (
+              database.limitBytes ? (
+                <div className="progress" style={{ height: '0.8rem' }}>
+                  <div
+                    className={`progress-bar ${database.usagePercent >= 90 ? 'bg-danger' : database.usagePercent >= 70 ? 'bg-warning' : 'bg-primary'}`}
+                    role="progressbar"
+                    style={{ width: `${database.usagePercent}%` }}
+                    aria-valuenow={database.usagePercent}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                  />
+                </div>
+              ) : (
+                <p className="mw-fs-12 mw-text-muted mb-0">{t('bak.dbUsageSetLimit')}</p>
+              )
+            ) : (
+              <p className="mw-fs-12 mw-text-muted mb-0">{t('bak.dbUsageUnsupported')}</p>
+            )}
           </CardBody>
         </Card>
       ) : null}

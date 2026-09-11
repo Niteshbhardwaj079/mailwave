@@ -74,7 +74,7 @@ function cropToDataUrl(image, crop) {
  */
 export default function ImageLibrary({ onInsert, onPick }) {
   const t = useT();
-  const { images, addImage, removeImage, updateImage, touchImage, storageWarning } = useWorkspace();
+  const { images, imageUsage, addImage, removeImage, updateImage, touchImage, storageWarning } = useWorkspace();
   const fileRef = useRef(null);
   const cropImgRef = useRef(null);
   const [urlValue, setUrlValue] = useState('');
@@ -264,6 +264,37 @@ export default function ImageLibrary({ onInsert, onPick }) {
         <h3 className="mw-fs-16 mw-fw-700 mb-1">{t('img.title')}</h3>
         <p className="mw-fs-13 mw-text-muted mb-0">{t('img.subtitle')}</p>
       </div>
+
+      {/* Kitni jagah abhi li hui hai — Object Storage jude jaane ke baad bhi
+          "meri image kahan gayi" pata chalta rahe, isliye database aur
+          Object Storage dono ka apna total alag dikhaya hai. */}
+      {imageUsage ? (
+        <div className="mw-note mw-note--info">
+          <i className="bi bi-hdd mw-note__icon" aria-hidden="true" />
+          <div>
+            <span className="d-block mw-fs-13 mw-fw-600">
+              {imageUsage.limitBytes
+                ? t('img.usageValue', { used: imageUsage.totalText, max: imageUsage.limitText })
+                : t('img.usageNoLimit', { used: imageUsage.totalText })}
+            </span>
+            <span className="d-block mw-fs-12 mw-text-muted mt-1">
+              {t('img.usageBreakdown', { db: imageUsage.dbText, object: imageUsage.objectText })}
+            </span>
+            {imageUsage.limitBytes ? (
+              <div className="progress mt-2" style={{ height: '0.6rem' }}>
+                <div
+                  className={`progress-bar ${imageUsage.usagePercent >= 90 ? 'bg-danger' : imageUsage.usagePercent >= 70 ? 'bg-warning' : 'bg-primary'}`}
+                  role="progressbar"
+                  style={{ width: `${imageUsage.usagePercent}%` }}
+                  aria-valuenow={imageUsage.usagePercent}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                />
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
 
       <ol className="mw-steps">
         <li className="mw-steps__item">

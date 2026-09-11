@@ -95,6 +95,16 @@ const SCHEMAS = {
     retentionMonths: z.number().int().min(1).max(6),
     maxStorageBytes: z.number().int().min(50 * 1024 * 1024).max(1_000_000_000_000),
   }),
+  // Purely for the "how full is it" bar on Backups/Media Library — the app
+  // has no portable way to ask any host "how much disk do I actually have"
+  // (managed Postgres/S3-compatible storage don't expose that over SQL/API
+  // in a way that works the same everywhere), so instead of guessing, the
+  // admin types in whatever their real plan size is. Optional — the usage
+  // is still shown (just without a percentage) if this is never set.
+  storageLimits: z.object({
+    databaseBytes: z.number().int().min(10 * 1024 * 1024).max(10_000_000_000_000).nullable(),
+    mediaBytes: z.number().int().min(10 * 1024 * 1024).max(10_000_000_000_000).nullable(),
+  }),
 };
 
 router.get(

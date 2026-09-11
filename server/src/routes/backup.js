@@ -7,7 +7,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 
-import { currentDriver } from '../db/client.js';
+import { currentDriver, one } from '../db/client.js';
 import { asyncHandler, badRequest, notFound } from '../lib/http.js';
 import { logActivity } from '../lib/activity.js';
 import { validate } from '../lib/validate.js';
@@ -22,6 +22,7 @@ import {
   getBackup,
   getBackupSettings,
   getBackupUsage,
+  getDatabaseSizeBytes,
   getPendingMonthlyNotice,
   listBackups,
   markForRestore,
@@ -48,14 +49,27 @@ router.get(
     const storage = getBackupStorage();
     const lastGood = backups.find((b) => b.status === 'successful');
 
-    const [backupSettings, usedBytes, pendingMonthlyNotice] = await Promise.all([
+    const [backupSettings, usedBytes, pendingMonthlyNotice, dbSizeBytes, limitsRow] = await Promise.all([
       getBackupSettings(),
       getBackupUsage(),
       getPendingMonthlyNotice(),
+      getDatabaseSizeBytes(),
+      one("SELECT value FROM settings WHERE key = 'storageLimits'"),
     ]);
+    const dbLimitBytes = limitsRow?.value?.databaseBytes ?? null;
 
     res.json({
       backups,
+      database: {
+        supported: dbSizeBytes != null,
+        usedBytes: dbSizeBytes,
+        usedText: bytesToText(dbSizeBytes),
+        limitBytes: dbLimitBytes,
+        limitText: dbLimitBytes ? bytesToText(dbLimitBytes) : null,
+        usagePercent: dbLimitBytes && dbSizeBytes != null
+          ? Math.min(100, Math.round((dbSizeBytes / dbLimitBytes) * 100))
+          : null,
+      },
       settings: {
         everyDays: EVERY_DAYS,
         retentionMonths: backupSettings.retentionMonths,
