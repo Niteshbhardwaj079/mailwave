@@ -135,6 +135,13 @@ export const devGuideChapters = [
           'This same shape repeats across Contacts, Templates, Campaigns, Users, Activity Log, and Backups — once you understand one list page, you understand most of them.',
         ],
       },
+      {
+        heading: 'The topbar notifications panel',
+        paragraphs: [
+          '`Topbar.jsx`\'s bell icon shows a real unread count badge (capped at `9+`), not just a dot. The dropdown itself (`.mw-notifpanel` in `src/styles/_features.scss`) has a fixed width and an internally scrolling list past a max-height, rather than growing the page.',
+          'It combines Bootstrap\'s own `dropdown-menu`/`show` classes with the custom `.mw-notifpanel` class — for any layout property both define (e.g. `display`), Bootstrap\'s more specific two-class selector silently wins regardless of stylesheet order. That is why the scroll/max-height is set on the child list (`.mw-notifpanel__list`) rather than relied on via a flex layout on the panel itself. The older `.mw-langmenu` dropdown avoids this entirely by never combining with Bootstrap\'s classes in the first place — worth copying that approach for any brand-new dropdown, rather than this workaround.',
+        ],
+      },
     ],
   },
 
@@ -445,11 +452,18 @@ export const devGuideChapters = [
         },
       },
       {
+        heading: 'Database storage usage (Backups page)',
+        paragraphs: [
+          '`GET /api/backups` also returns a `database` block: used bytes come from `SELECT pg_database_size(current_database())` (`services/backup.js`\'s `getDatabaseSizeBytes()`) — a standard Postgres function, confirmed to also work unchanged on PGlite, so this stays correct across any Postgres-family host without host-specific code.',
+          'An admin can optionally type in a real storage limit (in Settings, both for the database and separately for Media Library — see Chapter 8) — stored together as one `storageLimits` settings row (`{ databaseBytes, mediaBytes }`, both nullable), the same pattern `backupSettings.maxStorageBytes` already used. No host exposes "total plan size" in a portable way over SQL, so this can\'t be auto-detected: without a limit set, the page shows plain used-bytes text; once one is set, it becomes a used/limit percentage bar.',
+        ],
+      },
+      {
         heading: 'Important files',
         fileCards: [
           {
             file: 'server/src/services/backup.js',
-            does: 'Everything backup-related that isn\'t "what SQL to run" or "where to put the file": scheduling, monthly consolidation, retention/storage-limit enforcement, duplicate detection, restore safety, the notification for a newly-ready monthly file.',
+            does: 'Everything backup-related that isn\'t "what SQL to run" or "where to put the file": scheduling, monthly consolidation, retention/storage-limit enforcement, duplicate detection, restore safety, the notification for a newly-ready monthly file, and reporting real database size (`getDatabaseSizeBytes()`).',
             dependsOn: '`server/src/routes/backup.js` (the API), `server/src/index.js` (`startBackupSchedule()`), `src/pages/BackupPage.jsx` and `src/pages/SettingsPage.jsx` (Backup section) on the frontend.',
             safe: 'Changing `EVERY_DAYS`\' default, adjusting log messages.',
             careful: 'The order of operations in `createBackup()` (dump -> validate -> save -> mark successful -> THEN clean up old ones) is intentional — reordering it risks deleting a good backup before a new one is confirmed to exist.',
@@ -497,6 +511,12 @@ export const devGuideChapters = [
           'Settings > Image Storage (`imageStorage` setting) decides whether new uploads go into the app\'s own Postgres database (as a `data:` URL, stored directly in the `images` table — genuinely portable, moves with the database automatically) or into the client\'s connected external bucket.',
           'Connecting external storage is done entirely through the UI (Settings > Storage) — bucket, region, endpoint, access key, and secret key, for any S3-compatible provider (AWS S3, Cloudflare R2, Backblaze B2, Wasabi, DigitalOcean Spaces, or "Other"). Nothing about which provider is chosen lives in an environment variable.',
           'Either way, `server/src/routes/files.js` is the one place a browser or mail client ever actually requests an image from — it reads from wherever the image really lives and streams it back, so the URL emailed to recipients never changes based on storage choice.',
+        ],
+      },
+      {
+        heading: 'Media Library storage usage',
+        paragraphs: [
+          '`GET /api/images` also returns a `usage` block, summed from each image\'s `size_bytes` and split by `storage_provider` (app database vs. connected external bucket) — externally-linked images (`source = \'url\'`) are excluded, since MailWave doesn\'t control storage it doesn\'t own. Uses the same optional admin-set limit pattern as database storage usage (Chapter 7) — the `mediaBytes` half of the shared `storageLimits` settings row.',
         ],
       },
       {
@@ -632,6 +652,7 @@ export const devGuideChapters = [
         paragraphs: [
           '`CampaignWizardPage.jsx` drives a 6-step flow (`components/wizard/`: Info, Recipients, Template, Content, Settings, Review), saving a draft as the user moves through it. `POST/PUT /api/campaigns` (`server/src/routes/campaigns.js`) persists it; sending or scheduling happens from the final step.',
           'The Settings step (`StepSettings.jsx`) is where batch size, delay between batches, and the send-time estimate (`src/utils/sendEstimate.js`) live — the estimate reads the SELECTED account\'s real, current `dailyLimit`/`sentToday` (from `GET /api/accounts`), never a hardcoded number.',
+          'Validation errors (e.g. clicking Continue with a required field missing) show both an inline banner at the top of the step AND a toast (`ToastProvider.jsx`) — the toast exists specifically so the error is still noticed on a long step (many templates/recipients) where the banner has scrolled out of view.',
         ],
       },
       {
