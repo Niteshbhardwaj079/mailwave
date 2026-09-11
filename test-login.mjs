@@ -38,8 +38,14 @@ await page.goto(BASE + '/login', { waitUntil: 'networkidle' });
 check('login page render hua', await page.locator('#login-email').isVisible());
 check('koi ReferenceError nahi', consoleErrors.filter((e) => e.includes('is not defined')).length === 0,
   consoleErrors.filter((e) => e.includes('is not defined')).join(' | '));
+// "mailwave@1234" ab jaan-boojh kar screen par hai — brand.config.js ka
+// demoLogin banner, seed admin ke asli password ('mailwave') se bilkul alag
+// hai. Isliye check ab dono ko chhod kar baaki jagah "mailwave" nahi hona
+// chahiye — warna asli seed password kabhi bhi bhool se hint/placeholder ban
+// jaye to yeh test pakad nahi payega.
 const visibleText = await page.locator('body').innerText();
-check('demo password screen par nahi dikh raha', !/mailwave/i.test(visibleText.replace(/MailWave/g, '')), visibleText.match(/S*mailwaveS*/i)?.[0] ?? '');
+const withoutBrandAndDemo = visibleText.replace(/MailWave/g, '').replace(/mailwave@1234/gi, '').replace(/mailwave\.demo@gmail\.com/gi, '');
+check('seed admin ka asli password screen par nahi dikh raha', !/mailwave/i.test(withoutBrandAndDemo), withoutBrandAndDemo.match(/\S*mailwave\S*/i)?.[0] ?? '');
 
 // --- 2. bina login andar jaane ki koshish -----------------------------------
 await page.goto(BASE + '/contacts', { waitUntil: 'networkidle' });

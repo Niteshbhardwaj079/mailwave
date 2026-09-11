@@ -9,7 +9,6 @@ import HtmlPreview from '../components/templates/HtmlPreview';
 import ImageLibrary from '../components/templates/ImageLibrary';
 import TemplateDesignEditor from '../components/templates/TemplateDesignEditor';
 import DynamicFieldPicker from '../components/templates/DynamicFieldPicker';
-import DynamicFieldManager from '../components/templates/DynamicFieldManager';
 import TemplateSourceBadge from '../components/templates/TemplateSourceBadge';
 import TemplateFullPreview from '../components/templates/TemplateFullPreview';
 import { useT } from '../i18n/I18nProvider';
@@ -20,7 +19,7 @@ import { DEFAULT_SCHEMA, findSocialPlatform, normalizeSchema, renderTemplateHtml
 import { combineDynamicFields, fillDynamicPreview } from '../data/dynamicFields';
 import { lintTemplateHtml } from '../data/templateHtmlLint';
 import { LANGUAGES } from '../i18n/languages';
-import { api, ApiError } from '../api/client';
+import { api } from '../api/client';
 import { appConfig } from '../config/appConfig';
 
 function cloneSchema(schema) {
@@ -47,7 +46,7 @@ export default function TemplateEditorPage() {
   const toast = useToast();
   const { templateId } = useParams();
   const navigate = useNavigate();
-  const { getTemplate, saveTemplate, duplicateTemplate, templates } = useWorkspace();
+  const { getTemplate, saveTemplate, templates } = useWorkspace();
   const existing = templateId ? getTemplate(templateId) : null;
 
   const [name, setName] = useState(existing?.name || '');
@@ -67,7 +66,6 @@ export default function TemplateEditorPage() {
   const [savedOpen, setSavedOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [customFields, setCustomFields] = useState([]);
-  const [fieldsManagerOpen, setFieldsManagerOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [pendingHtmlIssues, setPendingHtmlIssues] = useState(null);
   const codeRef = useRef(null);
@@ -87,27 +85,6 @@ export default function TemplateEditorPage() {
   }, []);
 
   const dynamicFields = useMemo(() => combineDynamicFields(customFields), [customFields]);
-
-  async function saveCustomFields(next) {
-    try {
-      await api.put('/api/settings/dynamicFields', next);
-      setCustomFields(next);
-    } catch (error) {
-      toast.error(error instanceof ApiError ? error.message : t('toast.networkError'));
-    }
-  }
-
-  function addDynamicField({ label, key }) {
-    saveCustomFields([...customFields, { id: `df_${Date.now().toString(36)}`, label, key }]);
-  }
-
-  function renameDynamicField(id, label) {
-    saveCustomFields(customFields.map((f) => (f.id === id ? { ...f, label } : f)));
-  }
-
-  function removeDynamicField(id) {
-    saveCustomFields(customFields.filter((f) => f.id !== id));
-  }
 
   // Workspace templates load asynchronously after sign-in, so on a direct
   // page load (a refresh while already on this URL, not a click from inside
@@ -344,13 +321,6 @@ export default function TemplateEditorPage() {
     setPreviewOpen(false);
   }
 
-  /** Makes a completely independent copy of whatever template is currently open, then edits that copy. */
-  async function handleDuplicate() {
-    if (!savedId) return;
-    const copy = await duplicateTemplate(savedId);
-    if (copy) navigate(`/templates/${copy.id}/edit`);
-  }
-
   function goToTemplates() {
     navigate('/templates');
   }
@@ -377,35 +347,14 @@ export default function TemplateEditorPage() {
         helpTopic="editor"
         actions={
           <>
-            <Link to="/templates" className="btn btn-outline-secondary mw-btn-block-mobile">
+            <Link to="/templates/new" className="btn btn-outline-secondary mw-btn-block-mobile">
               <i className="bi bi-arrow-left me-2" />
               {t('common.back')}
             </Link>
-            <button type="button" className="btn btn-outline-secondary mw-btn-block-mobile" onClick={() => setFieldsManagerOpen(true)}>
-              <i className="bi bi-braces me-2" />
-              {t('dyn.manageFields')}
-            </button>
             <button type="button" className="btn btn-outline-secondary mw-btn-block-mobile" onClick={() => setPreviewOpen(true)}>
               <i className="bi bi-eye me-2" />
               {t('tpl.previewButton')}
             </button>
-            {savedId ? (
-              <a
-                className="btn btn-outline-secondary mw-hide-mobile"
-                href={`/templates/${savedId}/preview`}
-                target="_blank"
-                rel="noreferrer"
-              >
-                <i className="bi bi-box-arrow-up-right me-2" />
-                {t('tpl.openPreview')}
-              </a>
-            ) : null}
-            {savedId ? (
-              <button type="button" className="btn btn-outline-secondary mw-btn-block-mobile" onClick={handleDuplicate}>
-                <i className="bi bi-files me-2" />
-                {t('common.duplicate')}
-              </button>
-            ) : null}
             <button type="button" className="btn btn-primary mw-btn-block-mobile" onClick={handleSave}>
               <i className="bi bi-save me-2" />
               {t('common.save')}
@@ -668,15 +617,6 @@ export default function TemplateEditorPage() {
           ))}
         </ul>
       </Sheet>
-
-      <DynamicFieldManager
-        open={fieldsManagerOpen}
-        onClose={() => setFieldsManagerOpen(false)}
-        customFields={customFields}
-        onAdd={addDynamicField}
-        onRename={renameDynamicField}
-        onRemove={removeDynamicField}
-      />
 
       <TemplateFullPreview
         open={previewOpen}

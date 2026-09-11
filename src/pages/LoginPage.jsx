@@ -68,6 +68,20 @@ export default function LoginPage() {
     navigate(redirectTo, { replace: true });
   }
 
+  async function handleDemoLogin() {
+    setError('');
+    setBusy(true);
+    const result = await signIn(appConfig.demoLogin.email, appConfig.demoLogin.password);
+    setBusy(false);
+
+    if (!result.ok) {
+      setError(result.network ? t('auth.errNetwork') : result.message || t('auth.errWrong'));
+      return;
+    }
+
+    navigate(redirectTo, { replace: true });
+  }
+
   function openForgot() {
     setResetEmail(email);
     setError('');
@@ -196,6 +210,26 @@ export default function LoginPage() {
                   {busy ? t('common.loading') : t('auth.signIn')}
                 </button>
               </form>
+
+              {appConfig.demoLogin.enabled ? (
+                <div className="mb-3">
+                  <Note tone="info" icon="bi-eye">
+                    <p className="mb-1 mw-fw-600">{t('auth.demoTitle')}</p>
+                    <p className="mb-2 mw-fs-13">{t('auth.demoText')}</p>
+                    <p className="mb-2 mw-fs-13 mw-mono">
+                      {appConfig.demoLogin.email} / {appConfig.demoLogin.password}
+                    </p>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-primary"
+                      onClick={handleDemoLogin}
+                      disabled={busy}
+                    >
+                      {t('auth.demoFill')}
+                    </button>
+                  </Note>
+                </div>
+              ) : null}
 
               <Note tone="info" icon="bi-shield-lock">
                 {t('auth.noSignupNote')}

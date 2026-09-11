@@ -104,7 +104,22 @@ export function createApp() {
 
   // Tracking PUBLIC hai — ise recipient ka mail app kholta hai, isliye yahan
   // requireAuth nahi lagta. Aur /api ke bahar hai taki link chhota rahe.
-  app.use('/t', trackRoutes);
+  //
+  // IDs (recipient/link) UUID hain, guess karna practically namumkin — par
+  // koi bhi public, unauthenticated route DB write kar sakta hai to usko bina
+  // kisi rok ke chhodna theek nahi. Rok generous rakhi hai: corporate mail
+  // scanners aksar ek hi shared IP se, ek saath, kai recipients ke liye pixel/
+  // link khol dete hain — asli usage isse tootni nahi chahiye.
+  app.use(
+    '/t',
+    rateLimit({
+      windowMs: 60 * 1000,
+      limit: 600,
+      standardHeaders: 'draft-7',
+      legacyHeaders: false,
+    }),
+    trackRoutes
+  );
 
   // Email me lagi images. Yeh bhi PUBLIC hai — Gmail/Outlook ka server inhe
   // kholta hai aur wo kabhi login nahi kar sakta. Yahan se sirf image jati

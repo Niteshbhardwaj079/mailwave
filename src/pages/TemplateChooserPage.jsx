@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 import PageHeader from '../components/ui/PageHeader';
 import { useT } from '../i18n/I18nProvider';
@@ -29,6 +29,12 @@ export default function TemplateChooserPage() {
         title={t('tpl.chooser.title')}
         subtitle={t('tpl.chooser.subtitle')}
         breadcrumb={[{ label: t('nav.templates'), to: '/templates' }, { label: t('tpl.chooser.title') }]}
+        actions={
+          <Link to="/templates" className="btn btn-outline-secondary mw-btn-block-mobile">
+            <i className="bi bi-arrow-left me-2" />
+            {t('common.back')}
+          </Link>
+        }
       />
 
       <div className="mw-optiongrid">

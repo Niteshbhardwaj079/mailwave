@@ -86,8 +86,10 @@ await page.fill('#login-password', 'mailwave');
 await page.click('button[type="submit"]');
 await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 15000 });
 
-// Template editor kholo — image library wahin hai.
-await page.goto(BASE + '/templates/new', { waitUntil: 'networkidle' });
+// Template editor kholo — image library wahin hai. (/templates/new khud ek
+// chooser screen hai — 3 tareeke chunne ke liye, koi tab nahi hoti wahan;
+// asli Custom Editor /templates/new/custom par hai.)
+await page.goto(BASE + '/templates/new/custom', { waitUntil: 'networkidle' });
 await page.waitForTimeout(1500);
 
 const imagesTab = page.getByRole('button', { name: /image/i }).first();

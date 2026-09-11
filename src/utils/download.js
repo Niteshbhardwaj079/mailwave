@@ -15,8 +15,24 @@ export function triggerDownload(blob, filename) {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+/**
+ * Contacts/subscribers often come from an imported list, not typed by hand —
+ * so a cell can contain whatever that list contained. If a name/company/city
+ * starts with =, +, -, @ (or a tab/CR), Excel and Google Sheets treat the
+ * cell as a FORMULA the moment the file is opened, not as text. That is the
+ * well-known "CSV injection" trick: an imported row named
+ * `=HYPERLINK("http://evil","click")` would turn into a live link/formula in
+ * whoever's spreadsheet opens the export.
+ *
+ * Prefixing such a value with a plain apostrophe is the standard fix — every
+ * spreadsheet app then shows the text as-is instead of evaluating it.
+ */
+function neutralizeFormula(text) {
+  return /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
+}
+
 function escapeCell(value) {
-  const text = value === null || value === undefined ? '' : String(value);
+  const text = neutralizeFormula(value === null || value === undefined ? '' : String(value));
   if (/[",\n]/.test(text)) return `"${text.replace(/"/g, '""')}"`;
   return text;
 }
@@ -40,7 +56,10 @@ export async function downloadXlsx(filename, rows) {
   const ExcelJS = (await import('exceljs')).default;
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet('Report');
-  rows.forEach((row) => sheet.addRow(row));
+  // ExcelJS stores plain strings as text (not evaluated as a formula), but we
+  // neutralize the same way as the CSV export anyway — belt and suspenders
+  // against any spreadsheet app that guesses cell type from content.
+  rows.forEach((row) => sheet.addRow(row.map((cell) => (typeof cell === 'string' ? neutralizeFormula(cell) : cell))));
   if (rows.length) sheet.getRow(1).font = { bold: true };
   sheet.columns.forEach((column) => {
     column.width = Math.min(

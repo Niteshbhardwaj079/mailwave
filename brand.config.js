@@ -97,6 +97,52 @@ export const brand = {
    * the app is built — leave it on for your own team's installs.
    */
   developerGuide: true,
+
+  // --- Design / copy protection ---------------------------------------------
+
+  /**
+   * Deters CASUAL right-click / text-select / view-source / save-page on the
+   * app's own screens — sidebar, dashboard, reports, cards, and so on.
+   *
+   * This is NOT real security and cannot be — no website can stop a
+   * screenshot, a phone camera, or a screen recording, and anyone with
+   * browser dev tools open can get around all of this in seconds. It only
+   * raises the bar against a casual "right click > save image" or
+   * "select all > copy" of the design.
+   *
+   * Nothing users actually need is affected either way: typing and
+   * selecting inside form fields, the template/HTML code editor, and every
+   * "Copy" button in the app (API keys, tracking links, {{tokens}}...) keep
+   * working exactly as before — those use the clipboard API directly, not
+   * text selection.
+   *
+   * `true`  -> right-click, Ctrl+U (view source), Ctrl+S (save page), and
+   *            selecting/copying plain page text are blocked outside of
+   *            actual inputs and editors.
+   * `false` -> none of this runs; the app behaves like any normal website.
+   */
+  securityProtection: false,
+
+  // --- Demo login banner ------------------------------------------------------
+
+  /**
+   * A "try it yourself" box on the sign-in screen — shows a working email +
+   * password and a one-click "Use this account" button, so anyone visiting
+   * the login page can sign in without asking for a real account.
+   *
+   * ONLY for a public demo/preview install. Turn this OFF (`enabled: false`)
+   * before handing a build to a real client — a real client's own login
+   * screen should never publish a working password to every visitor.
+   *
+   * The account itself (email/password/role) has to actually exist in that
+   * install's database — this just displays whatever you type here. Nothing
+   * here creates or changes an account by itself.
+   */
+  demoLogin: {
+    enabled: true,
+    email: 'mailwave.demo@gmail.com',
+    password: 'mailwave@1234',
+  },
 };
 
 export default brand;

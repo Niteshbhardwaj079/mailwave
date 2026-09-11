@@ -193,3 +193,30 @@ $mw-font-sizes: (11, 12, 13, 14, 15, 16, 18, 20, 24, 28, 32);
     display: inline-flex;
   }
 }
+
+// ---------------------------------------------------------------------------
+// brand.config.js's `securityProtection` flag — src/utils/useSecurityProtection.js
+// toggles this attribute on <html>. Right-click/Ctrl+U/Ctrl+S are blocked in
+// JS; this half stops plain page text being highlighted and copied.
+//
+// Inputs, textareas, contentEditable fields and any code block stay
+// selectable — otherwise typing, editing and copying out of the HTML editor
+// would break along with everything else.
+// ---------------------------------------------------------------------------
+[data-security-protection='on'] {
+  user-select: none;
+  -webkit-user-select: none;
+
+  input,
+  textarea,
+  select,
+  [contenteditable='true'],
+  .mw-codearea,
+  .mw-codeblock,
+  code,
+  pre,
+  .mw-allow-select {
+    user-select: text;
+    -webkit-user-select: text;
+  }
+}
