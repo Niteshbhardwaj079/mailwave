@@ -28,14 +28,33 @@ const MODULE_ACTIONS = {
   campaigns: ['view', 'create', 'edit', 'delete', 'send', 'export'],
   contacts: ['view', 'create', 'edit', 'delete', 'export'],
   templates: ['view', 'create', 'edit', 'delete'],
+  media: ['view', 'upload', 'edit', 'delete'],
   segments: ['view', 'create', 'edit', 'delete'],
   reports: ['view', 'export'],
   accounts: ['view', 'create', 'edit', 'delete'],
   settings: ['view', 'edit'],
+  systemEmails: ['view', 'edit'],
+  backups: ['view', 'create', 'upload', 'download', 'restore', 'delete'],
   users: ['view', 'create', 'edit', 'delete'],
-  activity: ['view', 'export'],
+  // 'delete' yahan pehle nahi tha, jabki activity.js ka DELETE route
+  // requireModule('activity', 'delete') hi maangta hai — matlab koi bhi role
+  // ko delete permission dene ki koshish chup-chap kat jaati thi
+  // (cleanPermissions() allow-list se) aur wo role kabhi delete kar hi nahi
+  // paata tha, chahe screen par tick laga ho.
+  activity: ['view', 'export', 'delete'],
 };
 
+/**
+ * `.default(...)` yahan JAAN-BOOJH KAR nahi hai on `tone`/`icon`/`permissions`/
+ * `accountIds` — PUT wala route isi schema ko `.partial()` se istemal karta
+ * hai, aur Zod me `.partial()` ke baad bhi ek `.default(...)` field, chhoote
+ * hi apna default value le leta hai (`undefined` nahi rehta). Agar yahan
+ * default hota, to PUT me sirf `accountIds` bhejne se `permissions` chup-chap
+ * `{}` (khaali) ho jaati — jo role ki saari permissions mita deta, bina kisi
+ * error ke. `newRoleInput` (neeche) me — jo sirf POST/naya role banate waqt
+ * chalta hai, kabhi `.partial()` nahi hota — defaults wapas jode gaye hain,
+ * taaki naya role banate waqt yeh fields chhod dena bilkul theek rahe.
+ */
 const roleInput = z.object({
   key: z
     .string()
@@ -48,14 +67,23 @@ const roleInput = z.object({
   // update karte waqt screen null bhejti hai, aur wo galti nahi hai.
   label: z.string().trim().max(80).nullish(),
   desc: z.string().trim().max(300).nullish(),
-  tone: z.enum(['danger', 'primary', 'info', 'success', 'warning', 'muted']).default('primary'),
-  icon: z.string().trim().max(60).default('bi-person'),
-  permissions: z.record(z.string(), z.array(z.string())).default({}),
+  tone: z.enum(['danger', 'primary', 'info', 'success', 'warning', 'muted']).optional(),
+  icon: z.string().trim().max(60).optional(),
+  permissions: z.record(z.string(), z.array(z.string())).optional(),
+  // Khali list = koi rok nahi, har connected account use kar sakte hain —
+  // dekho schema.sql ke role_account_access comment me poori wajah. Yahan
+  // `undefined` (field hi na bheja gaya) se jaan-boojh kar alag rakha gaya
+  // hai — dekho upar wala comment.
+  accountIds: z.array(z.string()).optional(),
 });
 
 /** Naya role banate waqt naam zaroori hai — bina naam ka role kis kaam ka. */
 const newRoleInput = roleInput.extend({
   label: z.string().trim().min(1, 'Give this role a name').max(80),
+  tone: z.enum(['danger', 'primary', 'info', 'success', 'warning', 'muted']).default('primary'),
+  icon: z.string().trim().max(60).default('bi-person'),
+  permissions: z.record(z.string(), z.array(z.string())).default({}),
+  accountIds: z.array(z.string()).default([]),
 });
 
 /**
@@ -89,7 +117,7 @@ function sortPermissions(map) {
     }, {});
 }
 
-function roleToApi(row, permissions) {
+function roleToApi(row, permissions, accountIds = []) {
   return {
     key: row.key,
     // Starter roles ka naam translation file se aata hai (labelKey), aur jo
@@ -103,6 +131,8 @@ function roleToApi(row, permissions) {
     locked: row.locked,
     custom: row.custom,
     permissions,
+    // Khali = har connected account use kar sakte hain (koi rok nahi).
+    accountIds,
   };
 }
 
@@ -118,6 +148,17 @@ async function permissionMap() {
   }, {});
 }
 
+/** Ek hi baar me saare roles ke allowed accounts le aata hai. */
+async function accountAccessMap() {
+  const rows = await many('SELECT role_key, account_id FROM role_account_access');
+
+  return rows.reduce((acc, row) => {
+    acc[row.role_key] = acc[row.role_key] || [];
+    acc[row.role_key].push(row.account_id);
+    return acc;
+  }, {});
+}
+
 // --- 1. saare roles ---------------------------------------------------------
 router.get(
   '/',
@@ -125,9 +166,10 @@ router.get(
   asyncHandler(async (req, res) => {
     const rows = await many('SELECT * FROM roles ORDER BY sort_order, key');
     const permissions = await permissionMap();
+    const accountAccess = await accountAccessMap();
 
     res.json({
-      roles: rows.map((row) => roleToApi(row, permissions[row.key] ?? {})),
+      roles: rows.map((row) => roleToApi(row, permissions[row.key] ?? {}, accountAccess[row.key] ?? [])),
       // Screen ko yeh dono chahiye taki wo checkbox ka grid bana sake. Ek hi
       // jagah se aane se frontend aur backend kabhi alag nahi hote.
       modules: MODULE_ACTIONS,
@@ -141,7 +183,7 @@ router.post(
   requireModule('users', 'create'),
   validate(newRoleInput),
   asyncHandler(async (req, res) => {
-    const { key, label, desc, tone, icon, permissions } = req.body;
+    const { key, label, desc, tone, icon, permissions, accountIds } = req.body;
 
     const clash = await one('SELECT key FROM roles WHERE key = $1', [key]);
     if (clash) throw badRequest('A role with this key already exists');
@@ -155,6 +197,7 @@ router.post(
     );
 
     await savePermissions(key, cleanPermissions(permissions));
+    await saveAccountAccess(key, accountIds);
 
     await logActivity(req, {
       action: 'created',
@@ -165,7 +208,8 @@ router.post(
 
     const row = await one('SELECT * FROM roles WHERE key = $1', [key]);
     const map = await permissionMap();
-    res.status(201).json({ role: roleToApi(row, map[key] ?? {}) });
+    const accessMap = await accountAccessMap();
+    res.status(201).json({ role: roleToApi(row, map[key] ?? {}, accessMap[key] ?? []) });
   })
 );
 
@@ -182,7 +226,7 @@ router.put(
     // app ko phir se theek karne wala koi bachta hi nahi.
     if (existing.locked) throw badRequest('This role is locked and cannot be changed');
 
-    const { label, desc, tone, icon, permissions } = req.body;
+    const { label, desc, tone, icon, permissions, accountIds } = req.body;
 
     // Starter roles ka naam translation file se aata hai — database me unka
     // `label` khali (null) hota hai aur `label_key` bhara hota hai. Isliye naam
@@ -240,6 +284,11 @@ router.put(
       }
     }
 
+    if (accountIds !== undefined) {
+      await query('DELETE FROM role_account_access WHERE role_key = $1', [req.params.key]);
+      await saveAccountAccess(req.params.key, accountIds);
+    }
+
     await logActivity(req, {
       action: 'updated',
       module: 'users',
@@ -249,7 +298,8 @@ router.put(
 
     const row = await one('SELECT * FROM roles WHERE key = $1', [req.params.key]);
     const map = await permissionMap();
-    res.json({ role: roleToApi(row, map[req.params.key] ?? {}) });
+    const accessMap = await accountAccessMap();
+    res.json({ role: roleToApi(row, map[req.params.key] ?? {}, accessMap[req.params.key] ?? []) });
   })
 );
 
@@ -284,6 +334,12 @@ router.post(
       [key, req.params.key]
     );
 
+    await query(
+      `INSERT INTO role_account_access (role_key, account_id)
+       SELECT $1, account_id FROM role_account_access WHERE role_key = $2`,
+      [key, req.params.key]
+    );
+
     await logActivity(req, {
       action: 'created',
       module: 'users',
@@ -293,7 +349,8 @@ router.post(
 
     const row = await one('SELECT * FROM roles WHERE key = $1', [key]);
     const map = await permissionMap();
-    res.status(201).json({ role: roleToApi(row, map[key] ?? {}) });
+    const accessMap = await accountAccessMap();
+    res.status(201).json({ role: roleToApi(row, map[key] ?? {}, accessMap[key] ?? []) });
   })
 );
 
@@ -340,6 +397,31 @@ async function savePermissions(roleKey, permissions) {
         [roleKey, module, action]
       );
     }
+  }
+}
+
+/**
+ * Account-access ki rows daalta hai. Khali list = kuch nahi daalte, matlab
+ * yeh role unrestricted rehta hai (schema.sql ka role_account_access comment
+ * dekho) — bilkul theek hai, "sab allowed" ka yehi matlab hota hai.
+ *
+ * Sirf abhi bhi connected accounts hi save karte hain — screen load hone ke
+ * baad koi account delete ho jaaye aur wahi purani id yahan aa jaaye, to
+ * foreign key error se poori save fail nahi honi chahiye.
+ */
+async function saveAccountAccess(roleKey, accountIds = []) {
+  if (!accountIds.length) return;
+
+  const real = await many('SELECT id FROM email_accounts WHERE id = ANY($1)', [accountIds]);
+  const realIds = new Set(real.map((row) => row.id));
+
+  for (const accountId of accountIds) {
+    if (!realIds.has(accountId)) continue;
+    await query(
+      `INSERT INTO role_account_access (role_key, account_id) VALUES ($1,$2)
+       ON CONFLICT DO NOTHING`,
+      [roleKey, accountId]
+    );
   }
 }
 

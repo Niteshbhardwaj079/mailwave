@@ -346,6 +346,7 @@ export const devGuideChapters = [
           headers: ['Table', 'What it holds'],
           rows: [
             ['`roles`, `role_permissions`', 'Role definitions and the module/action permission matrix'],
+            ['`role_account_access`', 'Which connected email accounts a role may use. No rows for a role = unrestricted (every account) — opt-in restriction, the opposite default from `role_permissions`. See its comment in `schema.sql`.'],
             ['`users`, `refresh_tokens`, `known_devices`', 'Team members and their sessions'],
             ['`password_tokens`, `email_change_tokens`', 'Short-lived tokens for reset-password/invite/email-change links'],
             ['`contact_groups`, `contacts`, `suppression`', 'The contact list and who must never receive email again'],
@@ -723,7 +724,8 @@ export const devGuideChapters = [
         heading: 'Authorization (what a role can do)',
         paragraphs: [
           'Real enforcement is server-side: `role_permissions` (module × action) + `middleware/permissions.js`\'s `requireModule()`, checked on the actual route. `super_admin` always passes every check.',
-          'The frontend mirrors this (`WorkspaceProvider.jsx`\'s `can()`) purely to decide what to show — hiding a sidebar link or disabling a button is not itself security; the route guard (`components/routing/RequireModule.jsx`) plus the server-side check together are.',
+          'The frontend mirrors this (`WorkspaceProvider.jsx`\'s `can()`, sourced from `useAuth().role`, not any client-side toggle) purely to decide what to show — hiding a sidebar link or disabling a button is not itself security; the route guard (`components/routing/RequireModule.jsx`) plus the server-side check together are.',
+          'A second, narrower dimension: `role_account_access` restricts WHICH connected email accounts a role may use (for creating/editing/sending/test-emailing a campaign) — independent of module permissions. `middleware/permissions.js`\'s `requireAccountAccess()` (body-driven) and `roleCanUseAccount()` (for routes that already have the account via a campaign row) enforce it; `CampaignWizardPage.jsx` also filters the account picker client-side using `useAuth().role.allowedAccountIds` so a restricted role never even sees an account it can\'t use. Managed from Users & Roles, below the permission matrix.',
         ],
       },
       {
@@ -847,6 +849,7 @@ export const devGuideChapters = [
           ['`company`, `supportEmail`, `website`, `address`', 'Shown in email footers — `address` is legally required for bulk email in most jurisdictions'],
           ['`defaultTheme`, `defaultAccent`', 'Initial light/dark mode and accent color, before a visitor picks their own'],
           ['`developerGuide`', 'Boolean — `true` shows this Developer Guide and makes its route reachable; `false` hides the nav link AND makes the route itself resolve to the normal 404 page. See Chapter 21.'],
+          ['`securityProtection`', 'Boolean — `true` deters casual right-click / text-select / Ctrl+U / Ctrl+S on the app\'s own screens (not a real security boundary — no website can block an actual screenshot or dev tools). Inputs, the HTML/code editor and every clipboard "Copy" button keep working either way. See `src/utils/useSecurityProtection.js` and the CSS block at the bottom of `src/styles/_utilities.scss`. Default `false`.'],
         ],
       },
       {
@@ -891,7 +894,8 @@ export const devGuideChapters = [
           ['Database schema', '`server/src/db/schema.sql`'],
           ['Storage (Object Storage / images)', '`server/src/services/objectStorage.js`, `server/src/lib/storageProviders.js` (+ frontend mirror `src/data/storageProviders.js`), `server/src/routes/storageSettings.js`'],
           ['API routes/services', '`server/src/routes/` (one file per resource) and `server/src/services/` (background/business logic) — see Chapter 4'],
-          ['Translations', '`src/i18n/locales/` — one file per language, flat `key: text` objects; `en.js` is the reference set of keys'],
+          ['Translations', '`src/i18n/locales/` — one file per language, flat `key: text` objects; `en.js` is the reference set of keys. New language: add the file, then one line in `loaders` and one row in `LANGUAGES` in `src/i18n/languages.js`'],
+          ['Design / copy protection (right-click, Ctrl+U, Ctrl+S, text-select)', '`brand.config.js` — `securityProtection` flag; behavior lives in `src/utils/useSecurityProtection.js` + `src/styles/_utilities.scss`'],
           ['Frontend API URL', '`VITE_API_URL` (build-time environment variable) — read in `src/api/client.js`'],
           ['Production domain', '`PUBLIC_URL`, `APP_URL`, and `CORS_ORIGINS` in the backend `.env` — plus wherever `VITE_API_URL` is set for the frontend build'],
         ],

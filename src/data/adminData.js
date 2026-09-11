@@ -3,22 +3,31 @@
 export const PERMISSION_ACTIONS = [
   { key: 'view', labelKey: 'users.view' },
   { key: 'create', labelKey: 'users.create' },
+  { key: 'upload', labelKey: 'users.upload' },
   { key: 'edit', labelKey: 'users.edit' },
   { key: 'delete', labelKey: 'users.delete' },
   { key: 'send', labelKey: 'users.send' },
   { key: 'export', labelKey: 'users.exportPerm' },
+  { key: 'download', labelKey: 'users.download' },
+  { key: 'restore', labelKey: 'users.restore' },
 ];
 
-// Which actions actually make sense for each section of the app.
+// Which actions actually make sense for each section of the app. Kept in
+// sync by hand with server/src/routes/roles.js's own MODULE_ACTIONS — the
+// server is the one that actually enforces this list (cleanPermissions()
+// drops anything not listed there), this copy just draws the matrix.
 export const PERMISSION_MODULES = [
   { key: 'dashboard', labelKey: 'nav.dashboard', icon: 'bi-grid-1x2', actions: ['view', 'export'] },
   { key: 'campaigns', labelKey: 'nav.campaigns', icon: 'bi-megaphone', actions: ['view', 'create', 'edit', 'delete', 'send', 'export'] },
   { key: 'contacts', labelKey: 'nav.contacts', icon: 'bi-people', actions: ['view', 'create', 'edit', 'delete', 'export'] },
   { key: 'templates', labelKey: 'nav.templates', icon: 'bi-layout-wtf', actions: ['view', 'create', 'edit', 'delete'] },
+  { key: 'media', labelKey: 'nav.media', icon: 'bi-images', actions: ['view', 'upload', 'edit', 'delete'] },
   { key: 'segments', labelKey: 'nav.segments', icon: 'bi-diagram-3', actions: ['view', 'create', 'edit', 'delete'] },
   { key: 'reports', labelKey: 'nav.reports', icon: 'bi-file-earmark-bar-graph', actions: ['view', 'export'] },
   { key: 'accounts', labelKey: 'nav.accounts', icon: 'bi-envelope-at', actions: ['view', 'create', 'edit', 'delete'] },
   { key: 'settings', labelKey: 'nav.settings', icon: 'bi-gear', actions: ['view', 'edit'] },
+  { key: 'systemEmails', labelKey: 'nav.systemEmails', icon: 'bi-envelope-paper', actions: ['view', 'edit'] },
+  { key: 'backups', labelKey: 'nav.backups', icon: 'bi-shield-check', actions: ['view', 'create', 'upload', 'download', 'restore', 'delete'] },
   { key: 'users', labelKey: 'nav.users', icon: 'bi-person-badge', actions: ['view', 'create', 'edit', 'delete'] },
   { key: 'activity', labelKey: 'nav.activity', icon: 'bi-clock-history', actions: ['view', 'export', 'delete'] },
 ];

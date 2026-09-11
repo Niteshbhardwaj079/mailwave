@@ -276,6 +276,20 @@ CREATE TABLE IF NOT EXISTS email_accounts (
   updated_at    timestamptz NOT NULL DEFAULT now()
 );
 
+-- A role with NO rows here is unrestricted — it can use every connected
+-- account, exactly like before this table existed. A role only becomes
+-- restricted once at least one row is added for it; from then on it can only
+-- use the accounts listed. Opt-IN, not opt-out — this is the opposite default
+-- from role_permissions (where an absent row means "not allowed") on
+-- purpose: role_permissions already existed before this table, so making an
+-- absent row mean "denied" here would have silently locked every existing
+-- role out of every account the moment this table appeared.
+CREATE TABLE IF NOT EXISTS role_account_access (
+  role_key    text NOT NULL REFERENCES roles(key) ON DELETE CASCADE,
+  account_id  text NOT NULL REFERENCES email_accounts(id) ON DELETE CASCADE,
+  PRIMARY KEY (role_key, account_id)
+);
+
 -- --- campaigns --------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS campaigns (

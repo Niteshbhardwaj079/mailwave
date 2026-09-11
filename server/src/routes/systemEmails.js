@@ -50,7 +50,7 @@ function toApiForLanguage(base, content, language, translations) {
 
 router.get(
   '/',
-  requireModule('settings', 'view'),
+  requireModule('systemEmails', 'view'),
   asyncHandler(async (req, res) => {
     const language = isValidLanguage(req.query.language) ? req.query.language : DEFAULT_LANGUAGE;
 
@@ -80,7 +80,7 @@ router.get(
 
 router.put(
   '/:key',
-  requireModule('settings', 'edit'),
+  requireModule('systemEmails', 'edit'),
   validate(
     z.object({
       subject: z.string().trim().min(1, 'Subject cannot be empty').max(300),
@@ -116,7 +116,7 @@ router.put(
  */
 router.put(
   '/:key/translations/:language',
-  requireModule('settings', 'edit'),
+  requireModule('systemEmails', 'edit'),
   validate(
     z.object({
       subject: z.string().trim().min(1, 'Subject cannot be empty').max(300),
@@ -170,7 +170,7 @@ router.put(
  */
 router.delete(
   '/:key/translations/:language',
-  requireModule('settings', 'edit'),
+  requireModule('systemEmails', 'edit'),
   asyncHandler(async (req, res) => {
     const { key, language } = req.params;
     if (language === 'en') throw badRequest('English lives in system_emails, not in translations');
@@ -202,7 +202,7 @@ router.delete(
  */
 router.post(
   '/:key/translations/:language/reset',
-  requireModule('settings', 'edit'),
+  requireModule('systemEmails', 'edit'),
   asyncHandler(async (req, res) => {
     const { key, language } = req.params;
     if (language === 'en') {
@@ -259,7 +259,7 @@ const CANNOT_TURN_OFF = ['password.reset', 'password.changed', 'user.invited', '
 
 router.post(
   '/:key/toggle',
-  requireModule('settings', 'edit'),
+  requireModule('systemEmails', 'edit'),
   validate(z.object({ enabled: z.boolean() })),
   asyncHandler(async (req, res) => {
     const existing = await one('SELECT * FROM system_emails WHERE key = $1', [req.params.key]);
@@ -295,7 +295,7 @@ router.post(
  */
 router.post(
   '/:key/reset',
-  requireModule('settings', 'edit'),
+  requireModule('systemEmails', 'edit'),
   asyncHandler(async (req, res) => {
     const { systemEmailTemplates } = await import('../../../src/data/systemEmails.js');
     const original = systemEmailTemplates.find((item) => item.key === req.params.key);
@@ -326,7 +326,7 @@ router.post(
  */
 router.post(
   '/:key/test',
-  requireModule('settings', 'edit'),
+  requireModule('systemEmails', 'edit'),
   asyncHandler(async (req, res) => {
     // Editor me jo language tab khula hai wahi yahan aata hai — na diya jaye
     // to English. Isse "Send Test" hamesha wahi dikhata hai jo screen par khula hai.

@@ -89,10 +89,12 @@ await page.waitForTimeout(2000);
 let body = await page.locator('body').innerText();
 check('wizard khula', !body.includes('stopped working'));
 
-// Step 1 — naam aur account
+// Step 1 — naam, account aur subject (teeno hi is step par zaroori hain —
+// dekho CampaignWizardPage.jsx ka stepError(0))
 await page.fill('#campaign-name', campaignName);
 const accountValue = await page.locator('#campaign-account').inputValue();
 check('email account apne aap chun liya gaya', accountValue.includes('@'), accountValue);
+await page.fill('#campaign-subject, input[name="subject"]', 'Hello {{name}}, test from MailWave');
 
 await page.getByRole('button', { name: /continue/i }).click();
 await page.waitForTimeout(1500);

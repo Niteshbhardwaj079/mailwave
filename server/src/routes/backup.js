@@ -8,9 +8,10 @@ import { Router } from 'express';
 import { z } from 'zod';
 
 import { currentDriver } from '../db/client.js';
-import { asyncHandler, badRequest, forbidden, notFound } from '../lib/http.js';
+import { asyncHandler, badRequest, notFound } from '../lib/http.js';
 import { logActivity } from '../lib/activity.js';
 import { validate } from '../lib/validate.js';
+import { requireModule } from '../middleware/permissions.js';
 import { getBackupStorage } from '../services/backupStorage.js';
 import {
   EVERY_DAYS,
@@ -31,20 +32,17 @@ import {
 
 const router = Router();
 
-/** Backup me sab kuch hota hai — password hashes tak. Sirf Super Admin. */
-const onlySuperAdmin = (req, res, next) => {
-  if (req.user.role_key !== 'super_admin') {
-    next(forbidden('Only a Super Admin can manage backups'));
-    return;
-  }
-  next();
-};
-
-router.use(onlySuperAdmin);
+// Backup me sab kuch hota hai — password hashes tak. Isliye Super Admin ko
+// hamesha (roleCan() ka pehla check) sab mil jata hai, aur har doosre role ke
+// liye har action apni alag permission maangta hai — jab tak koi Super Admin
+// Roles & Permissions se khud na de, kisi aur role ko yahan by default kuch
+// nahi milta (bilkul us purane hardcoded "sirf Super Admin" jaisa hi asar,
+// bas ab configurable hai).
 
 // --- backup ki list + settings ----------------------------------------------
 router.get(
   '/',
+  requireModule('backups', 'view'),
   asyncHandler(async (req, res) => {
     const backups = await listBackups();
     const storage = getBackupStorage();
@@ -83,6 +81,7 @@ router.get(
 // --- ek click me backup banao -----------------------------------------------
 router.post(
   '/',
+  requireModule('backups', 'create'),
   asyncHandler(async (req, res) => {
     let backup;
     try {
@@ -105,6 +104,7 @@ router.post(
 // --- download ---------------------------------------------------------------
 router.get(
   '/:name/download',
+  requireModule('backups', 'download'),
   asyncHandler(async (req, res) => {
     const meta = await getBackup(req.params.name);
     if (!meta || meta.status !== 'successful') throw notFound('This backup file was not found');
@@ -133,6 +133,7 @@ router.get(
 // --- backup hatao -----------------------------------------------------------
 router.delete(
   '/:name',
+  requireModule('backups', 'delete'),
   asyncHandler(async (req, res) => {
     const removed = await deleteBackup(req.params.name);
     if (!removed) throw notFound('This backup file was not found');
@@ -153,6 +154,7 @@ router.delete(
 // nahi dikhna chahiye, isliye response ka button dabte hi yeh bulaya jata hai.
 router.post(
   '/:name/acknowledge',
+  requireModule('backups', 'view'),
   asyncHandler(async (req, res) => {
     const ok = await acknowledgeMonthlyNotice(req.params.name);
     if (!ok) throw notFound('This monthly backup was not found');
@@ -166,6 +168,7 @@ router.post(
 // phir restart), kyunki chalte hue PGlite ko badalna surakshit nahi.
 router.post(
   '/:name/restore',
+  requireModule('backups', 'restore'),
   validate(z.object({
     confirm: z.literal('RESTORE', {
       errorMap: () => ({ message: 'Type RESTORE to confirm' }),
@@ -223,6 +226,7 @@ router.post(
 // kiya hua) kadam hai — jaisa kisi bhi doosre backup ke liye hota hai.
 router.post(
   '/upload',
+  requireModule('backups', 'upload'),
   asyncHandler(async (req, res) => {
     const type = req.get('content-type') || '';
     if (!type.includes('application/gzip') && !type.includes('application/octet-stream')) {

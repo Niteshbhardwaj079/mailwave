@@ -11,7 +11,7 @@ export const navSections = [
       { to: '/contacts', labelKey: 'nav.contacts', icon: 'bi-people', countKey: 'contacts', module: 'contacts' },
       { to: '/subscribers', labelKey: 'nav.subscribers', icon: 'bi-hand-thumbs-up', countKey: 'subscribers', module: 'contacts' },
       { to: '/templates', labelKey: 'nav.templates', icon: 'bi-layout-wtf', countKey: 'templates', module: 'templates' },
-      { to: '/media', labelKey: 'nav.media', icon: 'bi-images', module: 'templates' },
+      { to: '/media', labelKey: 'nav.media', icon: 'bi-images', module: 'media' },
     ],
   },
   {
@@ -34,8 +34,8 @@ export const navSections = [
     items: [
       { to: '/users', labelKey: 'nav.users', icon: 'bi-person-badge', countKey: 'users', module: 'users' },
       { to: '/activity', labelKey: 'nav.activity', icon: 'bi-clock-history', module: 'activity' },
-      { to: '/system-emails', labelKey: 'nav.systemEmails', icon: 'bi-envelope-paper', module: 'settings' },
-      { to: '/backups', labelKey: 'nav.backups', icon: 'bi-shield-check', module: 'settings' },
+      { to: '/system-emails', labelKey: 'nav.systemEmails', icon: 'bi-envelope-paper', module: 'systemEmails' },
+      { to: '/backups', labelKey: 'nav.backups', icon: 'bi-shield-check', module: 'backups' },
       // Same brand.config.js flag that gates the route itself in App.jsx —
       // this array is only built once at module load, so when the flag is
       // false the item is never added at all, not merely filtered/hidden.

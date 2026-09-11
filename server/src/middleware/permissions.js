@@ -39,3 +39,40 @@ export async function permissionsFor(roleKey) {
     return acc;
   }, {});
 }
+
+/**
+ * Which connected email accounts a role may send from/work with.
+ *
+ * No rows for this role = unrestricted (every connected account) — see the
+ * comment on role_account_access in schema.sql for why the default is the
+ * opposite of role_permissions.
+ *
+ * @returns {null | string[]} null means "no restriction, every account is
+ *   allowed" — kept distinct from an empty array (which would mean "this
+ *   role restricted itself down to zero accounts", a real, if unusual, state).
+ */
+export async function allowedAccountIds(roleKey) {
+  if (roleKey === 'super_admin') return null;
+
+  const rows = await many('SELECT account_id FROM role_account_access WHERE role_key = $1', [roleKey]);
+  if (!rows.length) return null;
+  return rows.map((row) => row.account_id);
+}
+
+/** True if this role may use this specific account — honours the "no rows = unrestricted" rule above. */
+export async function roleCanUseAccount(roleKey, accountId) {
+  const allowed = await allowedAccountIds(roleKey);
+  return allowed === null || allowed.includes(accountId);
+}
+
+/** Route guard: the campaign's/request's account must be one this role is allowed to use. */
+export function requireAccountAccess(getAccountId) {
+  return asyncHandler(async (req, res, next) => {
+    const accountId = getAccountId(req);
+    if (!accountId) return next();
+
+    const allowed = await roleCanUseAccount(req.user.role_key, accountId);
+    if (!allowed) throw forbidden('Your role cannot use this email account');
+    next();
+  });
+}

@@ -13,6 +13,7 @@ import Sheet from '../components/ui/Sheet';
 import { useT } from '../i18n/I18nProvider';
 import { useWorkspace } from '../store/WorkspaceProvider';
 import { useAuth } from '../store/AuthProvider';
+import { useApi } from '../api/useApi';
 import { PERMISSION_ACTIONS, PERMISSION_MODULES, ROLE_ICONS, ROLE_TONES } from '../data/adminData';
 import { roleDesc, roleLabel } from '../utils/roles';
 import { formatDateTime, initialsOf } from '../utils/format';
@@ -69,7 +70,14 @@ export default function UsersPage() {
   // us role ki asli (server wali) permissions se dubara bhar jata hai, isliye
   // ek role ki adhoori edit doosre role par kabhi nahi dikhti.
   const [draftPermissions, setDraftPermissions] = useState({});
+  // Kaunse connected email accounts is role ke liye kaam karte hain — khali
+  // list = koi rok nahi, sab accounts chalenge (dekho schema.sql ka
+  // role_account_access comment). draftPermissions jaisa hi pattern: Save
+  // Changes dabane tak sirf yahin badalta hai.
+  const [draftAccountIds, setDraftAccountIds] = useState([]);
   const [permissionsSaving, setPermissionsSaving] = useState(false);
+  const accountsCall = useApi('/api/accounts');
+  const connectedAccounts = accountsCall.data?.accounts ?? [];
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleteBlocked, setDeleteBlocked] = useState(null);
   const [passwordFor, setPasswordFor] = useState(null);
@@ -88,6 +96,7 @@ export default function UsersPage() {
   useEffect(() => {
     const found = roles.find((item) => item.key === selectedRole);
     setDraftPermissions(found?.permissions ?? {});
+    setDraftAccountIds(found?.accountIds ?? []);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedRole]);
 
@@ -378,6 +387,22 @@ export default function UsersPage() {
     setDraftPermissions((prev) => ({ ...prev, [module]: allOn ? [] : [...definition.actions] }));
   }
 
+  function handleAccountAccess(event) {
+    const { id } = event.currentTarget.dataset;
+    setDraftAccountIds((current) =>
+      current.includes(id) ? current.filter((item) => item !== id) : [...current, id]
+    );
+  }
+
+  /** Do account-id list ka mel — order maayne nahi rakhta. */
+  function accountIdsEqual(a, b) {
+    const setA = new Set(a || []);
+    const setB = new Set(b || []);
+    if (setA.size !== setB.size) return false;
+    for (const id of setA) if (!setB.has(id)) return false;
+    return true;
+  }
+
   /** Do permission-objects ka mel — key/array order maayne nahi rakhta. */
   function permissionsEqual(a, b) {
     const modules = new Set([...Object.keys(a || {}), ...Object.keys(b || {})]);
@@ -394,7 +419,7 @@ export default function UsersPage() {
     const found = roles.find((item) => item.key === selectedRole);
     if (!found || found.locked) return;
     setPermissionsSaving(true);
-    await savePermissions(selectedRole, draftPermissions);
+    await savePermissions(selectedRole, draftPermissions, draftAccountIds);
     setPermissionsSaving(false);
   }
 
@@ -406,7 +431,11 @@ export default function UsersPage() {
 
   const role = roles.find((item) => item.key === selectedRole) || roles[0] || null;
   const roleIsEmpty = PERMISSION_MODULES.every((module) => (draftPermissions?.[module.key] || []).length === 0);
-  const permissionsDirty = Boolean(role) && !role.locked && !permissionsEqual(draftPermissions, role.permissions || {});
+  const permissionsDirty =
+    Boolean(role) &&
+    !role.locked &&
+    (!permissionsEqual(draftPermissions, role.permissions || {}) ||
+      !accountIdsEqual(draftAccountIds, role.accountIds || []));
 
   return (
     <div className="mw-stack">
@@ -815,6 +844,39 @@ export default function UsersPage() {
                   })}
                 </tbody>
               </table>
+            </div>
+
+            <div className="mw-card__body border-top">
+              <h4 className="mw-fs-13 mw-fw-700 mb-1">{t('users.accountAccessTitle')}</h4>
+              <p className="mw-fs-12 mw-text-muted mb-3">{t('users.accountAccessHelp')}</p>
+
+              {connectedAccounts.length === 0 ? (
+                <p className="mw-fs-13 mw-text-muted mb-0">{t('users.accountAccessNone')}</p>
+              ) : (
+                <div className="row g-2">
+                  {connectedAccounts.map((account) => (
+                    <div className="col-12 col-md-6 col-lg-4" key={account.id}>
+                      <div className="form-check">
+                        <input
+                          type="checkbox"
+                          className="form-check-input"
+                          id={`role-account-${account.id}`}
+                          checked={draftAccountIds.includes(account.id)}
+                          disabled={role.locked}
+                          data-id={account.id}
+                          onChange={handleAccountAccess}
+                        />
+                        <label className="form-check-label mw-fs-13" htmlFor={`role-account-${account.id}`}>
+                          {account.displayName || account.email}
+                          {account.displayName ? (
+                            <span className="d-block mw-fs-11 mw-text-muted">{account.email}</span>
+                          ) : null}
+                        </label>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <CardFoot>

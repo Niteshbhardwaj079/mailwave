@@ -44,23 +44,12 @@ function mergeSystemEmails(rows) {
  */
 const WorkspaceContext = createContext(null);
 
-/** "Preview as role" sirf is browser ki cheez hai, isliye yeh yahin rehta hai. */
-const VIEW_AS_KEY = 'mailwave.viewAs';
-
-function loadViewAs() {
-  try {
-    return window.localStorage.getItem(VIEW_AS_KEY) || 'super_admin';
-  } catch (error) {
-    return 'super_admin';
-  }
-}
-
 export function WorkspaceProvider({ children }) {
   // Har kaam ke baad screen ke kone me ek message — warna pata hi nahi chalta
   // ki save hua ya nahi.
   const toast = useToast();
   const t = useT();
-  const { isSignedIn } = useAuth();
+  const { isSignedIn, role } = useAuth();
 
   const [templates, setTemplates] = useState([]);
   const [images, setImages] = useState([]);
@@ -69,7 +58,6 @@ export function WorkspaceProvider({ children }) {
   const [activity, setActivity] = useState([]);
   const [systemEmails, setSystemEmails] = useState([]);
   const [subscribers, setSubscribers] = useState([]);
-  const [viewAs, setViewAsState] = useState(loadViewAs);
 
   /** Pehli baar data aane tak true. Screen loader dikha sakti hai. */
   const [loading, setLoading] = useState(true);
@@ -370,6 +358,7 @@ export function WorkspaceProvider({ children }) {
           tone: tone ?? role.tone,
           icon: icon ?? role.icon,
           permissions: role.permissions,
+          accountIds: role.accountIds ?? [],
         });
 
         setRoles((current) => current.map((item) => (item.key === key ? data.role : item)));
@@ -449,15 +438,20 @@ export function WorkspaceProvider({ children }) {
    * par nahi.
    */
   const savePermissions = useCallback(
-    async (roleKey, nextPermissions) => {
+    async (roleKey, nextPermissions, nextAccountIds) => {
       const role = roles.find((item) => item.key === roleKey);
       if (!role || role.locked) return null;
 
-      const before = role.permissions;
+      const before = { permissions: role.permissions, accountIds: role.accountIds ?? [] };
+      // Screen se accountIds na diya jaaye (jaise sirf permission checkbox
+      // toggle hui) to role ka jo abhi accountIds hai wahi wapas bhej dete
+      // hain — kisi cheez ko chhua nahi, bas wahi state dobara confirm hoti
+      // hai.
+      const accountIds = nextAccountIds ?? role.accountIds ?? [];
 
       setRoles((current) =>
         current.map((item) =>
-          item.key === roleKey ? { ...item, permissions: nextPermissions } : item
+          item.key === roleKey ? { ...item, permissions: nextPermissions, accountIds } : item
         )
       );
 
@@ -468,6 +462,7 @@ export function WorkspaceProvider({ children }) {
           tone: role.tone,
           icon: role.icon,
           permissions: nextPermissions,
+          accountIds,
         });
         setRoles((current) => current.map((item) => (item.key === roleKey ? data.role : item)));
         refreshActivity();
@@ -475,7 +470,7 @@ export function WorkspaceProvider({ children }) {
         return true;
       } catch (error) {
         setRoles((current) =>
-          current.map((item) => (item.key === roleKey ? { ...item, permissions: before } : item))
+          current.map((item) => (item.key === roleKey ? { ...item, ...before } : item))
         );
         return fail(error);
       }
@@ -799,19 +794,13 @@ export function WorkspaceProvider({ children }) {
   );
 
   // --- permission check ----------------------------------------------------
-  const setViewAs = useCallback((next) => {
-    setViewAsState(next);
-    try {
-      window.localStorage.setItem(VIEW_AS_KEY, next);
-    } catch (error) {
-      // Storage band hai — sirf is session ke liye chalega, koi nuksaan nahi.
-    }
-  }, []);
-
-  const currentRole = useMemo(
-    () => roles.find((role) => role.key === viewAs) || roles[0] || null,
-    [roles, viewAs]
-  );
+  // Jo sach me sign in hai uska asli role — login/`/api/auth/me` se, seedha.
+  // Pehle yahan ek "preview as role" (localStorage) dropdown se ek NAKLI role
+  // chunte the, jo asli account ke role se bilkul alag ho sakta tha — isliye
+  // kisi ka role badalte hi topbar purana role dikhata rehta tha jab tak
+  // browser khud apna "preview" wapas na badle. Ab yeh hamesha asli, taaza
+  // role hai — server jo bhi bhejta hai wahi.
+  const currentRole = role;
 
   const can = useCallback(
     (moduleKey, actionKey = 'view') => {
@@ -867,8 +856,6 @@ export function WorkspaceProvider({ children }) {
       bulkRecipientAction,
       activity,
       refreshActivity,
-      viewAs,
-      setViewAs,
       currentRole,
       can,
     }),
@@ -910,8 +897,6 @@ export function WorkspaceProvider({ children }) {
       bulkRecipientAction,
       activity,
       refreshActivity,
-      viewAs,
-      setViewAs,
       currentRole,
       can,
     ]

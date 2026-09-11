@@ -10,11 +10,11 @@ import { writeFile, unlink } from 'node:fs/promises';
 
 import { many, one, query } from '../db/client.js';
 import { env } from '../env.js';
-import { asyncHandler, badRequest, notFound, paginated, pagination } from '../lib/http.js';
+import { asyncHandler, badRequest, forbidden, notFound, paginated, pagination } from '../lib/http.js';
 import { logActivity } from '../lib/activity.js';
 import { newId } from '../lib/ids.js';
 import { validate } from '../lib/validate.js';
-import { requireModule } from '../middleware/permissions.js';
+import { requireAccountAccess, requireModule, roleCanUseAccount } from '../middleware/permissions.js';
 import { pauseCampaign, startCampaign } from '../services/sender.js';
 import { runDueCampaigns } from '../services/scheduler.js';
 import { sendMail } from '../services/mailer.js';
@@ -462,6 +462,7 @@ router.post(
   '/',
   requireModule('campaigns', 'create'),
   validate(campaignInput),
+  requireAccountAccess((req) => req.body.accountId),
   asyncHandler(async (req, res) => {
     const b = req.body;
     const id = newId('cmp');
@@ -498,6 +499,7 @@ router.put(
   '/:id',
   requireModule('campaigns', 'edit'),
   validate(campaignInput),
+  requireAccountAccess((req) => req.body.accountId),
   asyncHandler(async (req, res) => {
     const existing = await one('SELECT id, status FROM campaigns WHERE id = $1', [req.params.id]);
     if (!existing) throw notFound('This campaign was not found');
@@ -693,6 +695,9 @@ router.post(
   asyncHandler(async (req, res) => {
     const campaign = await one('SELECT * FROM campaigns WHERE id = $1', [req.params.id]);
     if (!campaign) throw notFound('This campaign was not found');
+    if (!(await roleCanUseAccount(req.user.role_key, campaign.account_id))) {
+      throw forbidden('Your role cannot use this campaign\'s email account');
+    }
 
     const account = await one('SELECT * FROM email_accounts WHERE id = $1', [campaign.account_id]);
     if (!account) throw badRequest('No email account has been chosen for this campaign');
@@ -738,8 +743,11 @@ router.post(
   '/:id/send',
   requireModule('campaigns', 'send'),
   asyncHandler(async (req, res) => {
-    const campaign = await one('SELECT id, name, status FROM campaigns WHERE id = $1', [req.params.id]);
+    const campaign = await one('SELECT id, name, status, account_id FROM campaigns WHERE id = $1', [req.params.id]);
     if (!campaign) throw notFound('This campaign was not found');
+    if (!(await roleCanUseAccount(req.user.role_key, campaign.account_id))) {
+      throw forbidden('Your role cannot use this campaign\'s email account');
+    }
 
     const count = await one(
       `SELECT count(*)::int AS n FROM campaign_recipients WHERE campaign_id = $1 AND status = 'Pending'`,

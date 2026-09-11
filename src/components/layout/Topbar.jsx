@@ -5,7 +5,6 @@ import { SearchInput } from '../ui/Controls';
 import LanguagePicker from './LanguagePicker';
 import { AccentPicker, ThemeToggle } from './ThemeControls';
 import { useT } from '../../i18n/I18nProvider';
-import { useWorkspace } from '../../store/WorkspaceProvider';
 import { useAuth } from '../../store/AuthProvider';
 import { useApi } from '../../api/useApi';
 import { roleLabel } from '../../utils/roles';
@@ -24,8 +23,7 @@ function describeNotification(item, t) {
 
 export default function Topbar({ title, onOpenMenu, sidebarCollapsed, onToggleSidebar }) {
   const t = useT();
-  const { roles, viewAs, setViewAs } = useWorkspace();
-  const { user, signOut } = useAuth();
+  const { user, role, signOut } = useAuth();
   const [query, setQuery] = useState('');
   const [openPanel, setOpenPanel] = useState(null);
   const notifRef = useRef(null);
@@ -51,7 +49,7 @@ export default function Topbar({ title, onOpenMenu, sidebarCollapsed, onToggleSi
   // Jo abhi sign in hai wahi. Pehle yahan list ka pehla user dikhta tha —
   // yaani doosre logon ko upar kisi aur ka naam dikhta tha.
   const me = user;
-  const currentRoleLabel = roleLabel(roles.find((role) => role.key === viewAs), t);
+  const currentRoleLabel = roleLabel(role, t);
 
   function toggleNotifications() {
     setOpenPanel((current) => (current === 'notifications' ? null : 'notifications'));
@@ -69,10 +67,6 @@ export default function Topbar({ title, onOpenMenu, sidebarCollapsed, onToggleSi
   function handleSignOut() {
     closePanels();
     signOut();
-  }
-
-  function handleViewAs(event) {
-    setViewAs(event.target.value);
   }
 
   return (
@@ -177,21 +171,6 @@ export default function Topbar({ title, onOpenMenu, sidebarCollapsed, onToggleSi
                 <span className="d-block mw-fs-13 mw-fw-700">{me?.name}</span>
                 <span className="d-block mw-fs-12 mw-text-muted">{me?.email}</span>
               </div>
-
-              <div className="px-3 pb-2">
-                <label className="form-label mw-fs-11" htmlFor="view-as">
-                  {t('topbar.viewAs')}
-                </label>
-                <select id="view-as" className="form-select form-select-sm" value={viewAs} onChange={handleViewAs}>
-                  {roles.map((role) => (
-                    <option key={role.key} value={role.key}>
-                      {roleLabel(role, t)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <hr className="dropdown-divider" />
 
               <Link className="dropdown-item" to="/settings" onClick={closePanels}>
                 <i className="bi bi-person me-2" /> {t('topbar.profile')}

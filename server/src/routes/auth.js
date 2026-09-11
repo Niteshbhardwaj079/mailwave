@@ -12,7 +12,7 @@ import { hashToken, newRefreshToken, refreshExpiry, signAccessToken } from '../l
 import { newId } from '../lib/ids.js';
 import { validate } from '../lib/validate.js';
 import { requireAuth } from '../middleware/auth.js';
-import { permissionsFor } from '../middleware/permissions.js';
+import { allowedAccountIds, permissionsFor } from '../middleware/permissions.js';
 import { LANGUAGE_CODES, DEFAULT_LANGUAGE } from '../lib/languages.js';
 
 const router = Router();
@@ -146,6 +146,10 @@ async function sessionPayload(user) {
           locked: role.locked,
           custom: role.custom,
           permissions: await permissionsFor(role.key),
+          // null = koi rok nahi, har connected account use kar sakte hain.
+          // Array = sirf inhi accounts tak — src/store/AuthProvider.jsx se
+          // seedha campaign wizard ke account-picker tak jaata hai.
+          allowedAccountIds: await allowedAccountIds(role.key),
         }
       : null,
   };

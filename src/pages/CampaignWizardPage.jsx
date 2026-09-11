@@ -17,6 +17,7 @@ import StepSettings from '../components/wizard/StepSettings';
 import StepReview from '../components/wizard/StepReview';
 import { wizardSteps } from '../data/constants';
 import { useWorkspace } from '../store/WorkspaceProvider';
+import { useAuth } from '../store/AuthProvider';
 import { ApiError, api } from '../api/client';
 import { useApi } from '../api/useApi';
 import { useToast } from '../components/ui/ToastProvider';
@@ -86,6 +87,7 @@ export default function CampaignWizardPage() {
   const toast = useToast();
   const navigate = useNavigate();
   const { templates } = useWorkspace();
+  const { role } = useAuth();
 
   // Route me id ho to ek maujooda Draft edit ho rahi hai, warna naya banana hai.
   const { campaignId: editId } = useParams();
@@ -98,7 +100,14 @@ export default function CampaignWizardPage() {
   const preselectedSegment = searchParams.get('segment');
 
   const accountsCall = useApi('/api/accounts');
-  const accounts = useMemo(() => accountsCall.data?.accounts ?? [], [accountsCall.data]);
+  // null = koi rok nahi (har account); array ho to sirf usi list tak —
+  // dekho server/src/middleware/permissions.js ka allowedAccountIds().
+  const allowedAccountIds = role?.allowedAccountIds ?? null;
+  const accounts = useMemo(() => {
+    const all = accountsCall.data?.accounts ?? [];
+    if (!allowedAccountIds) return all;
+    return all.filter((item) => allowedAccountIds.includes(item.id));
+  }, [accountsCall.data, allowedAccountIds]);
 
   // Settings page ke "Sending"/"Tracking" defaults yahin lagte hain — naya
   // campaign inhi se shuru hota hai, taki Settings me chuna hua batch size ya

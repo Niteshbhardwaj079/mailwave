@@ -95,7 +95,7 @@ const SELECT = `
 
 router.get(
   '/',
-  requireModule('templates', 'view'),
+  requireModule('media', 'view'),
   asyncHandler(async (req, res) => {
     const sort = String(req.query.sort || 'recent');
     const search = String(req.query.search || '').trim();
@@ -200,7 +200,7 @@ async function persistUploadedImage({ name, dataUrl, userId }) {
 
 router.post(
   '/',
-  requireModule('templates', 'create'),
+  requireModule('media', 'upload'),
   validate(imageInput),
   asyncHandler(async (req, res) => {
     const { name, url, size, source } = req.body;
@@ -242,7 +242,7 @@ router.post(
 /** Template editor se ek image "insert" hote hi bulaya jaata hai — "recently used" isi se ban-ta hai. */
 router.post(
   '/:id/touch',
-  requireModule('templates', 'view'),
+  requireModule('media', 'view'),
   asyncHandler(async (req, res) => {
     await query('UPDATE images SET last_used_at = now() WHERE id = $1', [req.params.id]);
     res.json({ ok: true });
@@ -264,7 +264,7 @@ router.post(
  */
 router.get(
   '/:id/usage',
-  requireModule('templates', 'view'),
+  requireModule('media', 'view'),
   asyncHandler(async (req, res) => {
     const row = await one('SELECT id, url, storage_provider FROM images WHERE id = $1', [req.params.id]);
     if (!row) throw notFound('This image was not found');
@@ -295,7 +295,7 @@ router.get(
 /** Crop/edit: usi id/URL par naye (optimize kiye hue) bytes chadha deta hai — koi reference toothi nahi. */
 router.put(
   '/:id',
-  requireModule('templates', 'edit'),
+  requireModule('media', 'edit'),
   asyncHandler(async (req, res) => {
     const existing = await one('SELECT id, name FROM images WHERE id = $1', [req.params.id]);
     if (!existing) throw notFound('This image was not found');
@@ -348,7 +348,7 @@ router.put(
 
 router.delete(
   '/:id',
-  requireModule('templates', 'delete'),
+  requireModule('media', 'delete'),
   asyncHandler(async (req, res) => {
     const existing = await one('SELECT id, name, object_key FROM images WHERE id = $1', [req.params.id]);
     if (!existing) throw notFound('This image was not found');

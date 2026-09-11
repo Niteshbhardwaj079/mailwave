@@ -7,6 +7,7 @@ import RequireAuth from './components/routing/RequireAuth';
 import RequireModule from './components/routing/RequireModule';
 import LoginPage from './pages/LoginPage';
 import { appConfig } from './config/appConfig';
+import { useSecurityProtection } from './utils/useSecurityProtection';
 
 // Every screen behind the login is its own chunk, so a visitor who only ever
 // sees the sign-in page never downloads the charts, the template editor or the
@@ -56,6 +57,8 @@ const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
  * topbar on screen instead of blanking the whole window.
  */
 export default function App() {
+  useSecurityProtection();
+
   return (
     <Suspense fallback={<PageLoader fullScreen />}>
       <Routes>
@@ -98,6 +101,8 @@ export default function App() {
             <Route element={<RequireModule module="templates" />}>
               <Route path="/templates" element={<TemplatesPage />} />
               <Route path="/templates/:templateId/edit" element={<TemplateEditRouterPage />} />
+            </Route>
+            <Route element={<RequireModule module="media" />}>
               <Route path="/media" element={<MediaLibraryPage />} />
             </Route>
             <Route element={<RequireModule module="templates" action="create" />}>
@@ -120,7 +125,11 @@ export default function App() {
 
             <Route element={<RequireModule module="settings" />}>
               <Route path="/settings" element={<SettingsPage />} />
+            </Route>
+            <Route element={<RequireModule module="systemEmails" />}>
               <Route path="/system-emails" element={<SystemEmailsPage />} />
+            </Route>
+            <Route element={<RequireModule module="backups" />}>
               <Route path="/backups" element={<BackupPage />} />
             </Route>
 
