@@ -22,6 +22,10 @@ const loaders = {
   mr: () => import('./locales/mr'),
   bn: () => import('./locales/bn'),
   ta: () => import('./locales/ta'),
+  te: () => import('./locales/te'),
+  ml: () => import('./locales/ml'),
+  kn: () => import('./locales/kn'),
+  pa: () => import('./locales/pa'),
   ar: () => import('./locales/ar'),
   es: () => import('./locales/es'),
   fr: () => import('./locales/fr'),
@@ -42,10 +46,6 @@ export const LANGUAGES = [
   { code: 'mr', native: 'मराठी', english: 'Marathi', flag: '🇮🇳', locale: 'mr-IN', dir: 'ltr' },
   { code: 'bn', native: 'বাংলা', english: 'Bengali', flag: '🇧🇩', locale: 'bn-IN', dir: 'ltr' },
   { code: 'ta', native: 'தமிழ்', english: 'Tamil', flag: '🇮🇳', locale: 'ta-IN', dir: 'ltr' },
-  // Telugu/Malayalam/Kannada/Punjabi: content-tagging only (templates, system
-  // emails, campaigns) — jaanboojh kar `loaders` me nahi daale, isliye UI
-  // chrome inke liye English hi dikhata hai, har doosri abhi-tak-anuvaadit-
-  // nahi key ki tarah.
   { code: 'te', native: 'తెలుగు', english: 'Telugu', flag: '🇮🇳', locale: 'te-IN', dir: 'ltr' },
   { code: 'ml', native: 'മലയാളം', english: 'Malayalam', flag: '🇮🇳', locale: 'ml-IN', dir: 'ltr' },
   { code: 'kn', native: 'ಕನ್ನಡ', english: 'Kannada', flag: '🇮🇳', locale: 'kn-IN', dir: 'ltr' },
