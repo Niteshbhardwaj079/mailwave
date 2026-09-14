@@ -191,6 +191,7 @@ export const devGuideChapters = [
           ['`middleware/auth.js`', '`requireAuth` — verifies the JWT or API key on every protected request, loads the real user row fresh from the database'],
           ['`middleware/permissions.js`', '`requireModule(module, action)` — the server-side permission check every route that touches sensitive data uses'],
           ['`middleware/errors.js`', 'Turns thrown errors into a consistent JSON error shape'],
+          ['`middleware/actionLimiter.js`', 'Per-USER (not per-IP) `express-rate-limit` instances for a handful of heavy/sensitive actions — campaign create/send/schedule/resend/recipients, image upload, manual backup create/upload/restore. Layered on top of `app.js`\'s blanket 300/min-per-IP ceiling, which alone can\'t stop one compromised account from hammering an expensive action.'],
           ['`lib/tokens.js`', 'Signs/verifies JWTs, generates refresh tokens'],
           ['`lib/password.js`', 'Hashing/verifying user passwords'],
           ['`lib/secretbox.js`', 'Encrypts connected email accounts\' SMTP passwords (key derived from `JWT_SECRET`)'],
@@ -522,6 +523,12 @@ export const devGuideChapters = [
         ],
       },
       {
+        heading: 'Every `data:` upload gets re-encoded — no exceptions',
+        paragraphs: [
+          '`routes/images.js` always routes a `data:` URL payload through `persistUploadedImage()` (which decodes it and re-encodes through `sharp`), regardless of what the request\'s `source` field claims. A security audit found this was previously gated on `source === \'upload\'` only — a request declaring `source: \'url\'` with a `data:image/svg+xml` payload skipped `sharp` entirely and stored the raw SVG, which `files.js` would then serve from MailWave\'s own origin as `image/svg+xml` — a stored-XSS path, since an embedded `<script>` in an SVG opened as a direct navigation (not an `<img>`) executes. `files.js`\'s `ALLOWED` content-type set no longer includes `image/svg+xml` at all, as defense in depth. If you touch the upload branch again: any `data:` URL, whatever `source` says, must go through `sharp` before it\'s trusted.',
+        ],
+      },
+      {
         heading: 'Media Library storage usage',
         paragraphs: [
           '`GET /api/images` also returns a `usage` block, summed from each image\'s `size_bytes` and split by `storage_provider` (app database vs. connected external bucket) — externally-linked images (`source = \'url\'`) are excluded, since MailWave doesn\'t control storage it doesn\'t own. Uses the same optional admin-set limit pattern as database storage usage (Chapter 7) — the `mediaBytes` half of the shared `storageLimits` settings row.',
@@ -762,7 +769,8 @@ export const devGuideChapters = [
         paragraphs: [
           'Real enforcement is server-side: `role_permissions` (module × action) + `middleware/permissions.js`\'s `requireModule()`, checked on the actual route. `super_admin` always passes every check.',
           'The frontend mirrors this (`WorkspaceProvider.jsx`\'s `can()`, sourced from `useAuth().role`, not any client-side toggle) purely to decide what to show — hiding a sidebar link or disabling a button is not itself security; the route guard (`components/routing/RequireModule.jsx`) plus the server-side check together are.',
-          'A second, narrower dimension: `role_account_access` restricts WHICH connected email accounts a role may use (for creating/editing/sending/test-emailing a campaign) — independent of module permissions. `middleware/permissions.js`\'s `requireAccountAccess()` (body-driven) and `roleCanUseAccount()` (for routes that already have the account via a campaign row) enforce it; `CampaignWizardPage.jsx` also filters the account picker client-side using `useAuth().role.allowedAccountIds` so a restricted role never even sees an account it can\'t use. Managed from Users & Roles, below the permission matrix.',
+          'A second, narrower dimension: `role_account_access` restricts WHICH connected email accounts a role may use (for creating/editing/sending/test-emailing a campaign) — independent of module permissions. `middleware/permissions.js`\'s `requireAccountAccess()` (body-driven) and `roleCanUseAccount()` (for routes that already have the account via a campaign row, or the account itself via `routes/accounts.js`) enforce it; `CampaignWizardPage.jsx` also filters the account picker client-side using `useAuth().role.allowedAccountIds` so a restricted role never even sees an account it can\'t use. Managed from Users & Roles, below the permission matrix.',
+          'Every code path that can actually trigger a real send (or edit/delete a connected account) must call `roleCanUseAccount()`/`requireAccountAccess()` — a security audit found and fixed several places this was missing (`campaigns.js`\'s `/:id/resend`, `/recipients/bulk` with `kind: \'resend\'`, and the auto-start inside `/:id/recipients`; `accounts.js`\'s `PUT`/`DELETE`/`:id/test-email`). If you add a new route that sends through an existing campaign\'s account or mutates a specific `email_accounts` row, add this check too — `requireModule` alone only checks the general module permission, not this narrower per-account allowlist.',
         ],
       },
       {
@@ -861,7 +869,7 @@ export const devGuideChapters = [
       {
         heading: 'Diagnostics (optional)',
         facts: [
-          ['`MW_SERVER_LOG`', 'Mirrors console output to a file as well (default: an OS temp-folder path) — useful for support regardless of how the server was started'],
+          ['`MW_SERVER_LOG`', 'Mirrors console output to a file as well (default when set: an OS temp-folder path) — useful for support regardless of how the server was started. Console output can include a real password-reset/invite/email-change link when SMTP delivery fails (see `routes/auth.js`/`routes/users.js`), so this mirroring only turns on by default in development; in production (`NODE_ENV=production`) it stays off unless you set this variable explicitly.'],
         ],
       },
     ],
