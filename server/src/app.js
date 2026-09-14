@@ -29,6 +29,7 @@ import settingsRoutes from './routes/settings.js';
 import apiKeyRoutes from './routes/apiKeys.js';
 import webhookRoutes from './routes/webhooks.js';
 import storageSettingsRoutes from './routes/storageSettings.js';
+import suppressionRoutes from './routes/suppression.js';
 
 export function createApp() {
   const app = express();
@@ -82,6 +83,7 @@ export function createApp() {
   // file me dobara likhna na pade.
   app.use('/api/auth', authRoutes);
   app.use('/api/contacts', requireAuth, contactRoutes);
+  app.use('/api/suppression', requireAuth, suppressionRoutes);
   app.use('/api/templates', requireAuth, templateRoutes);
   app.use('/api/campaigns', requireAuth, campaignRoutes);
   app.use('/api/accounts', requireAuth, accountRoutes);

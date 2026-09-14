@@ -18,6 +18,7 @@ const CampaignsPage = lazy(() => import('./pages/CampaignsPage'));
 const CampaignWizardPage = lazy(() => import('./pages/CampaignWizardPage'));
 const CampaignAnalyticsPage = lazy(() => import('./pages/CampaignAnalyticsPage'));
 const ContactsPage = lazy(() => import('./pages/ContactsPage'));
+const SuppressionPage = lazy(() => import('./pages/SuppressionPage'));
 const ImportContactsPage = lazy(() => import('./pages/ImportContactsPage'));
 const SegmentsPage = lazy(() => import('./pages/SegmentsPage'));
 const SubscribersPage = lazy(() => import('./pages/SubscribersPage'));
@@ -89,6 +90,7 @@ export default function App() {
             <Route element={<RequireModule module="contacts" />}>
               <Route path="/contacts" element={<ContactsPage />} />
               <Route path="/subscribers" element={<SubscribersPage />} />
+              <Route path="/suppression" element={<SuppressionPage />} />
             </Route>
             <Route element={<RequireModule module="contacts" action="create" />}>
               <Route path="/contacts/import" element={<ImportContactsPage />} />

@@ -1053,6 +1053,7 @@ export default {
 
   // --- Subscribers (Update 5) ---
   'nav.subscribers': 'Subscribers',
+  'nav.suppression': 'Suppression List',
   'sub.title': 'Subscribers',
   'sub.subtitle': 'People who pressed Subscribe inside one of your emails.',
   'sub.intro': 'These people were not on your list — they asked to join after reading a campaign. You can see which campaign brought each one.',
@@ -1081,6 +1082,34 @@ export default {
   'sub.variableNote': 'Use {{subscribe_url}} anywhere in your HTML to make your own Subscribe button.',
   'help.sub.1': 'Everyone here asked to join after reading one of your emails.',
   'help.sub.2': 'Pick them in step 2 of the campaign wizard to send only to this warm list.',
+
+  // --- Suppression List ---
+  'sup.title': 'Suppression List',
+  'sup.subtitle': 'Addresses that must never receive a marketing campaign — never sent to again, no matter which account or campaign.',
+  'sup.searchPlaceholder': 'Search by email…',
+  'sup.reason': 'Reason',
+  'sup.source': 'Source',
+  'sup.addedOn': 'Added on',
+  'sup.emptyText': 'Nothing suppressed yet — bounces and unsubscribes show up here automatically.',
+  'sup.reasonBounced': 'Bounce',
+  'sup.reasonUnsubscribed': 'Unsubscribe',
+  'sup.reasonComplaint': 'Complaint',
+  'sup.reasonManual': 'Manual Block',
+  'sup.reasonInvalid': 'Invalid Email',
+  'sup.sourceGlobal': 'All accounts',
+  'sup.sourceUnknownAccount': 'A removed account',
+  'sup.addEmail': 'Add email',
+  'sup.addTitle': 'Add to suppression list',
+  'sup.addNote': "Added here, this email is blocked for every account and every future campaign — not just one. Bounce and Complaint should only be picked when you genuinely know that happened (a bounce message you saw, a complaint someone sent you directly) — the app itself only ever fills those in automatically from real, confirmed events, never a guess.",
+  'sup.emailNeeded': 'Enter an email address',
+  'sup.noteOptional': 'Note (optional)',
+  'sup.notePlaceholder': 'Why is this address being blocked?',
+  'sup.added': 'Added to the suppression list',
+  'sup.remove': 'Remove',
+  'sup.removed': 'Removed from the suppression list',
+  'sup.removeConfirmTitle': 'Remove from suppression list?',
+  'sup.removeConfirmText': '{email} will be allowed to receive campaigns again. Only do this if you are sure — for a real bounce or complaint, the address usually should stay blocked.',
+  'filter.reason': 'Reason',
 
   // --- Accessibility labels ---
   'nav.mainNav': 'Main navigation',

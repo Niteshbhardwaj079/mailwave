@@ -230,6 +230,7 @@ export const devGuideChapters = [
           rows: [
             ['`/api/auth`', '`routes/auth.js`', 'Login, logout, refresh, password reset, invite acceptance — public (no `requireAuth`)'],
             ['`/api/contacts`', '`routes/contacts.js`', 'Contact CRUD, bulk actions, dedupe, groups'],
+            ['`/api/suppression`', '`routes/suppression.js`', 'The suppression list — search/filter, manual add/remove (`SuppressionPage.jsx`)'],
             ['`/api/templates`', '`routes/templates.js`', 'Template CRUD, categories, sources (custom/upload/builder)'],
             ['`/api/campaigns`', '`routes/campaigns.js`', 'Campaign CRUD, wizard save, schedule, pause/resume, `.xlsx` report'],
             ['`/api/accounts`', '`routes/accounts.js`', 'Connected email accounts — connect, test, edit, disconnect'],
@@ -306,14 +307,21 @@ export const devGuideChapters = [
         ],
       },
       {
+        heading: 'Hard bounces vs. plain failures',
+        paragraphs: [
+          '`isHardBounce()` in `sender.js` looks at the raw error nodemailer throws on a rejected send. A HARD bounce is narrowly defined: the receiving server rejected the address itself at the `RCPT TO` step with a permanent (5xx) SMTP code — the standard, unambiguous "this mailbox does not exist" signal (RFC 5321). That recipient gets `status = \'Bounced\'` (not `\'Failed\'`), an entry in `suppression` (`reason = \'bounced\'`, scoped to that campaign\'s account), and `contacts.status = \'Bounced\'` — so it is never retried and never re-sent to from that account again.',
+          'Everything else — connection errors, auth failures, timeouts, a 4xx temporary rejection, or a rejection at the `DATA` stage instead of `RCPT TO` — stays `\'Failed\'` and remains eligible for the existing "retry failed emails once" setting. This is deliberately conservative: MailWave has no ESP webhook integration (see Chapter 9\'s note on this), so a hard SMTP-level rejection during the send attempt itself is the ONLY bounce signal available — nothing here is inferred or guessed from an undelivered/failed status.',
+        ],
+      },
+      {
         heading: 'Important files',
         fileCards: [
           {
             file: 'server/src/services/sender.js',
-            does: 'Sends a campaign: batches recipients, checks suppression/quota/pause state, calls `render.js` then `mailer.js` per recipient, updates status, retries failures once if enabled.',
-            dependsOn: '`services/scheduler.js` (starts it), `services/render.js`, `services/mailer.js`, the `campaigns`/`campaign_recipients`/`email_accounts` tables.',
+            does: 'Sends a campaign: batches recipients, checks suppression/quota/pause state, calls `render.js` then `mailer.js` per recipient, updates status (including hard-bounce classification, above), retries failures once if enabled.',
+            dependsOn: '`services/scheduler.js` (starts it), `services/render.js`, `services/mailer.js`, the `campaigns`/`campaign_recipients`/`email_accounts`/`suppression`/`contacts` tables.',
             safe: 'Adjusting log messages, adding new pause reasons for new failure types.',
-            careful: 'The batch/delay/quota logic is deliberately conservative to avoid getting sending accounts blocked by mail providers — do not remove the inter-batch delay or the daily-limit check without understanding why they exist.',
+            careful: 'The batch/delay/quota logic is deliberately conservative to avoid getting sending accounts blocked by mail providers — do not remove the inter-batch delay or the daily-limit check without understanding why they exist. `isHardBounce()`\'s `RCPT TO` + 5xx check is intentionally narrow — do not widen it to DATA-stage or 4xx rejections without a real reason, since misclassifying a temporary failure as a permanent bounce means suppressing an address that might have worked on retry.',
           },
           {
             file: 'server/src/services/scheduler.js',
@@ -565,6 +573,13 @@ export const devGuideChapters = [
         ],
       },
       {
+        heading: 'What plain SMTP can and cannot tell you',
+        paragraphs: [
+          'Every send goes through generic SMTP (nodemailer) — Gmail, Outlook, custom SMTP, or an SMTP-relay preset for a provider like SendGrid/Amazon SES (`services/providers.js` supplies the host/port, nothing more). This means MailWave only ever sees what happens DURING the SMTP conversation itself: whether the receiving server accepted or rejected the message right there. A permanent (5xx) rejection at the `RCPT TO` step is real, verifiable data — that is what powers hard-bounce detection (Chapter 5).',
+          'What plain SMTP genuinely cannot tell you: whether a delivered message later landed in Spam/Junk, or whether the recipient clicked "Report Spam." That visibility only exists through a provider\'s own Event/Webhook API (SendGrid Event Webhook, Mailgun webhooks, Postmark webhooks, Amazon SES + SNS) or an ISP feedback-loop program (Gmail/Yahoo/Microsoft, each requiring separate registration per sending domain) — and MailWave integrates with none of these today; connecting an account (even to a provider that offers one) only ever uses its SMTP relay. Do not build a "Spam" counter, complaint auto-detection, or similar from status/failure data alone — there is no reliable signal for it in the current architecture, and guessing (e.g. treating a bounce or a generic failure as a complaint) would just be fabricated data with a confident-looking UI on top of it.',
+        ],
+      },
+      {
         heading: 'Important files',
         fileCards: [
           {
@@ -704,7 +719,8 @@ export const devGuideChapters = [
       {
         heading: 'Suppression',
         paragraphs: [
-          'The `suppression` table is what `sender.js` actually checks before sending to any address — an unsubscribe or hard bounce adds a row here. Whether an unsubscribe from one sending account blocks all accounts or just that one is the `applyGlobally` option under Settings > Unsubscribe.',
+          'The `suppression` table is what `sender.js` actually checks before sending to any address — an unsubscribe or hard bounce adds a row here. Whether an unsubscribe from one sending account blocks all accounts or just that one is the `applyGlobally` option under Settings > Unsubscribe. Primary key is `(account_id, email)` — `account_id = \'\'` means the row applies to every connected account (used for global unsubscribes and every manually-added entry); a specific `account_id` means it only blocks sends from that one account (used for hard bounces, which are only known to be true for the account that actually tried and got rejected).',
+          '`SuppressionPage.jsx` + `server/src/routes/suppression.js` (`/api/suppression`) is the admin screen over this same table — search, filter by reason, and a manual add/remove. A manually-added entry always gets `account_id = \'\'` (global), since an admin blocking an address means it always, everywhere, not just for one account. Reasons: `bounced` and `unsubscribed` are written automatically by real events (`sender.js`, `routes/track.js`) — never by this screen guessing. `complaint` exists as a reason value but nothing in the app writes it automatically today (see Chapter 9\'s note on why); it only appears if an admin manually picks it, knowing something out-of-band. `manual`/`invalid` are for admin-only manual entries.',
         ],
       },
       {
