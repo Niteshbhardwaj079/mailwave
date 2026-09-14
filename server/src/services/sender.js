@@ -34,6 +34,30 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/**
+ * Sirf tabhi HARD BOUNCE maante hain jab receiving mail server ne is
+ * recipient ko RCPT TO command par hi seedha permanent (5xx) reject kiya ho
+ * — yehi standard SMTP signal hai (RFC 5321) ki mailbox exist nahi karta ya
+ * hamesha ke liye band hai. `nodemailer` real SMTP rejection par error par
+ * `.command` ('RCPT TO', 'DATA', 'MAIL FROM', ya connection/auth ke liye
+ * 'CONN'/'API'/'AUTH ...') aur `.responseCode` (server ka SMTP code) daalta
+ * hai — yeh humne khud test karke (fake SMTP server se) confirm kiya hai,
+ * guess nahi kiya.
+ *
+ * Jaan-boojh kar NARROW rakha hai: connection/timeout/auth errors, 4xx
+ * (transient — dobara koshish se ho sakta hai chal jaaye), aur DATA-stage
+ * rejections (message content/policy reject hua, "mailbox exist nahi"
+ * nahi) — in sab par 'Bounced' nahi maante, 'Failed' hi rehta hai (jo
+ * already retry ke liye eligible hai). Asthayi failure ko bounce maan kar
+ * suppression list me daal dena galat hoga — us insaan ko hamesha ke liye
+ * mail band ho jaati, jabki asli wajah sirf ek doosre din ka network glitch
+ * ho sakta tha.
+ */
+function isHardBounce(error) {
+  const code = Number(error?.responseCode);
+  return error?.command === 'RCPT TO' && Number.isInteger(code) && code >= 500 && code < 600;
+}
+
 /** Aaj ka counter reset karta hai agar din badal gaya ho. */
 async function resetQuotaIfNewDay(accountId) {
   await query(
@@ -412,16 +436,34 @@ async function run(campaign, account, controller, company) {
       } catch (error) {
         // Ek address fail hone se poori campaign nahi rukni chahiye.
         const message = String(error?.message || error).slice(0, 300);
+        const hardBounce = isHardBounce(error);
+
         await query(
           `UPDATE campaign_recipients
-              SET status = 'Failed', error = $2,
+              SET status = $3, error = $2,
                   send_count = send_count + 1, last_attempted_at = now()
             WHERE id = $1`,
-          [recipient.id, message]
+          [recipient.id, message, hardBounce ? 'Bounced' : 'Failed']
         );
-        console.error(`[sender] ${recipient.email} fail:`, error?.message || error);
 
-        await enqueueWebhookEvent('email.failed', {
+        if (hardBounce) {
+          // Permanent rejection — dobara koshish se koi fayda nahi, isliye
+          // suppression list me daal dete hain taaki is account se ise ab
+          // kabhi na bheja jaaye (track.js ke unsubscribe() jaisa hi pattern).
+          await query(
+            `INSERT INTO suppression (account_id, email, reason, detail) VALUES ($1,$2,'bounced',$3)
+             ON CONFLICT (account_id, email) DO NOTHING`,
+            [campaign.account_id ?? '', recipient.email, message]
+          );
+          await query(
+            `UPDATE contacts SET status = 'Bounced', updated_at = now() WHERE lower(email) = lower($1)`,
+            [recipient.email]
+          );
+        }
+
+        console.error(`[sender] ${recipient.email} ${hardBounce ? 'bounced' : 'fail'}:`, error?.message || error);
+
+        await enqueueWebhookEvent(hardBounce ? 'email.bounced' : 'email.failed', {
           campaignId: campaign.id,
           campaignName: campaign.name,
           recipientId: recipient.id,

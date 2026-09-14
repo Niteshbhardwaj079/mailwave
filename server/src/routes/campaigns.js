@@ -900,7 +900,7 @@ router.get(
     }
 
     if (recipient.error) {
-      events.push({ kind: 'failed', at: recipient.sent_at, detail: recipient.error });
+      events.push({ kind: recipient.status === 'Bounced' ? 'bounce' : 'failed', at: recipient.sent_at, detail: recipient.error });
     }
 
     for (const row of rows) {
