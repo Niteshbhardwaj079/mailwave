@@ -12,6 +12,7 @@ import { asyncHandler, badRequest, notFound } from '../lib/http.js';
 import { logActivity } from '../lib/activity.js';
 import { validate } from '../lib/validate.js';
 import { requireModule } from '../middleware/permissions.js';
+import { backupActionLimiter } from '../middleware/actionLimiter.js';
 import { getBackupStorage } from '../services/backupStorage.js';
 import {
   EVERY_DAYS,
@@ -95,6 +96,7 @@ router.get(
 // --- ek click me backup banao -----------------------------------------------
 router.post(
   '/',
+  backupActionLimiter,
   requireModule('backups', 'create'),
   asyncHandler(async (req, res) => {
     let backup;
@@ -182,6 +184,7 @@ router.post(
 // phir restart), kyunki chalte hue PGlite ko badalna surakshit nahi.
 router.post(
   '/:name/restore',
+  backupActionLimiter,
   requireModule('backups', 'restore'),
   validate(z.object({
     confirm: z.literal('RESTORE', {
@@ -240,6 +243,7 @@ router.post(
 // kiya hua) kadam hai — jaisa kisi bhi doosre backup ke liye hota hai.
 router.post(
   '/upload',
+  backupActionLimiter,
   requireModule('backups', 'upload'),
   asyncHandler(async (req, res) => {
     const type = req.get('content-type') || '';

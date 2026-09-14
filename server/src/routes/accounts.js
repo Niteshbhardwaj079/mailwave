@@ -11,12 +11,12 @@ import { z } from 'zod';
 
 import { many, one, query } from '../db/client.js';
 import { env } from '../env.js';
-import { asyncHandler, badRequest, conflict, notFound } from '../lib/http.js';
+import { asyncHandler, badRequest, conflict, forbidden, notFound } from '../lib/http.js';
 import { logActivity } from '../lib/activity.js';
 import { newId } from '../lib/ids.js';
 import { maskSecrets, openSecrets, sealSecrets } from '../lib/secretbox.js';
 import { validate } from '../lib/validate.js';
-import { requireModule } from '../middleware/permissions.js';
+import { requireModule, roleCanUseAccount } from '../middleware/permissions.js';
 import { explainSmtpError, providerList, providerPreset } from '../services/providers.js';
 import { sendMail } from '../services/mailer.js';
 import { notifySuperAdmins } from '../services/systemMail.js';
@@ -209,6 +209,9 @@ router.put(
   asyncHandler(async (req, res) => {
     const existing = await one('SELECT * FROM email_accounts WHERE id = $1', [req.params.id]);
     if (!existing) throw notFound('This account was not found');
+    if (!(await roleCanUseAccount(req.user.role_key, existing.id))) {
+      throw forbidden('Your role cannot use this email account');
+    }
 
     const body = req.body;
     const preset = providerPreset(body.provider);
@@ -260,6 +263,9 @@ router.post(
   asyncHandler(async (req, res) => {
     const row = await one('SELECT * FROM email_accounts WHERE id = $1', [req.params.id]);
     if (!row) throw notFound('This account was not found');
+    if (!(await roleCanUseAccount(req.user.role_key, row.id))) {
+      throw forbidden('Your role cannot use this email account');
+    }
 
     // mailer khud decrypt karta hai, isliye row seedhi bhej rahe hain.
     const account = row;
@@ -301,6 +307,9 @@ router.delete(
   asyncHandler(async (req, res) => {
     const existing = await one('SELECT id, email FROM email_accounts WHERE id = $1', [req.params.id]);
     if (!existing) throw notFound('This account was not found');
+    if (!(await roleCanUseAccount(req.user.role_key, existing.id))) {
+      throw forbidden('Your role cannot use this email account');
+    }
 
     const inUse = await one(
       `SELECT count(*)::int AS n FROM campaigns WHERE account_id = $1 AND status IN ('Sending','Scheduled')`,

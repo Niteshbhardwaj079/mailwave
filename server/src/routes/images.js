@@ -20,6 +20,7 @@ import { logActivity } from '../lib/activity.js';
 import { newId } from '../lib/ids.js';
 import { validate } from '../lib/validate.js';
 import { requireModule } from '../middleware/permissions.js';
+import { uploadLimiter } from '../middleware/actionLimiter.js';
 import { env } from '../env.js';
 import { isConfigured as objectStorageConfigured, uploadObject } from '../services/objectStorage.js';
 import { bytesToText } from '../services/backup.js';
@@ -233,6 +234,7 @@ async function persistUploadedImage({ name, dataUrl, userId }) {
 
 router.post(
   '/',
+  uploadLimiter,
   requireModule('media', 'upload'),
   validate(imageInput),
   asyncHandler(async (req, res) => {
@@ -250,7 +252,14 @@ router.post(
     if (realSize > MAX_BYTES) throw badRequest('The image must be smaller than 2 MB');
 
     let id;
-    if (source === 'upload' && url.startsWith('data:')) {
+    // Har `data:` URL yahin se guzarti hai, `source` ka daava jo bhi ho — sirf
+    // `source === 'upload'` check karne se koi `source: 'url'` bhejkar (jo
+    // is `data:image/svg+xml` regex se bhi match ho jaata hai) seedha
+    // un-sanitised SVG DB me daal sakta tha, jo baad me `files.js` se
+    // `image/svg+xml` ke saath serve hoti — ek asli stored-XSS raasta.
+    // `persistUploadedImage()` har image ko `sharp` se dobara raster/encode
+    // karta hai, isliye embedded script kabhi bachta nahi.
+    if (url.startsWith('data:')) {
       id = await persistUploadedImage({ name, dataUrl: url, userId: req.user.id });
     } else {
       id = newId('img');

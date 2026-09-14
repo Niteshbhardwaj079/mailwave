@@ -15,6 +15,7 @@ import { logActivity } from '../lib/activity.js';
 import { newId } from '../lib/ids.js';
 import { validate } from '../lib/validate.js';
 import { requireAccountAccess, requireModule, roleCanUseAccount } from '../middleware/permissions.js';
+import { campaignActionLimiter } from '../middleware/actionLimiter.js';
 import { pauseCampaign, startCampaign } from '../services/sender.js';
 import { runDueCampaigns } from '../services/scheduler.js';
 import { sendMail } from '../services/mailer.js';
@@ -460,6 +461,7 @@ router.get(
 // --- banao ------------------------------------------------------------------
 router.post(
   '/',
+  campaignActionLimiter,
   requireModule('campaigns', 'create'),
   validate(campaignInput),
   requireAccountAccess((req) => req.body.accountId),
@@ -539,6 +541,7 @@ router.put(
 // "All Contacts" filter (shehar/tag/group/search + already-emailed hatao).
 router.post(
   '/:id/recipients',
+  campaignActionLimiter,
   requireModule('campaigns', 'edit'),
   validate(z.object({
     source: z.enum(['list', 'group', 'subscribers', 'all', 'filter']).default('list'),
@@ -560,9 +563,19 @@ router.post(
     subscriberIds: z.array(z.string()).optional(),
   })),
   asyncHandler(async (req, res) => {
-    const campaign = await one('SELECT id, name, status, pause_reason FROM campaigns WHERE id = $1', [req.params.id]);
+    const campaign = await one('SELECT id, name, status, pause_reason, account_id FROM campaigns WHERE id = $1', [req.params.id]);
     if (!campaign) throw notFound('This campaign was not found');
     if (campaign.status === 'Sending') throw badRequest('The campaign is sending — recipients cannot be added right now');
+
+    // Naye log jodne se yeh campaign khud-ba-khud phir chalu ho sakti hai
+    // (neeche dekho) — agar aisa hoga, to pehle hi check kar lete hain ki is
+    // role ko iske account se bhejne ki ijazat hai, warna recipients jodkar
+    // bhi asal me kisi restricted account se bhej dena galat hoga.
+    const manuallyPaused = campaign.status === 'Paused' && campaign.pause_reason === 'manual';
+    const willAutoStart = !manuallyPaused && !['Draft', 'Scheduled', 'Sending'].includes(campaign.status);
+    if (willAutoStart && !(await roleCanUseAccount(req.user.role_key, campaign.account_id))) {
+      throw forbidden('Your role cannot use this campaign\'s email account');
+    }
 
     const { source, groupId, filter, people, subscriberIds } = req.body;
     let rows = [];
@@ -631,6 +644,17 @@ router.post(
       }));
     }
 
+    // Ek hi call me bahut zyada log jodne se koi bhi request bahut bhaari ho
+    // sakti hai (memory/DB load) — contacts.js ka MAX_SELECT_ALL jaisa hi cap,
+    // taaki koi galti se (ya jaan-boojh kar) poore workspace ke lakhon
+    // contacts ek jhatke me ek campaign se na jud jayein.
+    const MAX_RECIPIENTS_PER_ADD = 50_000;
+    if (rows.length > MAX_RECIPIENTS_PER_ADD) {
+      throw badRequest(
+        `Too many recipients at once (${rows.length}) — add up to ${MAX_RECIPIENTS_PER_ADD} at a time.`
+      );
+    }
+
     // Batched, not one INSERT per row — "All Contacts" can mean tens of
     // thousands of rows, and a round trip per row is by far the slowest part
     // of adding recipients at that size. Chunked so one campaign can't build
@@ -671,8 +695,8 @@ router.post(
     // Draft/Scheduled ko haath nahi lagate (apna waqt hai), aur jise insaan ne
     // KHUD roka tha (pause_reason 'manual') use bhi chhed nahi te — warna
     // unka jaan-boojh kar roka hua kaam apne aap phir chalu ho jayega.
-    const manuallyPaused = campaign.status === 'Paused' && campaign.pause_reason === 'manual';
-    if (added > 0 && !manuallyPaused && !['Draft', 'Scheduled', 'Sending'].includes(campaign.status)) {
+    // (Account-access already checked above, before any of this ran.)
+    if (added > 0 && willAutoStart) {
       await startCampaign(campaign.id, { company: env.brand.company });
     }
 
@@ -741,6 +765,7 @@ router.post(
 // --- bhejo ------------------------------------------------------------------
 router.post(
   '/:id/send',
+  campaignActionLimiter,
   requireModule('campaigns', 'send'),
   asyncHandler(async (req, res) => {
     const campaign = await one('SELECT id, name, status, account_id FROM campaigns WHERE id = $1', [req.params.id]);
@@ -944,6 +969,7 @@ router.post(
  */
 router.post(
   '/:id/schedule',
+  campaignActionLimiter,
   requireModule('campaigns', 'send'),
   validate(
     z.object({
@@ -996,11 +1022,15 @@ router.post(
  */
 router.post(
   '/:id/resend',
+  campaignActionLimiter,
   requireModule('campaigns', 'edit'),
   validate(z.object({ target: z.enum(['unopened', 'failed']) })),
   asyncHandler(async (req, res) => {
     const campaign = await one('SELECT id, name, account_id FROM campaigns WHERE id = $1', [req.params.id]);
     if (!campaign) throw notFound('This campaign was not found');
+    if (!(await roleCanUseAccount(req.user.role_key, campaign.account_id))) {
+      throw forbidden('Your role cannot use this campaign\'s email account');
+    }
 
     // Jo unsubscribe kar chuka hai (isi campaign se, YA is CAMPAIGN KE
     // ACCOUNT se pehle kisi aur campaign/manual block se — dusre accounts
@@ -1056,6 +1086,7 @@ router.post(
  */
 router.post(
   '/recipients/bulk',
+  campaignActionLimiter,
   requireModule('campaigns', 'edit'),
   validate(
     z.object({
@@ -1093,7 +1124,14 @@ router.post(
       // bheja tha" record mit jaata, aur sender khud bhi use suppression
       // list se rok dega (yahan na rokna sirf status ko wapas 'Pending' me
       // hamesha ke liye fasa deta, bina kabhi bheje).
-      const eligible = rows.filter((row) => !row.unsubscribed && !row.suppressed);
+      // In rows me alag-alag campaign/account ho sakte hain (checkbox se
+      // chune gaye) — jis account ko yeh role use hi nahi kar sakta, uske
+      // liye resend bilkul nahi karte, chahe baaki sab sahi ho.
+      const usableAccountIds = new Set();
+      for (const accountId of new Set(rows.map((row) => row.account_id))) {
+        if (await roleCanUseAccount(req.user.role_key, accountId)) usableAccountIds.add(accountId);
+      }
+      const eligible = rows.filter((row) => !row.unsubscribed && !row.suppressed && usableAccountIds.has(row.account_id));
       const resendIds = eligible.map((row) => row.id);
       skipped = rows.length - resendIds.length;
 

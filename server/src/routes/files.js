@@ -28,8 +28,12 @@ import { getObjectBuffer } from '../services/objectStorage.js';
 
 const router = Router();
 
-/** Sirf yahi tarah ki image bhejte hain. */
-const ALLOWED = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/svg+xml']);
+// Sirf yahi tarah ki image bhejte hain. `image/svg+xml` jaan-boojh kar nahi hai
+// — ek SVG ke andar chhupa hua <script> is route se seedha khulne par
+// (apne hi origin se, `nosniff` ke bawajood) chal sakta hai. `routes/images.js`
+// ab har naya upload `sharp` se dobara raster/encode karta hai (SVG kabhi
+// bachta nahi), isliye yeh list kabhi asli tarike se svg+xml touch nahi karti.
+const ALLOWED = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp']);
 const EXT_TO_MIME = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp' };
 
 router.get(
