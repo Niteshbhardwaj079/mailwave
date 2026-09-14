@@ -595,8 +595,15 @@ router.post(
 router.get(
   '/roles',
   asyncHandler(async (req, res) => {
-    const rows = await many('SELECT key, label, label_key FROM roles ORDER BY sort_order');
-    res.json({ roles: rows.map((r) => ({ key: r.key, label: r.label, labelKey: r.label_key })) });
+    const [rows, langRow] = await Promise.all([
+      many('SELECT key, label, label_key FROM roles ORDER BY sort_order'),
+      one('SELECT value FROM settings WHERE key = $1', ['enabledLanguages']),
+    ]);
+    res.json({
+      roles: rows.map((r) => ({ key: r.key, label: r.label, labelKey: r.label_key })),
+      // null = no admin choice made yet, so the frontend shows every language.
+      enabledLanguages: langRow?.value ?? null,
+    });
   })
 );
 

@@ -24,6 +24,7 @@ import { logActivity } from '../lib/activity.js';
 import { validate } from '../lib/validate.js';
 import { requireModule } from '../middleware/permissions.js';
 import { BUILTIN_DYNAMIC_FIELD_KEYS, isValidFieldKey } from '../../../src/data/dynamicFields.js';
+import { LANGUAGE_CODES, DEFAULT_LANGUAGE } from '../lib/languages.js';
 
 const router = Router();
 
@@ -105,6 +106,16 @@ const SCHEMAS = {
     databaseBytes: z.number().int().min(10 * 1024 * 1024).max(10_000_000_000_000).nullable(),
     mediaBytes: z.number().int().min(10 * 1024 * 1024).max(10_000_000_000_000).nullable(),
   }),
+  // Which of the app's UI languages appear in the language picker (topbar,
+  // login screen, Settings > Language). No row at all (fresh install) means
+  // every language shows — see routes/auth.js's public /roles endpoint,
+  // which is where the sign-in screen (not yet authenticated) reads this.
+  enabledLanguages: z
+    .array(z.enum(LANGUAGE_CODES))
+    .min(1)
+    .max(LANGUAGE_CODES.length)
+    .refine((codes) => codes.includes(DEFAULT_LANGUAGE), 'English must stay enabled — it is the fallback whenever a translation is missing')
+    .refine((codes) => new Set(codes).size === codes.length, 'Each language can only appear once'),
 };
 
 router.get(

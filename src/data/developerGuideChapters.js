@@ -916,6 +916,7 @@ export const devGuideChapters = [
           ['Storage (Object Storage / images)', '`server/src/services/objectStorage.js`, `server/src/lib/storageProviders.js` (+ frontend mirror `src/data/storageProviders.js`), `server/src/routes/storageSettings.js`'],
           ['API routes/services', '`server/src/routes/` (one file per resource) and `server/src/services/` (background/business logic) — see Chapter 4'],
           ['Translations', '`src/i18n/locales/` — one file per language, flat `key: text` objects; `en.js` is the reference set of keys. New language: add the file, then one line in `loaders` and one row in `LANGUAGES` in `src/i18n/languages.js`'],
+          ['Which languages are offered', 'Settings > Language\'s "Languages shown to everyone" card (admin-only, `enabledLanguages` setting) — hides languages from the topbar/login picker without touching any translation file. English can\'t be turned off. The public `GET /api/auth/roles` endpoint carries this to the login screen, since it loads before anyone is signed in.'],
           ['Design / copy protection (right-click, Ctrl+U, Ctrl+S, text-select)', '`brand.config.js` — `securityProtection` flag; behavior lives in `src/utils/useSecurityProtection.js` + `src/styles/_utilities.scss`'],
           ['Frontend API URL', '`VITE_API_URL` (build-time environment variable) — read in `src/api/client.js`'],
           ['Production domain', '`PUBLIC_URL`, `APP_URL`, and `CORS_ORIGINS` in the backend `.env` — plus wherever `VITE_API_URL` is set for the frontend build'],

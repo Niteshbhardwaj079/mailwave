@@ -9,6 +9,7 @@ import {
   loadDictionary,
 } from './languages';
 import { setActiveLocale } from '../utils/format';
+import { api } from '../api/client';
 import brand from '../../brand.config.js';
 
 const STORAGE_KEY = 'mailwave.language';
@@ -38,7 +39,39 @@ export function I18nProvider({ children }) {
   // re-render once a chunk lands; the dictionary itself is read below.
   const [, dictionaryArrived] = useReducer((count) => count + 1, 0);
 
+  // null = not fetched yet, or no admin choice ever made — show every
+  // language, same as before this feature existed. Read from the PUBLIC
+  // /api/auth/roles endpoint (not /api/settings) because this provider
+  // mounts before anyone is signed in — the login screen's own picker needs
+  // this list too.
+  const [enabledCodes, setEnabledCodes] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .get('/api/auth/roles')
+      .then((data) => {
+        if (!cancelled && Array.isArray(data?.enabledLanguages)) setEnabledCodes(data.enabledLanguages);
+      })
+      .catch(() => {
+        // Offline or the request failed — fall back to showing every language.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const language = useMemo(() => findLanguage(code), [code]);
+
+  // Whatever the admin has enabled, plus whichever language is actually
+  // active right now — so a language that gets disabled later doesn't
+  // vanish out from under someone already using it.
+  const languages = useMemo(() => {
+    if (!enabledCodes) return LANGUAGES;
+    const list = LANGUAGES.filter((item) => enabledCodes.includes(item.code));
+    if (!list.some((item) => item.code === language.code)) list.push(language);
+    return list;
+  }, [enabledCodes, language]);
 
   // Read during render, so a language that is already cached shows up straight
   // away instead of flashing English for one frame.
@@ -103,9 +136,9 @@ export function I18nProvider({ children }) {
       dir: language.dir,
       locale: language.locale,
       setLanguage: setCode,
-      languages: LANGUAGES,
+      languages,
     }),
-    [t, language]
+    [t, language, languages]
   );
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;

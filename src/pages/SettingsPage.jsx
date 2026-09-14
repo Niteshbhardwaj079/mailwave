@@ -198,6 +198,13 @@ export default function SettingsPage() {
   // use hua" dikhate hain, percentage nahi (koi fake number banaya nahi jata).
   const [storageLimitsDraft, setStorageLimitsDraft] = useState(null);
   const [storageLimitsSaved, setStorageLimitsSaved] = useState(null);
+  // Which of the app's 20 languages show up in the language picker (topbar,
+  // login screen, this same tab's picker above) — bilkul templateSources
+  // jaisa hi pattern. Row missing (feature se pehle ki production) to sab
+  // 20 hi enabled maan kar dikhate hain — I18nProvider.jsx bhi isi tarah
+  // default karta hai jab koi row hi nahi hoti.
+  const [enabledLanguagesDraft, setEnabledLanguagesDraft] = useState(null);
+  const [enabledLanguagesSaved, setEnabledLanguagesSaved] = useState(null);
   const [savingKey, setSavingKey] = useState('');
 
   useEffect(() => {
@@ -257,6 +264,11 @@ export default function SettingsPage() {
       };
       setStorageLimitsDraft(value);
       setStorageLimitsSaved(value);
+    }
+    if (!settingsCall.loading && !enabledLanguagesDraft) {
+      const value = serverSettings.enabledLanguages || LANGUAGES.map((item) => item.code);
+      setEnabledLanguagesDraft(value);
+      setEnabledLanguagesSaved(value);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serverSettings, settingsCall.loading]);
@@ -329,6 +341,31 @@ export default function SettingsPage() {
       mediaBytes: draftFieldToBytes(storageLimitsDraft.mediaValue, storageLimitsDraft.mediaUnit),
     });
     if (ok) setStorageLimitsSaved(storageLimitsDraft);
+  }
+
+  const isEnabledLanguagesDirty =
+    enabledLanguagesDraft &&
+    enabledLanguagesSaved &&
+    JSON.stringify(enabledLanguagesDraft) !== JSON.stringify(enabledLanguagesSaved);
+
+  function cancelEnabledLanguagesDraft() {
+    setEnabledLanguagesDraft(enabledLanguagesSaved);
+  }
+
+  /** English kabhi bhi bandh nahi ho sakti — yehi hamesha ka fallback hai jab koi translation missing ho. */
+  function toggleEnabledLanguage(code) {
+    if (code === 'en') return;
+    setEnabledLanguagesDraft((current) => {
+      const next = current.includes(code) ? current.filter((item) => item !== code) : [...current, code];
+      // LANGUAGES ke order me hi rakhte hain, taaki checkbox list aur saved
+      // value ka order kabhi ek-doosre se alag na ho.
+      return LANGUAGES.map((item) => item.code).filter((c) => next.includes(c));
+    });
+  }
+
+  async function saveEnabledLanguages() {
+    const ok = await saveWorkspaceSetting('enabledLanguages', enabledLanguagesDraft);
+    if (ok) setEnabledLanguagesSaved(enabledLanguagesDraft);
   }
 
   // --- API keys ---------------------------------------------------------------
@@ -796,6 +833,67 @@ export default function SettingsPage() {
                   {t('set.addLanguageNote')}
                 </Note>
               </CardBody>
+            </Card>
+          ) : null}
+
+          {section === 'language' ? (
+            <Card>
+              <CardHead title={t('set.enabledLanguagesTitle')} subtitle={t('set.enabledLanguagesSub')} />
+              <CardBody>
+                {!enabledLanguagesDraft ? (
+                  <div className="p-3 text-center mw-text-muted">
+                    <div className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" />
+                    {t('common.loading')}
+                  </div>
+                ) : (
+                  <div className="row g-2">
+                    {LANGUAGES.map((item) => (
+                      <div className="col-12 col-md-6 col-lg-4" key={item.code}>
+                        <div className="form-check">
+                          <input
+                            type="checkbox"
+                            className="form-check-input"
+                            id={`enabled-lang-${item.code}`}
+                            checked={enabledLanguagesDraft.includes(item.code)}
+                            disabled={!canEditSettings || item.code === 'en'}
+                            onChange={() => toggleEnabledLanguage(item.code)}
+                          />
+                          <label className="form-check-label mw-fs-13" htmlFor={`enabled-lang-${item.code}`}>
+                            {item.flag} {item.native}
+                            <span className="d-block mw-fs-11 mw-text-muted">
+                              {item.english} · {item.code.toUpperCase()}
+                              {item.code === 'en' ? ` · ${t('set.enabledLanguagesAlwaysOn')}` : ''}
+                            </span>
+                          </label>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardBody>
+              <CardFoot>
+                <span className="mw-row mw-row--between w-100 flex-wrap gap-2">
+                  <span className="mw-fs-12 mw-text-muted">{t('set.enabledLanguagesNote')}</span>
+                  <span className="mw-row gap-2">
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-secondary"
+                      onClick={cancelEnabledLanguagesDraft}
+                      disabled={!isEnabledLanguagesDirty || savingKey === 'enabledLanguages'}
+                    >
+                      {t('common.cancel')}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-primary"
+                      onClick={saveEnabledLanguages}
+                      disabled={!canEditSettings || !isEnabledLanguagesDirty || savingKey === 'enabledLanguages'}
+                    >
+                      {savingKey === 'enabledLanguages' ? t('common.loading') : t('common.saveChanges')}
+                    </button>
+                  </span>
+                </span>
+              </CardFoot>
             </Card>
           ) : null}
 
