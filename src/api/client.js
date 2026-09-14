@@ -107,6 +107,15 @@ async function refreshAccessToken() {
   return refreshing;
 }
 
+/** '90 seconds' / '6 minutes' / '2 hours' — jitna zaroori utna hi, ekdum precise second nahi. */
+function formatWait(seconds) {
+  if (seconds < 60) return `${seconds} second${seconds === 1 ? '' : 's'}`;
+  const minutes = Math.ceil(seconds / 60);
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? '' : 's'}`;
+  const hours = Math.round(minutes / 60);
+  return `${hours} hour${hours === 1 ? '' : 's'}`;
+}
+
 async function toError(response) {
   let payload = null;
   try {
@@ -116,12 +125,20 @@ async function toError(response) {
   }
 
   const info = payload?.error;
-  return new ApiError(
-    response.status,
-    info?.code || 'error',
-    info?.message || `Kuch galat hua (${response.status})`,
-    info?.details
-  );
+  let message = info?.message || `Kuch galat hua (${response.status})`;
+
+  // Rate-limited — server ne exact "kab tak rukna hai" bhi bataya hai
+  // (Retry-After header, seconds me). Ek hi jagah jod dete hain, taaki har
+  // screen ka existing `toast.error(error.message)` apne aap sahi time
+  // dikhaye — kahin alag se yeh handle karne ki zarurat na pade.
+  if (response.status === 429) {
+    const retryAfter = Number(response.headers.get('Retry-After'));
+    if (Number.isFinite(retryAfter) && retryAfter > 0) {
+      message = `${message} Try again in ${formatWait(retryAfter)}.`;
+    }
+  }
+
+  return new ApiError(response.status, info?.code || 'error', message, info?.details);
 }
 
 /**

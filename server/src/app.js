@@ -56,6 +56,11 @@ export function createApp() {
         return callback(new Error(`Origin ${origin} is not allowed`));
       },
       credentials: true,
+      // Browsers hide every response header from fetch() by default unless
+      // it's explicitly exposed — express-rate-limit already sets Retry-After
+      // (seconds until the limit resets) on every 429, but without this the
+      // frontend can't read it to show a real "try again in N minutes".
+      exposedHeaders: ['Retry-After'],
     })
   );
 
@@ -72,6 +77,10 @@ export function createApp() {
       limit: 300,
       standardHeaders: 'draft-7',
       legacyHeaders: false,
+      // Same shape every other limiter's message uses, so the frontend's
+      // error handling (and the Retry-After time it appends) works the
+      // same way here too, instead of falling back to a generic string.
+      message: { error: { code: 'rate_limited', message: 'Too many requests from this connection.' } },
     })
   );
 

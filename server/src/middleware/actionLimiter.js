@@ -28,7 +28,7 @@ export const campaignActionLimiter = rateLimit({
   message: {
     error: {
       code: 'rate_limited',
-      message: 'Too many campaign actions in a short time. Please wait a few minutes and try again.',
+      message: 'Too many campaign actions in a short time.',
     },
   },
 });
@@ -43,7 +43,7 @@ export const uploadLimiter = rateLimit({
   message: {
     error: {
       code: 'rate_limited',
-      message: 'Too many uploads in a short time. Please wait a few minutes and try again.',
+      message: 'Too many uploads in a short time.',
     },
   },
 });
@@ -58,7 +58,7 @@ export const backupActionLimiter = rateLimit({
   message: {
     error: {
       code: 'rate_limited',
-      message: 'Too many backup operations in a short time. Please wait a while and try again.',
+      message: 'Too many backup operations in a short time.',
     },
   },
 });

@@ -53,7 +53,7 @@ const perAccountLimiter = rateLimit({
   message: {
     error: {
       code: 'rate_limited',
-      message: 'Too many wrong passwords for this account. Please wait 15 minutes and try again.',
+      message: 'Too many wrong passwords for this account.',
     },
   },
 });
@@ -71,7 +71,7 @@ const perIpLimiter = rateLimit({
   message: {
     error: {
       code: 'rate_limited',
-      message: 'Too many attempts from this connection. Please wait 15 minutes and try again.',
+      message: 'Too many attempts from this connection.',
     },
   },
 });
@@ -92,7 +92,7 @@ const resetLimiter = rateLimit({
   message: {
     error: {
       code: 'rate_limited',
-      message: 'Bahut baar koshish ho chuki. Kuch minute baad dobara try karo.',
+      message: 'Bahut baar koshish ho chuki.',
     },
   },
 });
