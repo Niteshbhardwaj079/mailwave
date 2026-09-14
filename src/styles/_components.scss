@@ -1752,7 +1752,11 @@
     font-size: 2.1rem;
   }
 
-  .mw-tablewrap {
+  // Only tables with a card fallback are hidden here — same rule as the
+  // tablet breakpoint above. Without this scoping, the permission matrix
+  // (which has no card fallback by design) would vanish with nothing to
+  // replace it on phones.
+  .mw-tablewrap:has(> .mw-table) {
     display: none;
   }
 
