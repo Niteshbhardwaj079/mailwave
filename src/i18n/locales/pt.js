@@ -1396,7 +1396,7 @@ export default {
   'guide.c14.s1': 'Abra Backups. Um é criado automaticamente toda vez que o servidor inicia, e outro a cada poucos dias — você não precisa lembrar por conta própria.',
   'guide.c14.s2': 'Clique em Back up now sempre que quiser uma cópia nova imediatamente, por exemplo antes de uma grande mudança.',
   'guide.c14.s3': 'Baixe um arquivo de backup e guarde uma cópia em outro lugar também, como no seu próprio computador — não dependa de apenas um local.',
-  'guide.c14.s4': 'Backups antigos são removidos automaticamente para que o disco nunca fique cheio, e você pode restaurar qualquer um dos seus últimos backups a qualquer momento.',
+  'guide.c14.s4': 'Backups antigos são removidos automaticamente para que o disco nunca fique cheio, e você pode restaurar qualquer um dos seus últimos backups a qualquer momento. Se vários backups forem feitos no mesmo dia (por exemplo, por reinícios repetidos do servidor), apenas o mais recente desse dia é mantido automaticamente.',
   'guide.c14.s5': 'Para restaurar um, escolha-o e digite RESTORE para confirmar. Tudo voltará exatamente como estava naquele momento.',
   'guide.c14.tip': 'A restauração não salva primeiro os dados atuais. Se os dados de hoje também importam, crie um novo backup antes de restaurar.',
   'guide.c14.warn': 'Restaurar desconecta todos (você também), e tudo o que foi feito depois desse backup desaparece para sempre. Depois de confirmado, isso não pode ser desfeito.',

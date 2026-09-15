@@ -443,6 +443,7 @@ export const devGuideChapters = [
         heading: 'Monthly consolidation, retention, and duplicate detection',
         list: [
           'Once a calendar month is fully complete, its daily backups are combined into one file (`mailwave-backup-2026-09.tar.gz`) and the individual daily backups from that month are removed — one file per month, not a pile.',
+          'Within the current (not-yet-complete) month, `enforceRetention()` also keeps only the latest `daily` backup per calendar day — if several are made on the same day (e.g. repeated server restarts, since one is made on every startup), the earlier same-day ones are deleted right away. This is what actually keeps the list bounded day to day; storage-limit cleanup and monthly consolidation alone would otherwise let same-day duplicates pile up unbounded until the month completes.',
           'Settings > Backup (Settings page) controls retention (1–6 months of monthly backups) and a maximum total storage size — both stored in the `settings` table under the key `backupSettings`, not an env var, so they can change without a redeploy.',
           'Cleanup never removes the single most recent backup, and never removes the one daily backup a not-yet-consolidated month still needs.',
           'Uploading a backup file compares its content checksum against the current live database AND every already-saved backup — a byte-identical file is detected and not duplicated, regardless of its filename.',

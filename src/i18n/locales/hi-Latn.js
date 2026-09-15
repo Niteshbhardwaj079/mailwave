@@ -660,7 +660,7 @@ export default {
   'guide.c14.s1': 'Backups kholein. Server start hote hi automatically ek ban jaata hai, aur uske baad har kuch din me dobara — aapko yeh khud yaad rakhne ki zarurat nahi.',
   'guide.c14.s2': 'Jab bhi turant naya copy chahiye ho, jaise kisi bade change se pehle, Back up now dabayein.',
   'guide.c14.s3': 'Ek backup file download karein aur kahin aur bhi ek copy rakhein, jaise apne khud ke computer par — sirf ek jagah par bharosa mat karein.',
-  'guide.c14.s4': 'Purane backups automatically remove ho jaate hain taaki disk kabhi full na ho, aur aap apne last kuch backups me se kisi ko bhi kabhi bhi restore kar sakte hain.',
+  'guide.c14.s4': 'Purane backups automatically remove ho jaate hain taaki disk kabhi full na ho, aur aap apne last kuch backups me se kisi ko bhi kabhi bhi restore kar sakte hain. Agar ek hi din me kai backups ban jayein (jaise baar-baar server restart hone se), to us din ka sirf sabse naya backup hi automatically rakha jaata hai.',
   'guide.c14.s5': 'Ek restore karne ke liye, use choose karein aur confirm karne ke liye RESTORE type karein. Sab kuch exactly wahi ho jayega jaisa us waqt tha.',
   'guide.c14.tip': 'Restoring pehle abhi jo yahan hai use save nahi karti. Agar aaj ka data bhi aapke liye matter karta hai, to restore karne se pehle naya backup banayein.',
   'guide.c14.warn': 'Restore karne se sab sign out ho jaate hain, aap bhi, aur us backup ke baad jo bhi kiya gaya wo hamesha ke liye chala jata hai. Confirm karne ke baad yeh undo nahi ho sakta.',

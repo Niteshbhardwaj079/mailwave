@@ -1414,7 +1414,7 @@ export default {
   'guide.c14.s1': 'Ouvrez Backups. Une sauvegarde est créée automatiquement à chaque démarrage du serveur, puis une autre tous les quelques jours — vous n\'avez pas à y penser vous-même.',
   'guide.c14.s2': 'Cliquez sur Back up now chaque fois que vous voulez une nouvelle copie immédiatement, par exemple avant un grand changement.',
   'guide.c14.s3': 'Téléchargez un fichier de sauvegarde et gardez-en aussi une copie ailleurs, comme sur votre propre ordinateur — ne comptez pas sur un seul endroit.',
-  'guide.c14.s4': 'Les anciennes sauvegardes sont supprimées automatiquement pour que le disque ne se remplisse jamais, et vous pouvez restaurer n\'importe laquelle de vos dernières sauvegardes à tout moment.',
+  'guide.c14.s4': 'Les anciennes sauvegardes sont supprimées automatiquement pour que le disque ne se remplisse jamais, et vous pouvez restaurer n\'importe laquelle de vos dernières sauvegardes à tout moment. Si plusieurs sauvegardes sont créées le même jour (par exemple à cause de redémarrages répétés du serveur), seule la plus récente de ce jour-là est conservée automatiquement.',
   'guide.c14.s5': 'Pour en restaurer une, choisissez-la et tapez RESTORE pour confirmer. Tout reviendra exactement comme c\'était à ce moment-là.',
   'guide.c14.tip': 'La restauration n\'enregistre pas d\'abord ce qui existe actuellement. Si les données d\'aujourd\'hui comptent aussi, créez une nouvelle sauvegarde avant de restaurer.',
   'guide.c14.warn': 'Restaurer déconnecte tout le monde (vous y compris), et tout ce qui a été fait après cette sauvegarde disparaît pour toujours. Une fois confirmé, c\'est irréversible.',

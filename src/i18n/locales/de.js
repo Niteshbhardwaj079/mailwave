@@ -1414,7 +1414,7 @@ export default {
   'guide.c14.s1': 'Öffne Backups. Beim Serverstart wird automatisch eines erstellt, danach alle paar Tage ein weiteres — du musst selbst nicht daran denken.',
   'guide.c14.s2': 'Klicke jederzeit auf Back up now, wenn du sofort eine neue Kopie möchtest, etwa vor einer großen Änderung.',
   'guide.c14.s3': 'Lade eine Backup-Datei herunter und bewahre auch anderswo eine Kopie auf, z. B. auf deinem eigenen Computer — verlasse dich nicht nur auf einen Ort.',
-  'guide.c14.s4': 'Alte Backups werden automatisch entfernt, damit der Speicher nie voll wird, und du kannst jederzeit eines deiner letzten Backups wiederherstellen.',
+  'guide.c14.s4': 'Alte Backups werden automatisch entfernt, damit der Speicher nie voll wird, und du kannst jederzeit eines deiner letzten Backups wiederherstellen. Entstehen an einem Tag mehrere Backups (z. B. durch wiederholte Serverneustarts), wird automatisch nur das neueste dieses Tages behalten.',
   'guide.c14.s5': 'Um eines wiederherzustellen, wähle es aus und tippe zur Bestätigung RESTORE. Alles kehrt genau in den Zustand von damals zurück.',
   'guide.c14.tip': 'Die Wiederherstellung sichert nicht zuerst den aktuellen Stand. Wenn die heutigen Daten auch wichtig sind, erstelle vor der Wiederherstellung ein neues Backup.',
   'guide.c14.warn': 'Die Wiederherstellung meldet alle ab (auch dich), und alles, was nach diesem Backup gemacht wurde, ist für immer weg. Nach der Bestätigung kann das nicht rückgängig gemacht werden.',

@@ -378,6 +378,36 @@ export async function enforceRetention() {
   const removed = [];
   let remaining = [...all];
 
+  // 0) Ek hi din ke kai daily backups (baar-baar server restart hone se) —
+  // sirf us din ka SABSE NAYA rakho, baaki khud-ba-khud hata do. Naye backup
+  // me purane ka pura data pehle se hai hi, isliye alag copy rakhne ki zaroorat
+  // nahi. Yehi "purani file apne aap delete ho" wala rolling behavior deta hai
+  // chaahe abhi wala mahina poora na hua ho — sirf storage-limit ya mahina
+  // khatam hone ka intezaar nahi karna padta.
+  const dayKeyOf = (dateLike) => {
+    const d = dateLike instanceof Date ? dateLike : new Date(dateLike);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+  const latestDailyPerDay = new Map();
+  for (const row of remaining) {
+    if (row.kind !== 'daily') continue;
+    const dk = dayKeyOf(row.created_at);
+    const prev = latestDailyPerDay.get(dk);
+    if (!prev || new Date(row.created_at) > new Date(prev.created_at)) latestDailyPerDay.set(dk, row);
+  }
+  for (const row of [...remaining]) {
+    if (remaining.length <= 1) break;
+    if (row.kind !== 'daily') continue;
+    if (isProtected(row)) continue;
+    if (latestDailyPerDay.get(dayKeyOf(row.created_at))?.id === row.id) continue;
+
+    const [deletedName] = await deleteBackupRows([row]);
+    if (deletedName) {
+      removed.push(deletedName);
+      remaining = remaining.filter((r) => r.id !== row.id);
+    }
+  }
+
   // 1) Retention months — monthly backups jo window se purani hain.
   const cutoff = new Date();
   cutoff.setMonth(cutoff.getMonth() - settings.retentionMonths);

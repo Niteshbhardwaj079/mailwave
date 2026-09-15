@@ -1396,7 +1396,7 @@ export default {
   'guide.c14.s1': 'Abre Backups. Se crea una automáticamente cada vez que arranca el servidor, y otra cada pocos días — no tienes que acordarte tú mismo.',
   'guide.c14.s2': 'Pulsa Back up now cuando quieras una copia nueva al instante, por ejemplo antes de un cambio importante.',
   'guide.c14.s3': 'Descarga un archivo de copia y guarda una copia en otro sitio también, como tu propio ordenador — no dependas de un solo lugar.',
-  'guide.c14.s4': 'Las copias antiguas se eliminan automáticamente para que el disco nunca se llene, y puedes restaurar cualquiera de tus últimas copias en cualquier momento.',
+  'guide.c14.s4': 'Las copias antiguas se eliminan automáticamente para que el disco nunca se llene, y puedes restaurar cualquiera de tus últimas copias en cualquier momento. Si se crean varias copias el mismo día (por ejemplo, por reinicios repetidos del servidor), solo se conserva automáticamente la más reciente de ese día.',
   'guide.c14.s5': 'Para restaurar una, elígela y escribe RESTORE para confirmar. Todo volverá exactamente a como estaba en ese momento.',
   'guide.c14.tip': 'Restaurar no guarda primero lo que hay ahora. Si los datos de hoy también importan, crea una copia nueva antes de restaurar.',
   'guide.c14.warn': 'Restaurar cierra la sesión de todos (también la tuya), y todo lo hecho después de esa copia desaparece para siempre. Una vez confirmado, no se puede deshacer.',
