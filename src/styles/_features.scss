@@ -1178,7 +1178,15 @@
   // bottom of the screen. Anchoring from the top of that same box (i.e.
   // right under the topbar) instead of its bottom sidesteps the bug
   // entirely, without touching the topbar's blur.
-  .mw-langmenu {
+  // Scoped to .mw-topbar specifically — this relies on the topbar's own
+  // backdrop-filter to become the position:fixed containing block (see the
+  // comment above .mw-notifpanel below). The login page's language picker
+  // sits inside .mw-auth__topbar instead, which has no backdrop-filter, so
+  // this same rule there would resolve `top: 100%` against the viewport
+  // itself — pushing the menu to 100vh, off-screen below the fold, making it
+  // look like it "doesn't open" at all. Unscoped, .mw-langmenu on the login
+  // page correctly falls back to its normal position:absolute rule instead.
+  .mw-topbar .mw-langmenu {
     position: fixed;
     inset-block-start: 100%;
     inset-block-end: auto;

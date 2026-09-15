@@ -311,16 +311,51 @@ export default function LoginPage() {
       </div>
 
       <aside className="mw-auth__aside">
-        <h2 className="mw-auth__headline">{t('auth.asideTitle')}</h2>
-        <p className="mw-auth__lede">{t('auth.asideText')}</p>
-        <ul className="mw-auth__points">
-          {['auth.point1', 'auth.point2', 'auth.point3', 'auth.point4'].map((key) => (
-            <li key={key} className="mw-auth__point">
-              <i className="bi bi-check-circle-fill" aria-hidden="true" />
-              <span>{t(key)}</span>
-            </li>
-          ))}
-        </ul>
+        <span className="mw-auth__orb mw-auth__orb--1" aria-hidden="true" />
+        <span className="mw-auth__orb mw-auth__orb--2" aria-hidden="true" />
+
+        <div className="mw-auth__content">
+          <h2 className="mw-auth__headline">{t('auth.asideTitle')}</h2>
+          <p className="mw-auth__lede">{t('auth.asideText')}</p>
+          <ul className="mw-auth__points">
+            {['auth.point1', 'auth.point2', 'auth.point3', 'auth.point4', 'auth.point5'].map((key) => (
+              <li key={key} className="mw-auth__point">
+                <span className="mw-auth__pointicon" aria-hidden="true">
+                  <i className="bi bi-check-lg" />
+                </span>
+                <span>{t(key)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* Illustrative preview card — a stylised sketch of the product, not
+            real numbers, so it can never be mistaken for a performance claim. */}
+        <div className="mw-auth__preview" aria-hidden="true">
+          <div className="mw-auth__previewchrome">
+            <span className="mw-auth__previewdot mw-auth__previewdot--danger" />
+            <span className="mw-auth__previewdot mw-auth__previewdot--warning" />
+            <span className="mw-auth__previewdot mw-auth__previewdot--success" />
+            <span className="mw-auth__previewchrometitle">{t('auth.previewTitle')}</span>
+          </div>
+          <div className="mw-auth__previewbody">
+            <div className="mw-auth__previewrow">
+              <span className="mw-auth__previewlabel">{t('auth.previewVariantA')}</span>
+              <span className="mw-auth__previewbar">
+                <span className="mw-auth__previewbarfill mw-auth__previewbarfill--a" />
+              </span>
+            </div>
+            <div className="mw-auth__previewrow">
+              <span className="mw-auth__previewlabel">
+                {t('auth.previewVariantB')}
+                <i className="bi bi-trophy-fill mw-auth__previewtrophy" aria-hidden="true" />
+              </span>
+              <span className="mw-auth__previewbar">
+                <span className="mw-auth__previewbarfill mw-auth__previewbarfill--b" />
+              </span>
+            </div>
+          </div>
+        </div>
       </aside>
     </div>
   );

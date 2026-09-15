@@ -29,11 +29,44 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 2.4rem;
+  gap: 3.2rem;
   padding: 5rem;
   background: linear-gradient(150deg, var(--mw-primary), var(--mw-primary-dark) 45%, var(--mw-info));
   color: #fff;
   overflow: hidden;
+}
+
+// Soft blurred glow shapes purely for depth — decorative only, so they sit
+// behind everything and never intercept clicks.
+.mw-auth__orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(7rem);
+  pointer-events: none;
+}
+
+.mw-auth__orb--1 {
+  inset-block-start: -12rem;
+  inset-inline-end: -8rem;
+  width: 34rem;
+  height: 34rem;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.mw-auth__orb--2 {
+  inset-block-end: -16rem;
+  inset-inline-start: -10rem;
+  width: 30rem;
+  height: 30rem;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.mw-auth__content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2.4rem;
 }
 
 .mw-auth__headline {
@@ -64,9 +97,120 @@
 .mw-auth__point {
   display: flex;
   align-items: flex-start;
-  gap: 1rem;
+  gap: 1.2rem;
   font-size: 1.4rem;
   color: rgba(255, 255, 255, 0.92);
+}
+
+.mw-auth__pointicon {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  font-size: 1.2rem;
+  margin-block-start: 0.1rem;
+}
+
+// A small, deliberately generic "screenshot" of the product — bars with no
+// numbers attached, so it reads as an illustration, never as a real metric.
+.mw-auth__preview {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 34rem;
+  border-radius: 1.6rem;
+  background-color: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 2rem 5rem rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+}
+
+.mw-auth__previewchrome {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 1.2rem 1.6rem;
+  border-block-end: 1px solid var(--mw-line);
+}
+
+.mw-auth__previewdot {
+  width: 0.9rem;
+  height: 0.9rem;
+  border-radius: 50%;
+
+  &--danger {
+    background-color: #f87171;
+  }
+
+  &--warning {
+    background-color: #fbbf24;
+  }
+
+  &--success {
+    background-color: #4ade80;
+  }
+}
+
+.mw-auth__previewchrometitle {
+  margin-inline-start: 0.8rem;
+  font-size: 1.15rem;
+  font-weight: 650;
+  color: var(--mw-muted);
+}
+
+.mw-auth__previewbody {
+  display: flex;
+  flex-direction: column;
+  gap: 1.4rem;
+  padding: 1.8rem 1.6rem;
+}
+
+.mw-auth__previewrow {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.mw-auth__previewlabel {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 1.2rem;
+  font-weight: 650;
+  color: var(--mw-ink);
+}
+
+.mw-auth__previewtrophy {
+  color: var(--mw-warning);
+  font-size: 1.1rem;
+}
+
+.mw-auth__previewbar {
+  display: block;
+  height: 0.9rem;
+  border-radius: 10rem;
+  background-color: var(--mw-hover);
+  overflow: hidden;
+}
+
+.mw-auth__previewbarfill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+
+  &--a {
+    width: 58%;
+    background-color: var(--mw-info);
+  }
+
+  &--b {
+    width: 84%;
+    background: linear-gradient(90deg, var(--mw-success), var(--mw-success));
+  }
 }
 
 // ---------------------------------------------------------------------------
