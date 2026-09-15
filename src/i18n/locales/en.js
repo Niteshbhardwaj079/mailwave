@@ -21,7 +21,7 @@ export default {
   'nav.home': 'Home',
   'nav.more': 'More',
 
-  'topbar.search': 'Search campaigns, contacts, templates…',
+  'topbar.search': 'Search campaigns, contacts, templates, the guide…',
   'topbar.searchTypeMore': 'Keep typing — at least 2 characters to search.',
   'topbar.searchNoResults': 'No matches for "{query}".',
   'topbar.notifications': 'Notifications',
@@ -689,9 +689,6 @@ export default {
   'auth.point3': 'Send in safe batches that respect your provider’s limits.',
   'auth.point4': 'See opens, clicks, bounces and unsubscribes as they happen.',
   'auth.point5': 'Test subject lines, content or senders with built-in A/B testing.',
-  'auth.previewTitle': 'Campaign Analytics',
-  'auth.previewVariantA': 'Variant A',
-  'auth.previewVariantB': 'Variant B',
   'auth.setTitle': 'Choose your password',
   'auth.setSub': 'Welcome. Pick a password and your account is ready.',
   'auth.resetTitle': 'Set a new password',

@@ -328,34 +328,6 @@ export default function LoginPage() {
             ))}
           </ul>
         </div>
-
-        {/* Illustrative preview card — a stylised sketch of the product, not
-            real numbers, so it can never be mistaken for a performance claim. */}
-        <div className="mw-auth__preview" aria-hidden="true">
-          <div className="mw-auth__previewchrome">
-            <span className="mw-auth__previewdot mw-auth__previewdot--danger" />
-            <span className="mw-auth__previewdot mw-auth__previewdot--warning" />
-            <span className="mw-auth__previewdot mw-auth__previewdot--success" />
-            <span className="mw-auth__previewchrometitle">{t('auth.previewTitle')}</span>
-          </div>
-          <div className="mw-auth__previewbody">
-            <div className="mw-auth__previewrow">
-              <span className="mw-auth__previewlabel">{t('auth.previewVariantA')}</span>
-              <span className="mw-auth__previewbar">
-                <span className="mw-auth__previewbarfill mw-auth__previewbarfill--a" />
-              </span>
-            </div>
-            <div className="mw-auth__previewrow">
-              <span className="mw-auth__previewlabel">
-                {t('auth.previewVariantB')}
-                <i className="bi bi-trophy-fill mw-auth__previewtrophy" aria-hidden="true" />
-              </span>
-              <span className="mw-auth__previewbar">
-                <span className="mw-auth__previewbarfill mw-auth__previewbarfill--b" />
-              </span>
-            </div>
-          </div>
-        </div>
       </aside>
     </div>
   );

@@ -19,7 +19,7 @@ export default {
   'nav.home': 'Início',
   'nav.more': 'Mais',
 
-  'topbar.search': 'Buscar campanhas, contatos, modelos…',
+  'topbar.search': 'Buscar campanhas, contatos, modelos, guia…',
   'topbar.notifications': 'Avisos',
   'topbar.viewAll': 'Ver todas as atividades',
   'topbar.help': 'Ajuda e guia',
@@ -393,9 +393,6 @@ export default {
   'auth.point3': 'Envie em lotes seguros, que respeitam os limites do seu provedor.',
   'auth.point4': 'Veja aberturas, cliques, retornos e cancelamentos na hora em que acontecem.',
   'auth.point5': 'Teste linhas de assunto, conteúdo ou remetentes com teste A/B integrado.',
-  'auth.previewTitle': 'Análise de campanha',
-  'auth.previewVariantA': 'Variante A',
-  'auth.previewVariantB': 'Variante B',
   'auth.setTitle': 'Escolha a sua senha',
   'auth.setSub': 'Boas-vindas. Escolha uma senha e a sua conta está pronta.',
   'auth.resetTitle': 'Criar uma senha nova',

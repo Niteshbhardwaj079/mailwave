@@ -21,7 +21,7 @@ export default {
   'nav.home': 'ਹੋਮ',
   'nav.more': 'ਹੋਰ',
 
-  'topbar.search': 'ਕੈਂਪੇਨ, ਸੰਪਰਕ, ਟੈਂਪਲੇਟ ਖੋਜੋ…',
+  'topbar.search': 'ਕੈਂਪੇਨ, ਸੰਪਰਕ, ਟੈਂਪਲੇਟ, ਗਾਈਡ ਖੋਜੋ…',
   'topbar.notifications': 'ਸੂਚਨਾਵਾਂ',
   'topbar.viewAll': 'ਸਾਰੀ ਗਤੀਵਿਧੀ ਦੇਖੋ',
   'topbar.noNotifications': 'ਹੁਣੇ ਕੁਝ ਵੀ ਨਵਾਂ ਨਹੀਂ ਹੈ।',
@@ -687,9 +687,6 @@ export default {
   'auth.point3': 'ਸੁਰੱਖਿਅਤ ਬੈਚਾਂ ਵਿੱਚ ਭੇਜੋ ਜੋ ਤੁਹਾਡੇ ਪ੍ਰੋਵਾਈਡਰ ਦੀਆਂ ਸੀਮਾਵਾਂ ਦਾ ਧਿਆਨ ਰੱਖਦੇ ਹਨ।',
   'auth.point4': 'ਓਪਨ, ਕਲਿੱਕ, ਬਾਊਂਸ ਅਤੇ ਅਨਸਬਸਕ੍ਰਾਈਬ ਹੁੰਦੇ ਹੀ ਦੇਖੋ।',
   'auth.point5': 'ਬਿਲਟ-ਇਨ A/B ਟੈਸਟ ਨਾਲ ਵਿਸ਼ਾ ਲਾਈਨਾਂ, ਸਮੱਗਰੀ ਜਾਂ ਭੇਜਣ ਵਾਲਿਆਂ ਨੂੰ ਟੈਸਟ ਕਰੋ।',
-  'auth.previewTitle': 'ਕੈਂਪੇਨ ਵਿਸ਼ਲੇਸ਼ਣ',
-  'auth.previewVariantA': 'ਵੇਰੀਐਂਟ A',
-  'auth.previewVariantB': 'ਵੇਰੀਐਂਟ B',
   'auth.setTitle': 'ਆਪਣਾ ਪਾਸਵਰਡ ਚੁਣੋ',
   'auth.setSub': 'ਸੁਆਗਤ ਹੈ। ਇੱਕ ਪਾਸਵਰਡ ਚੁਣੋ ਅਤੇ ਤੁਹਾਡਾ ਖਾਤਾ ਤਿਆਰ ਹੈ।',
   'auth.resetTitle': 'ਨਵਾਂ ਪਾਸਵਰਡ ਸੈੱਟ ਕਰੋ',

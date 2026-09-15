@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 
 import PageHeader from '../components/ui/PageHeader';
 import KpiCard from '../components/ui/KpiCard';
@@ -25,10 +25,27 @@ export default function SubscribersPage() {
   const navigate = useNavigate();
   const { subscribers, removeSubscribers, loading } = useWorkspace();
 
-  const [query, setQuery] = useState('');
+  // Header ke global search se yahan aane par ?search= me query mil chuki
+  // hoti hai — box khud-ba-khud usi se bhara hua khulta hai.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [query, setQuery] = useState(() => searchParams.get('search') ?? '');
   // Box me turant dikhta hai, par chhantai 200ms ruk kar — bade data par type
   // karte waqt screen atakti nahi.
   const search = useDebouncedValue(query, 200);
+
+  useEffect(() => {
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        if (query) next.set('search', query);
+        else next.delete('search');
+        return next;
+      },
+      { replace: true }
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query]);
+
   const [campaignFilter, setCampaignFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [done, setDone] = useState('');

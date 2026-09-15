@@ -20,7 +20,7 @@ export default {
   'nav.home': 'Start',
   'nav.more': 'Mehr',
 
-  'topbar.search': 'Kampagnen, Kontakte, Vorlagen suchen…',
+  'topbar.search': 'Kampagnen, Kontakte, Vorlagen, Anleitung suchen…',
   'topbar.notifications': 'Benachrichtigungen',
   'topbar.viewAll': 'Alle Aktivitäten ansehen',
   'topbar.help': 'Hilfe und Anleitung',
@@ -407,9 +407,6 @@ export default {
   'auth.point3': 'Senden Sie in sicheren Paketen, die die Grenzen Ihres Anbieters einhalten.',
   'auth.point4': 'Sehen Sie Öffnungen, Klicks, Rückläufer und Abmeldungen, während sie passieren.',
   'auth.point5': 'Testen Sie Betreffzeilen, Inhalte oder Absender mit integriertem A/B-Test.',
-  'auth.previewTitle': 'Kampagnenanalyse',
-  'auth.previewVariantA': 'Variante A',
-  'auth.previewVariantB': 'Variante B',
   'auth.setTitle': 'Wählen Sie Ihr Passwort',
   'auth.setSub': 'Willkommen. Wählen Sie ein Passwort, dann ist Ihr Konto fertig.',
   'auth.resetTitle': 'Neues Passwort festlegen',

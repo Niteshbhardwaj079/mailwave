@@ -19,7 +19,7 @@ export default {
   'nav.home': '首页',
   'nav.more': '更多',
 
-  'topbar.search': '搜索群发任务、联系人、模板…',
+  'topbar.search': '搜索群发任务、联系人、模板、使用指南…',
   'topbar.notifications': '通知',
   'topbar.viewAll': '查看全部操作记录',
   'topbar.help': '帮助与指南',
@@ -393,9 +393,6 @@ export default {
   'auth.point3': '分批安全发送，不超过你的邮箱服务商的限制。',
   'auth.point4': '打开、点击、退信和退订，发生了就能看到。',
   'auth.point5': '通过内置的 A/B 测试来测试主题行、内容或发件人。',
-  'auth.previewTitle': '群发任务分析',
-  'auth.previewVariantA': '版本 A',
-  'auth.previewVariantB': '版本 B',
   'auth.setTitle': '设置你的密码',
   'auth.setSub': '欢迎。设一个密码，你的账号就可以用了。',
   'auth.resetTitle': '设置新密码',

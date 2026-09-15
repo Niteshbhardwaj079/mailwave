@@ -19,7 +19,7 @@ export default {
   'nav.home': 'होम',
   'nav.more': 'और',
 
-  'topbar.search': 'कैंपेन, संपर्क, टेम्पलेट खोजें…',
+  'topbar.search': 'कैंपेन, संपर्क, टेम्पलेट, गाइड खोजें…',
   'topbar.notifications': 'सूचनाएँ',
   'topbar.viewAll': 'सारी गतिविधि देखें',
   'topbar.help': 'मदद और गाइड',
@@ -393,9 +393,6 @@ export default {
   'auth.point3': 'सुरक्षित बैच में भेजें जो आपकी ईमेल सेवा की सीमा का ध्यान रखते हैं।',
   'auth.point4': 'खुलना, क्लिक, वापस आए ईमेल और सदस्यता छोड़ना — सब होते ही देखें।',
   'auth.point5': 'बिल्ट-इन A/B टेस्ट से विषय पंक्तियाँ, कंटेंट या भेजने वालों को टेस्ट करें।',
-  'auth.previewTitle': 'कैंपेन एनालिटिक्स',
-  'auth.previewVariantA': 'वैरिएंट A',
-  'auth.previewVariantB': 'वैरिएंट B',
   'auth.setTitle': 'अपना पासवर्ड चुनें',
   'auth.setSub': 'स्वागत है। एक पासवर्ड चुन लीजिए और आपका खाता तैयार है।',
   'auth.resetTitle': 'नया पासवर्ड बनाएँ',

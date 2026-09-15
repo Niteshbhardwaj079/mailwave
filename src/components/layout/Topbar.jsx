@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import { SearchInput } from '../ui/Controls';
@@ -10,8 +10,11 @@ import { useApi } from '../../api/useApi';
 import { useDebouncedValue } from '../../utils/useDebouncedValue';
 import { roleLabel } from '../../utils/roles';
 import { formatRelative } from '../../utils/format';
+import { guideChapters } from '../../data/guideChapters';
 
 const SEARCH_MIN_LENGTH = 2;
+const GUIDE_MAX_STEPS = 9;
+const GUIDE_RESULT_LIMIT = 5;
 
 /** Ek category ke results, sirf jab kuch mila ho — khaali section kabhi nahi dikhata. */
 function SearchGroup({ titleKey, t, items, onPick }) {
@@ -87,11 +90,49 @@ export default function Topbar({ title, onOpenMenu, sidebarCollapsed, onToggleSi
   const searchResults = searchCall.data;
   const searchOpen =
     searchFocused && query.trim().length >= SEARCH_MIN_LENGTH;
-  const hasAnyResults =
-    searchResults && (searchResults.campaigns.length > 0 || searchResults.contacts.length > 0 || searchResults.templates.length > 0);
-  const firstResultLink = searchResults
-    ? (searchResults.campaigns[0] || searchResults.contacts[0] || searchResults.templates[0])?.link
-    : null;
+
+  // Guide chapters live entirely client-side (same i18n content the Guide
+  // page itself already loads) — no backend round-trip needed, so this
+  // matches instantly instead of waiting on the debounced /api/search call.
+  // Same haystack approach as GuidePage.jsx (title + lede + every step + tip)
+  // so a search here finds exactly what searching the Guide itself would.
+  const guideResults = useMemo(() => {
+    if (!searchEnabled) return [];
+    const needle = debouncedQuery.toLowerCase();
+    return guideChapters
+      .filter((item) => {
+        const parts = [t(`guide.${item.key}.title`), t(`guide.${item.key}.lede`), t(`guide.${item.key}.tip`)];
+        for (let n = 1; n <= GUIDE_MAX_STEPS; n += 1) {
+          const key = `guide.${item.key}.s${n}`;
+          const text = t(key);
+          if (text !== key) parts.push(text);
+        }
+        return parts.join(' \n ').toLowerCase().includes(needle);
+      })
+      .slice(0, GUIDE_RESULT_LIMIT)
+      .map((item) => ({
+        id: item.key,
+        title: t(`guide.${item.key}.title`),
+        subtitle: null,
+        link: `/guide?chapter=${item.number}`,
+      }));
+  }, [searchEnabled, debouncedQuery, t]);
+
+  // Backend categories + the client-side guide results, in the order they're
+  // rendered below — one place to check "got anything at all" and "what's
+  // the very first hit" (for Enter-to-jump), instead of listing every
+  // category twice and risking one getting missed when a new one is added.
+  const allCategories = [
+    searchResults?.campaigns ?? [],
+    searchResults?.contacts ?? [],
+    searchResults?.templates ?? [],
+    searchResults?.users ?? [],
+    searchResults?.segments ?? [],
+    searchResults?.subscribers ?? [],
+    guideResults,
+  ];
+  const hasAnyResults = allCategories.some((list) => list.length > 0);
+  const firstResultLink = allCategories.find((list) => list.length > 0)?.[0]?.link;
 
   const [openPanel, setOpenPanel] = useState(null);
   const notifRef = useRef(null);
@@ -215,9 +256,13 @@ export default function Topbar({ title, onOpenMenu, sidebarCollapsed, onToggleSi
               <p className="mw-fs-13 mw-text-muted px-3 py-3 mb-0">{t('topbar.searchNoResults', { query })}</p>
             ) : (
               <>
-                <SearchGroup titleKey="nav.campaigns" t={t} items={searchResults.campaigns} onPick={clearAndCloseSearch} />
-                <SearchGroup titleKey="nav.contacts" t={t} items={searchResults.contacts} onPick={clearAndCloseSearch} />
-                <SearchGroup titleKey="nav.templates" t={t} items={searchResults.templates} onPick={clearAndCloseSearch} />
+                <SearchGroup titleKey="nav.campaigns" t={t} items={searchResults?.campaigns ?? []} onPick={clearAndCloseSearch} />
+                <SearchGroup titleKey="nav.contacts" t={t} items={searchResults?.contacts ?? []} onPick={clearAndCloseSearch} />
+                <SearchGroup titleKey="nav.templates" t={t} items={searchResults?.templates ?? []} onPick={clearAndCloseSearch} />
+                <SearchGroup titleKey="nav.users" t={t} items={searchResults?.users ?? []} onPick={clearAndCloseSearch} />
+                <SearchGroup titleKey="nav.segments" t={t} items={searchResults?.segments ?? []} onPick={clearAndCloseSearch} />
+                <SearchGroup titleKey="nav.subscribers" t={t} items={searchResults?.subscribers ?? []} onPick={clearAndCloseSearch} />
+                <SearchGroup titleKey="nav.guide" t={t} items={guideResults} onPick={clearAndCloseSearch} />
               </>
             )}
           </div>

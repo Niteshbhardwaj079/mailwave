@@ -20,7 +20,7 @@ export default {
   'nav.home': 'Accueil',
   'nav.more': 'Plus',
 
-  'topbar.search': 'Rechercher campagnes, contacts, modèles…',
+  'topbar.search': 'Rechercher campagnes, contacts, modèles, guide…',
   'topbar.notifications': 'Notifications',
   'topbar.viewAll': 'Voir toute l’activité',
   'topbar.help': 'Aide et guide',
@@ -407,9 +407,6 @@ export default {
   'auth.point3': 'Envoyez par lots sûrs qui respectent les limites de votre fournisseur.',
   'auth.point4': 'Voyez les ouvertures, les clics, les retours et les désabonnements au fur et à mesure.',
   'auth.point5': 'Testez les lignes d’objet, le contenu ou les expéditeurs avec le test A/B intégré.',
-  'auth.previewTitle': 'Analytique de campagne',
-  'auth.previewVariantA': 'Variante A',
-  'auth.previewVariantB': 'Variante B',
   'auth.setTitle': 'Choisissez votre mot de passe',
   'auth.setSub': 'Bienvenue. Choisissez un mot de passe et votre compte est prêt.',
   'auth.resetTitle': 'Choisissez un nouveau mot de passe',

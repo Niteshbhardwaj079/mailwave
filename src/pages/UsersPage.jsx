@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
 import PageHeader from '../components/ui/PageHeader';
 import { Card, CardFoot, CardHead } from '../components/ui/Card';
@@ -46,10 +47,26 @@ export default function UsersPage() {
   const [deactivateFor, setDeactivateFor] = useState(null);
   const [deleteUserFor, setDeleteUserFor] = useState(null);
   const [userDeleteBusy, setUserDeleteBusy] = useState(false);
-  const [query, setQuery] = useState('');
+  // Header ke global search se yahan aane par ?search= me query mil chuki
+  // hoti hai — box khud-ba-khud usi se bhara hua khulta hai.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [query, setQuery] = useState(() => searchParams.get('search') ?? '');
   // Box me turant dikhta hai, par chhantai 200ms ruk kar — bade data par type
   // karte waqt screen atakti nahi.
   const search = useDebouncedValue(query, 200);
+
+  useEffect(() => {
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        if (query) next.set('search', query);
+        else next.delete('search');
+        return next;
+      },
+      { replace: true }
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query]);
   const [roleFilter, setRoleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   // Roles server se aate hain, isliye pehle render par list khali hoti hai.

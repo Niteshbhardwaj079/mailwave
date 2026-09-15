@@ -106,6 +106,10 @@
 }
 
 .mw-card__foot {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
   padding: 1.4rem 2rem;
   border-block-start: 1px solid var(--mw-line);
   background-color: var(--mw-surface-2);

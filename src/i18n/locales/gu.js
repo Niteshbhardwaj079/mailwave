@@ -19,7 +19,7 @@ export default {
   'nav.home': 'હોમ',
   'nav.more': 'વધુ',
 
-  'topbar.search': 'કૅમ્પેન, સંપર્ક, ટેમ્પ્લેટ શોધો…',
+  'topbar.search': 'કૅમ્પેન, સંપર્ક, ટેમ્પ્લેટ, ગાઇડ શોધો…',
   'topbar.notifications': 'સૂચનાઓ',
   'topbar.viewAll': 'બધી પ્રવૃત્તિ જુઓ',
   'topbar.help': 'મદદ અને ગાઇડ',
@@ -395,9 +395,6 @@ export default {
   'auth.point3': 'સલામત બૅચમાં મોકલો, જે તમારી ઈમેલ સેવાની મર્યાદા સાચવે છે.',
   'auth.point4': 'ખૂલવું, ક્લિક, પાછા આવેલા ઈમેલ અને સભ્યપદ છોડવું — બધું થતાં જ જુઓ.',
   'auth.point5': 'બિલ્ટ-ઈન A/B ટેસ્ટ વડે વિષય પંક્તિઓ, કન્ટેન્ટ અથવા મોકલનારને ચકાસો.',
-  'auth.previewTitle': 'કૅમ્પેન એનાલિટિક્સ',
-  'auth.previewVariantA': 'વેરિઅન્ટ A',
-  'auth.previewVariantB': 'વેરિઅન્ટ B',
   'auth.setTitle': 'તમારો પાસવર્ડ પસંદ કરો',
   'auth.setSub': 'સ્વાગત છે. એક પાસવર્ડ પસંદ કરો અને તમારું ખાતું તૈયાર.',
   'auth.resetTitle': 'નવો પાસવર્ડ બનાવો',

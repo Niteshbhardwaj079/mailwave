@@ -19,7 +19,7 @@ export default {
   'nav.home': 'होम',
   'nav.more': 'आणखी',
 
-  'topbar.search': 'मोहिमा, संपर्क, टेम्पलेट शोधा…',
+  'topbar.search': 'मोहिमा, संपर्क, टेम्पलेट, मार्गदर्शक शोधा…',
   'topbar.notifications': 'सूचना',
   'topbar.viewAll': 'सर्व नोंदी पाहा',
   'topbar.help': 'मदत आणि मार्गदर्शक',
@@ -393,9 +393,6 @@ export default {
   'auth.point3': 'सुरक्षित बॅचमध्ये पाठवा, जे तुमच्या ईमेल सेवेची मर्यादा पाळतात.',
   'auth.point4': 'उघडणे, क्लिक, परत आलेले ईमेल आणि सदस्यत्व सोडणे — सगळे घडताच पाहा.',
   'auth.point5': 'बिल्ट-इन A/B चाचणीने विषय ओळी, मजकूर किंवा पाठवणाऱ्यांची चाचणी करा.',
-  'auth.previewTitle': 'मोहीम विश्लेषण',
-  'auth.previewVariantA': 'वेरिएंट A',
-  'auth.previewVariantB': 'वेरिएंट B',
   'auth.setTitle': 'तुमचा पासवर्ड निवडा',
   'auth.setSub': 'स्वागत आहे. एक पासवर्ड निवडा आणि तुमचे खाते तयार.',
   'auth.resetTitle': 'नवीन पासवर्ड ठरवा',

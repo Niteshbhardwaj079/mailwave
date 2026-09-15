@@ -19,7 +19,7 @@ export default {
   'nav.home': 'الصفحة الرئيسية',
   'nav.more': 'المزيد',
 
-  'topbar.search': 'ابحث في الحملات وجهات الاتصال والقوالب…',
+  'topbar.search': 'ابحث في الحملات وجهات الاتصال والقوالب والدليل…',
   'topbar.notifications': 'الإشعارات',
   'topbar.viewAll': 'عرض كل النشاط',
   'topbar.help': 'المساعدة والدليل',
@@ -393,9 +393,6 @@ export default {
   'auth.point3': 'أرسل على دفعات آمنة تحترم حدود مزوّدك.',
   'auth.point4': 'شاهد عمليات الفتح والنقر والرسائل المرتدّة وإلغاءات الاشتراك فور حدوثها.',
   'auth.point5': 'اختبر سطور الموضوع أو المحتوى أو المرسلين باختبار A/B المدمج.',
-  'auth.previewTitle': 'تحليلات الحملة',
-  'auth.previewVariantA': 'النسخة A',
-  'auth.previewVariantB': 'النسخة B',
   'auth.setTitle': 'اختر كلمة المرور',
   'auth.setSub': 'أهلًا بك. اختر كلمة مرور ويصبح حسابك جاهزًا.',
   'auth.resetTitle': 'اختر كلمة مرور جديدة',
