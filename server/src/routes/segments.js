@@ -189,7 +189,8 @@ router.post(
       action: 'created',
       module: 'segments',
       item: name,
-      detail: 'Naya segment bana',
+      detail: 'New segment created',
+      detailKey: 'act.segmentCreated',
     });
 
     const row = await one('SELECT * FROM segments WHERE id = $1', [id]);
@@ -216,7 +217,8 @@ router.put(
       action: 'updated',
       module: 'segments',
       item: name,
-      detail: 'Segment ka rule ya naam badla',
+      detail: 'Segment rule or name updated',
+      detailKey: 'act.segmentUpdated',
     });
 
     const row = await one('SELECT * FROM segments WHERE id = $1', [req.params.id]);
@@ -237,7 +239,8 @@ router.delete(
       action: 'deleted',
       module: 'segments',
       item: existing.name,
-      detail: 'Segment hata diya gaya',
+      detail: 'Segment deleted',
+      detailKey: 'act.segmentDeleted',
     });
 
     res.json({ ok: true });
@@ -272,7 +275,9 @@ router.get(
       action: 'exported',
       module: 'segments',
       item: segment.name,
-      detail: `${rows.length} contacts nikale gaye`,
+      detail: `${rows.length} contacts exported`,
+      detailKey: 'act.contactsExported',
+      detailParams: { count: rows.length },
     });
 
     res.json({ contacts: rows, total: rows.length });

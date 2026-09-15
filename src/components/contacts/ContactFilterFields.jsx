@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { useApi } from '../../api/useApi';
 import { useT } from '../../i18n/I18nProvider';
 import { formatNumber } from '../../utils/format';
+import { parseContactFilterLimit } from '../../utils/validation';
 
 /**
  * "All Contacts" recipient source ka form — shehar/tag/group se chhaanto,
@@ -26,6 +27,18 @@ export default function ContactFilterFields({ value, onChange, groups = [], coun
   function handleExclude(event) {
     onChange({ excludeAlreadyEmailed: event.target.checked });
   }
+
+  function handleLimit(event) {
+    // Khaali rakhna hamesha "sab jitne match karein utne jodo" ka matlab
+    // hota hai — isliye khaali string ko bhi seedha state me rakh dete hain,
+    // 0 ya kisi default number me convert nahi karte.
+    onChange({ limit: event.target.value });
+  }
+
+  const matchCount = count ?? 0;
+  const parsedLimit = parseContactFilterLimit(value.limit);
+  const hasLimit = parsedLimit !== undefined;
+  const willAdd = hasLimit ? Math.min(parsedLimit, matchCount) : matchCount;
 
   return (
     <div className="mw-stack--sm d-flex flex-column">
@@ -86,6 +99,25 @@ export default function ContactFilterFields({ value, onChange, groups = [], coun
             ))}
           </select>
         </div>
+
+        <div className="col-12 col-md-4">
+          <label className="form-label" htmlFor="cf-limit">
+            {t('rec.filterLimitLabel')}
+          </label>
+          <input
+            id="cf-limit"
+            name="limit"
+            type="number"
+            min="1"
+            step="1"
+            inputMode="numeric"
+            className="form-control"
+            value={value.limit ?? ''}
+            onChange={handleLimit}
+            placeholder={t('rec.filterLimitPlaceholder')}
+          />
+          <div className="form-text">{t('rec.filterLimitHelp')}</div>
+        </div>
       </div>
 
       <div className="form-check">
@@ -107,7 +139,9 @@ export default function ContactFilterFields({ value, onChange, groups = [], coun
         <div>
           {counting
             ? t('common.loading')
-            : t('rec.filterMatchCount', { count: formatNumber(count ?? 0) })}
+            : hasLimit
+              ? t('rec.filterMatchCountLimited', { willAdd: formatNumber(willAdd), count: formatNumber(matchCount) })
+              : t('rec.filterMatchCount', { count: formatNumber(matchCount) })}
         </div>
       </div>
     </div>

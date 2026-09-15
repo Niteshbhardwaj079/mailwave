@@ -100,7 +100,8 @@ router.put(
       action: 'updated',
       module: 'settings',
       item: req.params.key,
-      detail: 'System email ka matter badla',
+      detail: 'System email content updated',
+      detailKey: 'act.systemEmailUpdated',
     });
 
     const row = await one('SELECT * FROM system_emails WHERE key = $1', [req.params.key]);
@@ -145,7 +146,9 @@ router.put(
       action: 'updated',
       module: 'settings',
       item: `${key} (${language})`,
-      detail: `System email ka ${language} version save hua`,
+      detail: `System email ${language} version saved`,
+      detailKey: 'act.systemEmailTranslationSaved',
+      detailParams: { language },
     });
 
     const row = await one(
@@ -187,7 +190,9 @@ router.delete(
       action: 'deleted',
       module: 'settings',
       item: `${key} (${language})`,
-      detail: `System email ka ${language} version hataya — ab English dikhega`,
+      detail: `System email ${language} version removed — English will show now`,
+      detailKey: 'act.systemEmailTranslationRemoved',
+      detailParams: { language },
     });
 
     res.json({ ok: true });
@@ -230,7 +235,9 @@ router.post(
       action: 'updated',
       module: 'settings',
       item: `${key} (${language})`,
-      detail: `System email ka ${language} version wapas asli haalat me le aaya gaya`,
+      detail: `System email ${language} version reset to its original content`,
+      detailKey: 'act.systemEmailTranslationReset',
+      detailParams: { language },
     });
 
     const row = await one(
@@ -278,7 +285,8 @@ router.post(
       action: 'updated',
       module: 'settings',
       item: req.params.key,
-      detail: req.body.enabled ? 'System email chalu ki' : 'System email band ki',
+      detail: req.body.enabled ? 'System email enabled' : 'System email disabled',
+      detailKey: req.body.enabled ? 'act.systemEmailEnabled' : 'act.systemEmailDisabled',
     });
 
     const row = await one('SELECT * FROM system_emails WHERE key = $1', [req.params.key]);
@@ -310,7 +318,8 @@ router.post(
       action: 'updated',
       module: 'settings',
       item: req.params.key,
-      detail: 'System email wapas asli haalat me le aayi gayi',
+      detail: 'System email reset to its original content',
+      detailKey: 'act.systemEmailReset',
     });
 
     const row = await one('SELECT * FROM system_emails WHERE key = $1', [req.params.key]);

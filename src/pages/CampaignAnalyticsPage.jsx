@@ -26,6 +26,8 @@ import { useApi } from '../api/useApi';
 import { ApiError, api } from '../api/client';
 import EmptyState from '../components/ui/EmptyState';
 import ContactFilterFields from '../components/contacts/ContactFilterFields';
+import { parseContactFilterLimit } from '../utils/validation';
+import ABTestPanel from '../components/campaigns/ABTestPanel';
 
 /** The click handler does the work; React just needs an onChange to be happy. */
 function noop() {}
@@ -114,6 +116,7 @@ export default function CampaignAnalyticsPage() {
     tag: '',
     groupId: '',
     excludeAlreadyEmailed: true,
+    limit: '',
   });
   const [addCount, setAddCount] = useState(0);
   const [addCounting, setAddCounting] = useState(false);
@@ -148,7 +151,7 @@ export default function CampaignAnalyticsPage() {
   }, [addOpen, addFilter, campaignId]);
 
   function openAddRecipients() {
-    setAddFilter({ search: '', city: '', tag: '', groupId: '', excludeAlreadyEmailed: true });
+    setAddFilter({ search: '', city: '', tag: '', groupId: '', excludeAlreadyEmailed: true, limit: '' });
     setAddError('');
     setAddOpen(true);
   }
@@ -163,7 +166,7 @@ export default function CampaignAnalyticsPage() {
     try {
       const data = await api.post(`/api/campaigns/${campaignId}/recipients`, {
         source: 'filter',
-        filter: addFilter,
+        filter: { ...addFilter, limit: parseContactFilterLimit(addFilter.limit) },
       });
       setBulkDone(t('rec.addedToast', { count: data.added ?? 0 }));
       setAddOpen(false);
@@ -512,13 +515,18 @@ export default function CampaignAnalyticsPage() {
   // results half of this page must stay quiet instead of showing borrowed data.
   const hasResults = campaign.sent > 0;
 
-  // Live progress — sirf jab campaign abhi 'Sending' me ho. `processed` (sent
-  // + failed) se batch number nikalte hain, `pending` se batch nahi — ek
-  // failed recipient bhi kisi batch me PROCESS ho chuka hota hai, isliye
-  // sirf pending count se ulta ginna galat batch number deta agar koi bhi
-  // recipient fail hua ho.
+  // Live progress — 'Sending' aur 'Sending Winner' dono me (dono wahi
+  // services/sender.js loop use karte hain, bas alag recipient set par).
+  // 'Testing' ko yahan jaan-boojh kar shaamil nahi karte — us phase me sirf
+  // test-sample hi 'Pending' hota hai (baaki 'Reserved'), isliye poore
+  // campaign.recipients se batch/ETA nikalna galat number dega; A/B panel
+  // khud apne variant cards me test-phase ki progress dikhata hai.
+  // `processed` (sent + failed) se batch number nikalte hain, `pending` se
+  // batch nahi — ek failed recipient bhi kisi batch me PROCESS ho chuka
+  // hota hai, isliye sirf pending count se ulta ginna galat batch number
+  // deta agar koi bhi recipient fail hua ho.
   const sendingProgress = (() => {
-    if (campaign.status !== 'Sending') return null;
+    if (!['Sending', 'Sending Winner'].includes(campaign.status)) return null;
     const batchSize = campaign.batchSize;
     const processed = campaign.sent + campaign.failed;
     const totalBatches = batchSize > 0 ? Math.ceil(campaign.recipients / batchSize) : 1;
@@ -576,6 +584,15 @@ export default function CampaignAnalyticsPage() {
           </>
         }
       />
+
+      {campaign.ab?.enabled ? (
+        <ABTestPanel
+          campaign={campaign}
+          onChanged={() => {
+            campaignCall.reload();
+          }}
+        />
+      ) : null}
 
       {sendingProgress ? (
         <Card>
@@ -1081,7 +1098,13 @@ export default function CampaignAnalyticsPage() {
               onClick={confirmAddRecipients}
               disabled={adding || addCounting || addCount === 0}
             >
-              {adding ? t('common.loading') : t('rec.addMoreConfirm', { count: formatNumber(addCount) })}
+              {adding
+                ? t('common.loading')
+                : t('rec.addMoreConfirm', {
+                    count: formatNumber(
+                      Math.min(addCount, parseContactFilterLimit(addFilter.limit) ?? addCount)
+                    ),
+                  })}
             </button>
           </>
         }

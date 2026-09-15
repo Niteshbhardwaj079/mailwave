@@ -259,6 +259,13 @@ CREATE TABLE IF NOT EXISTS storage_settings (
   updated_at            timestamptz NOT NULL DEFAULT now()
 );
 
+-- `last_test_message` upar hamesha English fallback rehta hai. `last_test_key`/
+-- `last_test_params` optional hain — bhare hon to GET har baar dekhne wale ki
+-- (viewer ki) language me taaza translate karke dikhata hai (activity_log ke
+-- detail_key/detail_params jaisa hi pattern).
+ALTER TABLE storage_settings ADD COLUMN IF NOT EXISTS last_test_key text;
+ALTER TABLE storage_settings ADD COLUMN IF NOT EXISTS last_test_params jsonb;
+
 -- --- sending accounts -------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS email_accounts (
@@ -332,6 +339,13 @@ ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS language text NOT NULL DEFAULT 'e
 -- baar nahi chalta — yeh flag hi rok deta hai.
 ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS auto_retried boolean NOT NULL DEFAULT false;
 
+-- Pause hone se THEEK PEHLE campaign kis status me thi (Sending/Testing/
+-- Sending Winner) — "Resume" isi me wapas jaata hai, taaki A/B campaign
+-- galti se normal 'Sending' me na badal jaaye. Normal campaign ke liye yeh
+-- hamesha 'Sending' hi hoga, isliye unka resume waisa hi chalta hai jaisa
+-- pehle chalta tha.
+ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS resume_target_status text;
+
 CREATE INDEX IF NOT EXISTS campaigns_status_idx ON campaigns (status);
 
 CREATE TABLE IF NOT EXISTS campaign_recipients (
@@ -367,6 +381,79 @@ ALTER TABLE campaign_recipients ADD COLUMN IF NOT EXISTS last_attempted_at times
 -- ulta lagta. WHERE clause ki wajah se yeh baar-baar chalne par bhi safe hai.
 UPDATE campaign_recipients SET send_count = 1
  WHERE send_count = 0 AND status IN ('Sent','Delivered','Failed','Bounced');
+
+-- ---------------------------------------------------------------------------
+-- A/B testing — do (ya zyada) variants banao, ek CHHOTE sample ko bhejo,
+-- kuch der ruko, phir jeetne wale variant ko baaki sab ko bhej do.
+--
+-- Jaan-boojh kar isi campaigns/campaign_recipients table par bana hai, ek
+-- alag "ab_campaigns" system nahi — ek A/B campaign, sending engine
+-- (services/sender.js), suppression, tracking, aur Activity Log ki nazar me
+-- BILKUL wahi normal campaign hai. Farak sirf itna: kuch recipients ke paas
+-- `variant_id` hota hai (unhe konsa content mila), aur "reserve" wale
+-- recipients `status='Reserved'` par ruke rehte hain jab tak winner tay na
+-- ho jaaye — normal campaign ka `status='Pending'` wala sending loop unhe
+-- khud hi chhod deta hai, kuch alag likhna nahi pada.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS campaign_variants (
+  id            text PRIMARY KEY,
+  campaign_id   text NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+  label         text NOT NULL,       -- 'A' | 'B' | 'C' | 'D'
+  -- Khaali (null) rakha field ka matlab hai "campaign ke apne (parent)
+  -- field jaisa hi" — test type ke hisaab se sirf jo field badal rahi hai
+  -- wahi bhari jaati hai, baaki campaign se hi aate hain.
+  subject       text,
+  sender_name   text,
+  reply_to      text,
+  template_id   text REFERENCES templates(id) ON DELETE SET NULL,
+  html          text,
+  sort_order    integer NOT NULL DEFAULT 0,
+  is_winner     boolean NOT NULL DEFAULT false,
+  created_at    timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS campaign_variants_campaign_idx ON campaign_variants (campaign_id);
+
+-- Recipient ko konsa variant mila — test-phase ke recipients ke liye bhara
+-- hota hai, "reserve" wale (abhi tak kisi ko nahi bheja) recipients ke liye
+-- NULL rehta hai jab tak winner blast shuru na ho.
+ALTER TABLE campaign_recipients ADD COLUMN IF NOT EXISTS variant_id text REFERENCES campaign_variants(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS campaign_recipients_variant_idx ON campaign_recipients (variant_id);
+
+-- Campaign khud A/B test hai ya nahi, aur uski poori setting — sab campaigns
+-- table par hi, taaki ek normal campaign se A/B campaign banana/badalna
+-- kabhi ek alag record copy karna na pade.
+ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS ab_enabled boolean NOT NULL DEFAULT false;
+-- subject | content | subject_content | sender_name | sender_email
+ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS ab_test_type text;
+-- Kitne % recipients pehle "test" group me jayenge (jaise 20 = 20%).
+ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS ab_test_percent integer NOT NULL DEFAULT 20;
+-- open_rate | click_rate | ctor
+ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS ab_winner_metric text NOT NULL DEFAULT 'open_rate';
+-- Test ki lambai (minutes me) — 1h=60, 24h=1440, "custom" bhi bas ek number hai.
+ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS ab_test_duration_minutes integer NOT NULL DEFAULT 240;
+-- Winner khud (metric + statistical significance se) decide ho, ya insaan
+-- khud chuне — dono alag flags, kyunki "kaise decide hua" aur "bhejna kab
+-- shuru hua" do alag sawaal hain (neeche wala flag dekho).
+ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS ab_auto_winner boolean NOT NULL DEFAULT true;
+-- Winner tay hote hi baaki sabko apne aap bhej diya jaaye, ya "Send winner"
+-- button ka intezaar kiya jaaye.
+ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS ab_auto_send_winner boolean NOT NULL DEFAULT true;
+-- Kitna confident hona chahiye (%) tabhi jaake automatic winner maana
+-- jayega — sirf 1-2 zyada opens ki wajah se galat winner na chun liya jaaye.
+ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS ab_confidence_threshold integer NOT NULL DEFAULT 95;
+ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS ab_test_started_at timestamptz;
+ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS ab_test_ends_at timestamptz;
+ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS ab_winner_variant_id text REFERENCES campaign_variants(id) ON DELETE SET NULL;
+ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS ab_winner_decided_at timestamptz;
+-- NULL = automatic decision. Bhara ho to us user ki id jisne haath se chuna.
+ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS ab_winner_decided_by text REFERENCES users(id) ON DELETE SET NULL;
+-- Insaan ko dikhane layak jumla ("Variant B ne 34% zyada khula, 97%
+-- confidence ke saath") — activity_log.detail_key/detail_params jaisa hi
+-- pattern (dekho lib/serverI18n.js): asli text nahi, i18n key + params,
+-- taaki winner card ko dekhne wala HAR admin apni language me padhe.
+ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS ab_winner_reason_key text;
+ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS ab_winner_reason_params jsonb;
 
 -- Every tracked link in a campaign, so a click can be attributed and the
 -- original destination restored.
@@ -458,6 +545,14 @@ CREATE TABLE IF NOT EXISTS activity_log (
 
 CREATE INDEX IF NOT EXISTS activity_log_at_idx ON activity_log (at DESC);
 CREATE INDEX IF NOT EXISTS activity_log_module_idx ON activity_log (module);
+
+-- `detail` upar hamesha English me bharta hai (purani rows aur search dono
+-- isi par chalte hain — ILIKE se). `detail_key`/`detail_params` optional
+-- hain: jab bhare hon, GET /api/activity is jodi se, dekhne wale ki (viewer
+-- ki, likhne wale ki nahi) language me, taaza translate karke dikhata hai —
+-- taaki ek shared audit log har admin ko unki apni language me dikhe.
+ALTER TABLE activity_log ADD COLUMN IF NOT EXISTS detail_key text;
+ALTER TABLE activity_log ADD COLUMN IF NOT EXISTS detail_params jsonb;
 
 -- --- backups ------------------------------------------------------------
 --

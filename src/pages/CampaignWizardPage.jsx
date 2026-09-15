@@ -22,7 +22,7 @@ import { ApiError, api } from '../api/client';
 import { useApi } from '../api/useApi';
 import { useToast } from '../components/ui/ToastProvider';
 import { formatDateTime, formatNumber, percentValue } from '../utils/format';
-import { isValidEmail } from '../utils/validation';
+import { isValidEmail, parseContactFilterLimit } from '../utils/validation';
 
 const INITIAL_DRAFT = {
   name: '',
@@ -35,7 +35,7 @@ const INITIAL_DRAFT = {
   manualList: '',
   groups: [],
   subscriberIds: [],
-  contactFilter: { search: '', city: '', tag: '', groupId: '', excludeAlreadyEmailed: false },
+  contactFilter: { search: '', city: '', tag: '', groupId: '', excludeAlreadyEmailed: false, limit: '' },
   templateId: '',
   templateName: '',
   templateHtml: '',
@@ -254,6 +254,10 @@ export default function CampaignWizardPage() {
    * lagegi — jo unsubscribe kar chuke hain wo yahan bhi nahi gine jate.
    */
   const [willReach, setWillReach] = useState(0);
+  // Filter source par "Limit to" field se willReach chhota ho sakta hai
+  // (asal me jayega utna), par ContactFilterFields ka apna "X of Y match"
+  // note poora, bina-limit-wala match count chahta hai — isliye alag rakha.
+  const [filterMatchCount, setFilterMatchCount] = useState(0);
   const [countingRecipients, setCountingRecipients] = useState(false);
 
   // Group id aur segment id alag prefix se bante hain (g_ aur seg_) — isi se
@@ -305,7 +309,16 @@ export default function CampaignWizardPage() {
 
         setCountingRecipients(true);
         const data = await api.get(`/api/campaigns/recipient-count?${params}`);
-        if (alive) setWillReach(data.count ?? 0);
+        if (!alive) return;
+        // Filter wale source par ek "limit to N" field bhi hota hai — baaki
+        // saare wizard steps (batch estimate, review, "X ko jayega") ko
+        // hamesha WAHI number dikhna chahiye jo asal me jode jayenge, poora
+        // match count nahi. ContactFilterFields ko poora (bina-limit) count
+        // alag se milta hai, taaki uska apna "X of Y match" note sahi rahe.
+        const rawCount = data.count ?? 0;
+        setFilterMatchCount(rawCount);
+        const limit = draft.recipientSource === 'filter' ? parseContactFilterLimit(draft.contactFilter.limit) : undefined;
+        setWillReach(limit ? Math.min(rawCount, limit) : rawCount);
       } catch (err) {
         if (alive) setWillReach(0);
       } finally {
@@ -608,7 +621,10 @@ export default function CampaignWizardPage() {
     }
 
     if (draft.recipientSource === 'filter') {
-      return { source: 'filter', filter: draft.contactFilter };
+      return {
+        source: 'filter',
+        filter: { ...draft.contactFilter, limit: parseContactFilterLimit(draft.contactFilter.limit) },
+      };
     }
 
     return { source: 'all' };
@@ -880,7 +896,7 @@ export default function CampaignWizardPage() {
             <StepRecipients
               draft={draft}
               onChange={updateDraft}
-              recipientCount={willReach}
+              filterMatchCount={filterMatchCount}
               countingRecipients={countingRecipients}
               contactGroups={contactGroups}
               segments={segments}

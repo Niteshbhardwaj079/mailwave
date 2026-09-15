@@ -119,7 +119,9 @@ router.post(
       action: 'created',
       module: 'users',
       item: name,
-      detail: `Naya user bana. Role: ${role}`,
+      detail: `New user created. Role: ${role}`,
+      detailKey: 'act.userCreated',
+      detailParams: { role },
     });
 
     await sendInvite(req, { id, name, email, role, language });
@@ -200,15 +202,27 @@ router.put(
     }
 
     const changes = [];
-    if (existing.role_key !== role) changes.push(`Role: ${existing.role_key} se ${role}`);
-    if (existing.status !== status) changes.push(`Status: ${existing.status} se ${status}`);
-    if (emailChanged) changes.push(`Naya email jodne ke liye "${email}" par confirm-link bheja`);
+    const changeParts = [];
+    if (existing.role_key !== role) {
+      changes.push(`Role: ${existing.role_key} to ${role}`);
+      changeParts.push(['act.userRoleChange', { from: existing.role_key, to: role }]);
+    }
+    if (existing.status !== status) {
+      changes.push(`Status: ${existing.status} to ${status}`);
+      changeParts.push(['act.userStatusChange', { from: existing.status, to: status }]);
+    }
+    if (emailChanged) {
+      changes.push(`Sent a confirm-link to "${email}" to add the new email`);
+      changeParts.push(['act.userEmailChangeLinkSent', { email }]);
+    }
 
     await logActivity(req, {
       action: 'updated',
       module: 'users',
       item: name,
-      detail: changes.length ? changes.join(', ') : 'User ki detail badli',
+      detail: changes.length ? changes.join(', ') : 'User details updated',
+      detailKey: changes.length ? 'act.__joined' : 'act.userDetailsUpdated',
+      detailParams: changes.length ? { parts: changeParts } : undefined,
       before: changes.length ? `${existing.role_key} / ${existing.status}` : null,
       after: changes.length ? `${role} / ${status}` : null,
     });
@@ -259,7 +273,8 @@ router.delete(
       action: 'deleted',
       module: 'users',
       item: existing.name,
-      detail: 'User hata diya gaya',
+      detail: 'User deleted',
+      detailKey: 'act.userDeleted',
     });
 
     res.json({ ok: true });
@@ -280,7 +295,8 @@ router.post(
       action: 'sent',
       module: 'users',
       item: user.name,
-      detail: 'Password set karne ka link bheja gaya',
+      detail: 'Password setup link sent',
+      detailKey: 'act.passwordLinkSent',
     });
 
     res.json({ ok: true });
@@ -322,7 +338,8 @@ router.post(
       action: 'updated',
       module: 'users',
       item: user.name,
-      detail: 'Admin ne password set kiya',
+      detail: 'Password set by admin',
+      detailKey: 'act.passwordSetByAdmin',
     });
 
     if (req.body.notify) {

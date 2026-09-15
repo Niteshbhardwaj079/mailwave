@@ -185,7 +185,9 @@ router.post(
       action: 'created',
       module: 'accounts',
       item: body.email,
-      detail: `${preset.name} account juda`,
+      detail: `${preset.name} account connected`,
+      detailKey: 'act.accountConnected',
+      detailParams: { provider: preset.name },
     });
 
     await notifySuperAdmins('account.connected', {
@@ -247,7 +249,8 @@ router.put(
       action: 'updated',
       module: 'accounts',
       item: body.email,
-      detail: 'Account ki setting badli',
+      detail: 'Account settings updated',
+      detailKey: 'act.accountSettingsUpdated',
     });
 
     const row = await one('SELECT * FROM email_accounts WHERE id = $1', [req.params.id]);
@@ -275,9 +278,9 @@ router.post(
         to: req.body.to,
         fromName: account.display_name,
         subject: `${env.brand.name} test email`,
-        html: `<p>Yeh ek test email hai.</p>
-               <p>Agar yeh aap tak pahunch gaya, to <b>${account.email}</b> se email bhejna kaam kar raha hai.</p>`,
-        text: 'Yeh ek test email hai. Agar yeh pahunch gaya to account kaam kar raha hai.',
+        html: `<p>This is a test email.</p>
+               <p>If it reached you, sending from <b>${account.email}</b> is working correctly.</p>`,
+        text: 'This is a test email. If it arrived, the account is working correctly.',
       });
 
       await query(`UPDATE email_accounts SET status = 'Connected', updated_at = now() WHERE id = $1`, [row.id]);
@@ -285,7 +288,9 @@ router.post(
         action: 'sent',
         module: 'accounts',
         item: account.email,
-        detail: `Test email ${req.body.to} par bheja`,
+        detail: `Test email sent to ${req.body.to}`,
+        detailKey: 'act.testEmailSentTo',
+        detailParams: { email: req.body.to },
       });
 
       res.json({ ok: true, messageId: result.messageId, previewUrl: result.previewUrl });
@@ -324,7 +329,8 @@ router.delete(
       action: 'deleted',
       module: 'accounts',
       item: existing.email,
-      detail: 'Account hata diya gaya',
+      detail: 'Account removed',
+      detailKey: 'act.accountRemoved',
     });
 
     res.json({ ok: true });

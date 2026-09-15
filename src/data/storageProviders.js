@@ -1,47 +1,51 @@
 // Mirror of server/src/lib/storageProviders.js — kept in sync by hand, same
 // duplication convention already used for LANGUAGE_CODES/LANGUAGES.
+//
+// regionHelp/endpointHelp are i18n KEYS (not literal text) so the Settings
+// page can render them with t() and follow whichever language is selected —
+// look them up in src/i18n/locales/*.js under the same key.
 export const STORAGE_PROVIDERS = [
   {
     id: 's3',
     label: 'Amazon S3',
     needsEndpoint: false,
-    regionHelp: 'Jaise us-east-1 — AWS console me bucket ke "Properties" tab par milega.',
+    regionHelp: 'storage.regionHelp.s3',
     endpointHelp: null,
   },
   {
     id: 'r2',
     label: 'Cloudflare R2',
     needsEndpoint: true,
-    regionHelp: 'R2 me region hamesha "auto" likho.',
-    endpointHelp: 'Cloudflare dashboard → R2 → us bucket ka "S3 API" endpoint (https://<account-id>.r2.cloudflarestorage.com).',
+    regionHelp: 'storage.regionHelp.r2',
+    endpointHelp: 'storage.endpointHelp.r2',
   },
   {
     id: 'b2',
     label: 'Backblaze B2',
     needsEndpoint: true,
-    regionHelp: 'Bucket banate waqt B2 ne jo region dikhaya tha (jaise us-west-004).',
-    endpointHelp: 'B2 bucket ke "Endpoint" field se copy karo (jaise https://s3.us-west-004.backblazeb2.com).',
+    regionHelp: 'storage.regionHelp.b2',
+    endpointHelp: 'storage.endpointHelp.b2',
   },
   {
     id: 'wasabi',
     label: 'Wasabi',
     needsEndpoint: true,
-    regionHelp: 'Bucket banate waqt chuna gaya region (jaise us-east-1).',
-    endpointHelp: 'Wasabi console me bucket ke region ke hisaab se (jaise https://s3.us-east-1.wasabisys.com).',
+    regionHelp: 'storage.regionHelp.wasabi',
+    endpointHelp: 'storage.endpointHelp.wasabi',
   },
   {
     id: 'spaces',
     label: 'DigitalOcean Spaces',
     needsEndpoint: true,
-    regionHelp: 'Space banate waqt chuna gaya region (jaise blr1).',
-    endpointHelp: 'DigitalOcean me Space ka endpoint (jaise https://blr1.digitaloceanspaces.com).',
+    regionHelp: 'storage.regionHelp.spaces',
+    endpointHelp: 'storage.endpointHelp.spaces',
   },
   {
     id: 'other',
     label: 'Other / S3-Compatible Storage',
     needsEndpoint: true,
-    regionHelp: 'Aapke storage provider ne jo region diya ho — na pata ho to "auto" try karo.',
-    endpointHelp: 'Aapke provider ka S3-compatible API endpoint.',
+    regionHelp: 'storage.regionHelp.other',
+    endpointHelp: 'storage.endpointHelp.other',
   },
 ];
 

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 import PageHeader from '../components/ui/PageHeader';
+import KpiCard from '../components/ui/KpiCard';
 import { Card } from '../components/ui/Card';
 import { Note, Required, SearchInput } from '../components/ui/Controls';
 import FilterSelect, { FilterBar } from '../components/ui/FilterSelect';
@@ -9,6 +10,8 @@ import Pagination from '../components/ui/Pagination';
 import PageSizePicker from '../components/ui/PageSizePicker';
 import EmptyState from '../components/ui/EmptyState';
 import Sheet from '../components/ui/Sheet';
+import BulkBar, { SelectAllCheckbox } from '../components/ui/BulkBar';
+import { useBulkSelection } from '../utils/useBulkSelection';
 import { useT } from '../i18n/I18nProvider';
 import { useWorkspace } from '../store/WorkspaceProvider';
 import { useServerList } from '../api/useServerList';
@@ -16,6 +19,10 @@ import { ApiError, api } from '../api/client';
 import { useToast } from '../components/ui/ToastProvider';
 import { useDebouncedValue } from '../utils/useDebouncedValue';
 import { formatDateTime } from '../utils/format';
+
+function rowKey(row) {
+  return `${row.accountId ?? ''}:${row.email}`;
+}
 
 const REASON_TONE = {
   bounced: 'warning',
@@ -42,6 +49,42 @@ export default function SuppressionPage() {
     params: { search, reason: reason === 'All' ? '' : reason },
   });
   const rows = pager.visible;
+  // Server poori list se ginta hai (search/filter se bhale hi neeche ki
+  // table chhoti ho jaye) — isliye cards hamesha asli, poora haal dikhate hain.
+  const counts = pager.raw?.counts ?? {};
+
+  // Tick-box selection — sirf abhi screen par dikh rahi (filter/page ke
+  // baad wali) rows, jaisa is app ke baaki tables me hota hai.
+  const pageIds = rows.map(rowKey);
+  const rowByKey = new Map(rows.map((row) => [rowKey(row), row]));
+  const bulk = useBulkSelection(pageIds);
+  const [bulkRemoveOpen, setBulkRemoveOpen] = useState(false);
+  const [bulkRemoving, setBulkRemoving] = useState(false);
+
+  function toggleRow(event) {
+    bulk.toggleOne(event.currentTarget.dataset.id);
+  }
+
+  async function handleBulkRemove() {
+    const items = bulk.selectedIds
+      .map((id) => rowByKey.get(id))
+      .filter(Boolean)
+      .map((row) => ({ email: row.email, accountId: row.accountId ?? '' }));
+    if (items.length === 0) return;
+
+    setBulkRemoving(true);
+    try {
+      await api.post('/api/suppression/bulk-delete', { items });
+      bulk.clear();
+      pager.reload();
+      toast.success(t('sup.removedBulk', { count: items.length }));
+      setBulkRemoveOpen(false);
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : t('toast.networkError'));
+    } finally {
+      setBulkRemoving(false);
+    }
+  }
 
   const REASON_LABEL = {
     bounced: t('sup.reasonBounced'),
@@ -130,6 +173,15 @@ export default function SuppressionPage() {
         }
       />
 
+      <div className="mw-kpi-grid">
+        <KpiCard label={t('sup.totalSuppressed')} value={counts.All ?? pager.total} icon="bi-shield-slash" tone="primary" />
+        <KpiCard label={t('sup.reasonBounced')} value={counts.bounced ?? 0} icon="bi-exclamation-octagon" tone="warning" />
+        <KpiCard label={t('sup.reasonUnsubscribed')} value={counts.unsubscribed ?? 0} icon="bi-person-dash" tone="muted" />
+        <KpiCard label={t('sup.reasonComplaint')} value={counts.complaint ?? 0} icon="bi-flag" tone="danger" />
+        <KpiCard label={t('sup.reasonManual')} value={counts.manual ?? 0} icon="bi-hand-index" tone="info" />
+        <KpiCard label={t('sup.reasonInvalid')} value={counts.invalid ?? 0} icon="bi-envelope-x" tone="muted" />
+      </div>
+
       <Card flush>
         <FilterBar onClear={() => { setQuery(''); setReason('All'); }} clearLabel={t('common.clear')}>
           <div className="mw-filterbar__search">
@@ -153,6 +205,22 @@ export default function SuppressionPage() {
           <PageSizePicker value={pager.limit} onChange={pager.setLimit} />
         </FilterBar>
 
+        {canEdit ? (
+          <BulkBar
+            count={bulk.count}
+            total={bulk.total}
+            pageCount={pageIds.length}
+            onSelectAll={bulk.selectAll}
+            onClear={bulk.clear}
+            actions={
+              <button type="button" className="btn btn-sm btn-danger" onClick={() => setBulkRemoveOpen(true)}>
+                <i className="bi bi-trash3 me-1" />
+                {t('sup.remove')}
+              </button>
+            }
+          />
+        ) : null}
+
         {pager.loading && rows.length === 0 ? (
           <div className="p-5 text-center mw-text-muted">
             <div className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" />
@@ -166,6 +234,16 @@ export default function SuppressionPage() {
               <table className="mw-table">
                 <thead>
                   <tr>
+                    {canEdit ? (
+                      <th scope="col" className="mw-table__check">
+                        <SelectAllCheckbox
+                          checked={bulk.allPageSelected}
+                          indeterminate={bulk.somePageSelected}
+                          onChange={bulk.toggleAllVisible}
+                          label={t('bulk.selectAllRows')}
+                        />
+                      </th>
+                    ) : null}
                     <th scope="col">{t('common.email')}</th>
                     <th scope="col">{t('sup.reason')}</th>
                     <th scope="col">{t('sup.source')}</th>
@@ -175,7 +253,19 @@ export default function SuppressionPage() {
                 </thead>
                 <tbody>
                   {rows.map((row) => (
-                    <tr key={`${row.accountId ?? ''}:${row.email}`}>
+                    <tr key={rowKey(row)} className={bulk.isSelected(rowKey(row)) ? 'is-selected' : ''}>
+                      {canEdit ? (
+                        <td className="mw-table__check">
+                          <input
+                            type="checkbox"
+                            className="form-check-input mw-rowcheck"
+                            checked={bulk.isSelected(rowKey(row))}
+                            data-id={rowKey(row)}
+                            onChange={toggleRow}
+                            aria-label={`${t('bulk.select')} ${row.email}`}
+                          />
+                        </td>
+                      ) : null}
                       <td>
                         <span className="d-block">{row.email}</span>
                         {row.detail ? <span className="d-block mw-fs-11 mw-text-muted">{row.detail}</span> : null}
@@ -203,6 +293,44 @@ export default function SuppressionPage() {
                   ))}
                 </tbody>
               </table>
+            </div>
+
+            <div className="mw-reclist p-3">
+              {rows.map((row) => (
+                <div key={rowKey(row)} className={`mw-rec ${bulk.isSelected(rowKey(row)) ? 'is-selected' : ''}`.trim()}>
+                  <div className="mw-rec__top">
+                    {canEdit ? (
+                      <input
+                        type="checkbox"
+                        className="form-check-input mw-rowcheck mw-rec__check"
+                        checked={bulk.isSelected(rowKey(row))}
+                        data-id={rowKey(row)}
+                        onChange={toggleRow}
+                        aria-label={`${t('bulk.select')} ${row.email}`}
+                      />
+                    ) : null}
+                    <span className="mw-rec__title">
+                      {row.email}
+                      {row.detail ? <span className="d-block mw-rec__sub">{row.detail}</span> : null}
+                    </span>
+                    <StatusPill status={REASON_LABEL[row.reason] ?? row.reason} tone={REASON_TONE[row.reason] ?? 'muted'} />
+                  </div>
+                  <div className="mw-row mw-row--between mw-fs-12 mw-text-muted">
+                    <span>{row.accountId ? (row.accountEmail ?? t('sup.sourceUnknownAccount')) : t('sup.sourceGlobal')}</span>
+                    <span className="mw-num">{formatDateTime(row.createdAt)}</span>
+                  </div>
+                  {canEdit ? (
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-danger mt-3"
+                      onClick={() => setRemoveFor(row)}
+                    >
+                      <i className="bi bi-trash3 me-1" />
+                      {t('sup.remove')}
+                    </button>
+                  ) : null}
+                </div>
+              ))}
             </div>
 
             <Pagination
@@ -302,6 +430,23 @@ export default function SuppressionPage() {
           </button>
           <button type="button" className="btn btn-danger flex-fill" onClick={confirmRemove} disabled={removing}>
             {removing ? t('common.loading') : t('sup.remove')}
+          </button>
+        </div>
+      </Sheet>
+
+      <Sheet open={bulkRemoveOpen} title={t('sup.removeConfirmTitle')} onClose={() => setBulkRemoveOpen(false)}>
+        <p className="mw-fs-14 mw-text-muted mb-4">{t('sup.removeBulkConfirmText', { count: bulk.count })}</p>
+        <div className="d-flex gap-2">
+          <button
+            type="button"
+            className="btn btn-outline-secondary flex-fill"
+            onClick={() => setBulkRemoveOpen(false)}
+            disabled={bulkRemoving}
+          >
+            {t('common.cancel')}
+          </button>
+          <button type="button" className="btn btn-danger flex-fill" onClick={handleBulkRemove} disabled={bulkRemoving}>
+            {bulkRemoving ? t('common.loading') : t('sup.remove')}
           </button>
         </div>
       </Sheet>

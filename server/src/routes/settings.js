@@ -150,7 +150,9 @@ router.put(
       action: 'updated',
       module: 'settings',
       item: req.params.key,
-      detail: `"${req.params.key}" settings badli`,
+      detail: `"${req.params.key}" settings updated`,
+      detailKey: 'act.settingsUpdated',
+      detailParams: { key: req.params.key },
     });
 
     const row = await one('SELECT key, value FROM settings WHERE key = $1', [req.params.key]);

@@ -208,7 +208,7 @@ export async function sendTestWebhook() {
   const payload = {
     event: 'webhook.test',
     timestamp: new Date().toISOString(),
-    data: { message: 'Yeh ek test event hai — asal me kuch hua nahi hai.' },
+    data: { message: 'This is a test event — nothing actually happened.' },
   };
   const body = JSON.stringify(payload);
   const signature = signPayload(body, config.secret ?? '');

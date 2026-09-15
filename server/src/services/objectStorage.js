@@ -13,6 +13,7 @@
 import { one, query } from '../db/client.js';
 import { decrypt, encrypt } from '../lib/crypto.js';
 import { findStorageProvider } from '../lib/storageProviders.js';
+import { stFor } from '../lib/serverI18n.js';
 
 let cachedClient = null;
 let cachedConfigKey = null;
@@ -21,11 +22,18 @@ async function loadRow() {
   return one('SELECT * FROM storage_settings WHERE id = $1', ['default']);
 }
 
-/** DB row ko client ke liye safe shape me — secret kabhi nahi, access key masked. */
-export function toPublicShape(row) {
+/**
+ * DB row ko client ke liye safe shape me — secret kabhi nahi, access key
+ * masked. `language` diya ho to `lastTestMessage` us language me taaza
+ * translate hoti hai (jisne test chalaya tha uski nahi, ABHI dekhne wale ki) —
+ * na diya ho to stored English fallback text hi jaata hai.
+ */
+export async function toPublicShape(row, language) {
   if (!row || !row.provider) {
     return { provider: null, connected: false, bucket: null, region: null, endpoint: null };
   }
+  const lastTestMessage =
+    language && row.last_test_key ? await stFor(language, row.last_test_key, row.last_test_params) : row.last_test_message;
   return {
     provider: row.provider,
     bucket: row.bucket,
@@ -35,20 +43,21 @@ export function toPublicShape(row) {
     connected: Boolean(row.connected),
     lastTestedAt: row.last_tested_at,
     lastTestOk: row.last_test_ok,
-    lastTestMessage: row.last_test_message,
+    lastTestMessage,
     accessKeyIdMasked: row.access_key_id
       ? `••••${String(row.access_key_id).slice(-4)}`
       : null,
   };
 }
 
-export async function getSettings() {
-  return toPublicShape(await loadRow());
+export async function getSettings(language) {
+  return toPublicShape(await loadRow(), language);
 }
 
 export async function saveSettings(
   { provider, bucket, region, endpoint, accessKeyId, secretAccessKey, publicUrlBase },
-  userId
+  userId,
+  language
 ) {
   const existing = await loadRow();
   // Secret field pe frontend blank bhejta hai jab tak user naya na type kare
@@ -77,7 +86,7 @@ export async function saveSettings(
 
   cachedClient = null;
   cachedConfigKey = null;
-  return getSettings();
+  return getSettings(language);
 }
 
 export async function disconnectSettings() {
@@ -87,7 +96,8 @@ export async function disconnectSettings() {
   await query(
     `UPDATE storage_settings
         SET connected = false, secret_access_key_enc = null, access_key_id = null,
-            last_tested_at = null, last_test_ok = null, last_test_message = null, updated_at = now()
+            last_tested_at = null, last_test_ok = null, last_test_message = null,
+            last_test_key = null, last_test_params = null, updated_at = now()
       WHERE id = 'default'`
   );
   cachedClient = null;
@@ -148,18 +158,21 @@ export async function isConfigured() {
  * saabit hote hain. Public/anonymous access kabhi check nahi hoti (zarurat
  * hi nahi, dekho file ka header comment).
  */
+/**
+ * Har return `{ ok, key, params }` hai — asli text nahi, taaki caller
+ * (routes/storageSettings.js) ise POST /test ke live jawab me request karne
+ * wale ki language me, aur baad me GET par dekhne wale ki (shayad kisi aur
+ * admin ki) language me, dono baar sahi translate kar sake. `params.reason`
+ * jahan bhi hai wahan AWS SDK ka apna, hamesha-English diagnostic text hai —
+ * jaisa is app me email/URL jaisi doosri raw values bhi translated sentence
+ * ke andar literal rehti hain.
+ */
 export async function testConnection(overrideConfig) {
   const config = overrideConfig ?? (await resolveConfig());
   if (config?.keyMismatch) {
-    return {
-      ok: false,
-      message:
-        'The saved Secret Access Key could not be decrypted. This usually means JWT_SECRET changed ' +
-        '(for example, after moving to a different server without carrying it over). Re-enter the ' +
-        'Secret Access Key below to reconnect.',
-    };
+    return { ok: false, key: 'act.storageKeyMismatch' };
   }
-  if (!config) return { ok: false, message: 'Bucket, region ya keys me se kuch bhara nahi hai.' };
+  if (!config) return { ok: false, key: 'act.storageMissingFields' };
 
   const { HeadBucketCommand, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } = await import(
     '@aws-sdk/client-s3'
@@ -170,7 +183,7 @@ export async function testConnection(overrideConfig) {
   try {
     await client.send(new HeadBucketCommand({ Bucket: config.bucket }));
   } catch (error) {
-    return { ok: false, message: `Bucket tak nahi pahuncha: ${describeAwsError(error)}` };
+    return { ok: false, key: 'act.storageUnreachable', params: { reason: describeAwsError(error) } };
   }
 
   try {
@@ -178,7 +191,7 @@ export async function testConnection(overrideConfig) {
       new PutObjectCommand({ Bucket: config.bucket, Key: probeKey, Body: Buffer.from('mailwave'), ContentType: 'text/plain' })
     );
   } catch (error) {
-    return { ok: false, message: `Likh (write) nahi paye: ${describeAwsError(error)}` };
+    return { ok: false, key: 'act.storageWriteFailed', params: { reason: describeAwsError(error) } };
   }
 
   try {
@@ -186,10 +199,10 @@ export async function testConnection(overrideConfig) {
     const chunks = [];
     for await (const chunk of result.Body) chunks.push(chunk);
     if (Buffer.concat(chunks).toString('utf8') !== 'mailwave') {
-      return { ok: false, message: 'Padhi hui file ka data match nahi hua.' };
+      return { ok: false, key: 'act.storageReadMismatch' };
     }
   } catch (error) {
-    return { ok: false, message: `Padh (read) nahi paye: ${describeAwsError(error)}` };
+    return { ok: false, key: 'act.storageReadFailed', params: { reason: describeAwsError(error) } };
   } finally {
     try {
       await client.send(new DeleteObjectCommand({ Bucket: config.bucket, Key: probeKey }));
@@ -198,7 +211,7 @@ export async function testConnection(overrideConfig) {
     }
   }
 
-  return { ok: true, message: 'Connection theek hai — likhna, padhna aur mitana teeno kaam kiye.' };
+  return { ok: true, key: 'act.storageTestSucceeded' };
 }
 
 /**
@@ -219,7 +232,7 @@ function assertUsableConfig(config) {
 export async function uploadObject(key, buffer, contentType) {
   const config = await resolveConfig();
   assertUsableConfig(config);
-  if (!config?.connected) throw new Error('Object storage connected nahi hai.');
+  if (!config?.connected) throw new Error('Object storage is not connected.');
 
   const { PutObjectCommand } = await import('@aws-sdk/client-s3');
   const client = await getClient(config);
@@ -232,7 +245,7 @@ export async function uploadObject(key, buffer, contentType) {
 export async function getObjectBuffer(key) {
   const config = await resolveConfig();
   assertUsableConfig(config);
-  if (!config) throw new Error('Object storage configured nahi hai.');
+  if (!config) throw new Error('Object storage is not configured.');
 
   const { GetObjectCommand } = await import('@aws-sdk/client-s3');
   const client = await getClient(config);
@@ -252,21 +265,23 @@ export async function deleteObject(key) {
   await client.send(new DeleteObjectCommand({ Bucket: config.bucket, Key: key }));
 }
 
-export async function markTested(ok, message) {
+export async function markTested(ok, key, params) {
+  const message = await stFor('en', key, params);
   await query(
     `UPDATE storage_settings
-        SET connected = $1, last_tested_at = now(), last_test_ok = $1, last_test_message = $2, updated_at = now()
+        SET connected = $1, last_tested_at = now(), last_test_ok = $1,
+            last_test_message = $2, last_test_key = $3, last_test_params = $4, updated_at = now()
       WHERE id = 'default'`,
-    [ok, message]
+    [ok, message, key, params ? JSON.stringify(params) : null]
   );
 }
 
 function describeAwsError(error) {
   const code = error?.name || error?.Code || '';
-  if (code === 'InvalidAccessKeyId' || code === 'SignatureDoesNotMatch') return 'Access key ya secret key galat hai.';
-  if (code === 'NoSuchBucket' || code === 'NotFound') return 'Yeh bucket nahi mila — naam/region check karo.';
-  if (code === 'AccessDenied') return 'In keys ke paas is bucket ki zarurat ki permission nahi hai.';
-  return error?.message || 'Anjaan error';
+  if (code === 'InvalidAccessKeyId' || code === 'SignatureDoesNotMatch') return 'The Access Key or Secret Key is incorrect.';
+  if (code === 'NoSuchBucket' || code === 'NotFound') return 'This bucket was not found — check the name/region.';
+  if (code === 'AccessDenied') return 'These keys do not have the permissions this bucket needs.';
+  return error?.message || 'Unknown error';
 }
 
 /** Testing ke liye — settings badalne ke baad cache clear ho, taaki purana client na use ho. */

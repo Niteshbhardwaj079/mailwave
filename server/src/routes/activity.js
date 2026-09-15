@@ -15,6 +15,7 @@ import { many, one, query } from '../db/client.js';
 import { asyncHandler, badRequest, paginated, pagination } from '../lib/http.js';
 import { requireModule } from '../middleware/permissions.js';
 import { logActivity } from '../lib/activity.js';
+import { reqLanguage, stFor } from '../lib/serverI18n.js';
 
 const router = Router();
 
@@ -34,6 +35,27 @@ function toApi(row) {
     device: row.device,
     at: row.at,
   };
+}
+
+/**
+ * A row written with `detail_key` gets re-rendered in the VIEWER's language
+ * (not whoever performed the action) — the stored `detail` text is only the
+ * English fallback for old rows and rows nothing has keyed yet.
+ */
+async function localize(rows, req) {
+  const language = reqLanguage(req);
+  if (language === 'en') return rows.map(toApi);
+
+  return Promise.all(
+    rows.map(async (row) => {
+      const api = toApi(row);
+      if (row.detail_key) {
+        const params = row.detail_params ?? undefined;
+        api.detail = await stFor(language, row.detail_key, params);
+      }
+      return api;
+    })
+  );
 }
 
 /**
@@ -98,9 +120,11 @@ router.get(
       [...params, limit, offset]
     );
 
+    const activity = await localize(rows, req);
+
     res.json({
-      ...paginated(rows.map(toApi), { page, limit }, totalRow?.n ?? 0),
-      activity: rows.map(toApi),
+      ...paginated(activity, { page, limit }, totalRow?.n ?? 0),
+      activity,
     });
   })
 );
@@ -147,8 +171,9 @@ router.delete(
     await logActivity(req, {
       action: 'deleted',
       module: 'activity',
-      item: ids.length > 0 ? `${removed} chuni hui entries` : `${removed} entries (filter se)`,
+      item: ids.length > 0 ? `${removed} selected entries` : `${removed} entries (by filter)`,
       detail: ids.length > 0 ? 'Selected log rows removed' : 'Filtered date-range removed',
+      detailKey: ids.length > 0 ? 'act.logSelectedRemoved' : 'act.logFilteredRemoved',
     });
 
     res.json({ removed });

@@ -63,7 +63,8 @@ router.post(
       action: 'created',
       module: 'settings',
       item: req.body.name,
-      detail: 'Nayi API key banayi',
+      detail: 'New API key created',
+      detailKey: 'act.apiKeyCreated',
     });
 
     const row = await one(
@@ -89,7 +90,8 @@ router.delete(
       action: 'deleted',
       module: 'settings',
       item: existing.name,
-      detail: 'API key revoke ki gayi',
+      detail: 'API key revoked',
+      detailKey: 'act.apiKeyRevoked',
     });
 
     res.json({ ok: true });

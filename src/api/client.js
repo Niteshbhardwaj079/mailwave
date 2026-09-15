@@ -13,6 +13,19 @@
 
 const BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
+// I18nProvider reads/writes this exact key — kept in sync here without
+// importing React context (this file loads before any provider mounts, and
+// plain fetch calls happen outside component render too).
+const LANGUAGE_STORAGE_KEY = 'mailwave.language';
+
+function currentLanguage() {
+  try {
+    return window.localStorage.getItem(LANGUAGE_STORAGE_KEY) || 'en';
+  } catch (error) {
+    return 'en';
+  }
+}
+
 /**
  * API se aayi hui galti.
  *
@@ -156,6 +169,7 @@ export async function request(path, options = {}) {
     headers: {
       ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
       ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      'X-App-Language': currentLanguage(),
       ...headers,
     },
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),

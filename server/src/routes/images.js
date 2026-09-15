@@ -273,7 +273,8 @@ router.post(
       action: 'created',
       module: 'templates',
       item: name,
-      detail: 'Image library me jodi gayi',
+      detail: 'Added to the image library',
+      detailKey: 'act.imageAdded',
     });
 
     const row = await one(`${SELECT} WHERE i.id = $1`, [id]);
@@ -380,7 +381,8 @@ router.put(
       action: 'updated',
       module: 'templates',
       item: name || existing.name,
-      detail: 'Image edit hui (usi link par)',
+      detail: 'Image edited (same link kept)',
+      detailKey: 'act.imageEdited',
     });
 
     const row = await one(`${SELECT} WHERE i.id = $1`, [req.params.id]);
@@ -406,7 +408,8 @@ router.delete(
       action: 'deleted',
       module: 'templates',
       item: existing.name,
-      detail: 'Image library se hatai gayi',
+      detail: 'Removed from the image library',
+      detailKey: 'act.imageRemoved',
     });
 
     res.json({ ok: true });

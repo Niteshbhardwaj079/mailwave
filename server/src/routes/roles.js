@@ -203,7 +203,9 @@ router.post(
       action: 'created',
       module: 'users',
       item: label,
-      detail: `Naya role bana: ${key}`,
+      detail: `New role created: ${key}`,
+      detailKey: 'act.roleCreated',
+      detailParams: { key },
     });
 
     const row = await one('SELECT * FROM roles WHERE key = $1', [key]);
@@ -293,7 +295,8 @@ router.put(
       action: 'updated',
       module: 'users',
       item: label ?? existing.label ?? existing.key,
-      detail: 'Role ki permissions ya detail badli',
+      detail: 'Role permissions or details updated',
+      detailKey: 'act.rolePermissionsUpdated',
     });
 
     const row = await one('SELECT * FROM roles WHERE key = $1', [req.params.key]);
@@ -344,7 +347,9 @@ router.post(
       action: 'created',
       module: 'users',
       item: label,
-      detail: `${source.key} se copy bana`,
+      detail: `Copied from ${source.key}`,
+      detailKey: 'act.roleCopied',
+      detailParams: { key: source.key },
     });
 
     const row = await one('SELECT * FROM roles WHERE key = $1', [key]);
@@ -380,7 +385,8 @@ router.delete(
       action: 'deleted',
       module: 'users',
       item: existing.label ?? existing.key,
-      detail: 'Role hata diya gaya',
+      detail: 'Role deleted',
+      detailKey: 'act.roleDeleted',
     });
 
     res.json({ ok: true });

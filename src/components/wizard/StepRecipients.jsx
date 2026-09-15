@@ -30,7 +30,7 @@ export default function StepRecipients({
   contactGroups,
   segments,
   showErrors = false,
-  recipientCount = 0,
+  filterMatchCount = 0,
   countingRecipients = false,
 }) {
   const t = useT();
@@ -265,7 +265,7 @@ export default function StepRecipients({
           value={draft.contactFilter}
           onChange={handleContactFilterChange}
           groups={contactGroups}
-          count={recipientCount}
+          count={filterMatchCount}
           counting={countingRecipients}
         />
       ) : null}

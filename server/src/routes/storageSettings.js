@@ -12,6 +12,7 @@ import { z } from 'zod';
 
 import { asyncHandler, badRequest } from '../lib/http.js';
 import { logActivity } from '../lib/activity.js';
+import { reqLanguage, st, stFor } from '../lib/serverI18n.js';
 import { requireModule } from '../middleware/permissions.js';
 import { STORAGE_PROVIDER_IDS } from '../lib/storageProviders.js';
 import {
@@ -39,7 +40,7 @@ router.get(
   '/',
   requireModule('settings', 'view'),
   asyncHandler(async (req, res) => {
-    res.json({ storage: await getSettings() });
+    res.json({ storage: await getSettings(reqLanguage(req)) });
   })
 );
 
@@ -55,13 +56,15 @@ router.put(
       );
     }
 
-    const storage = await saveSettings(parsed.data, req.user.id);
+    const storage = await saveSettings(parsed.data, req.user.id, reqLanguage(req));
 
     await logActivity(req, {
       action: 'updated',
       module: 'settings',
       item: 'Image Storage',
-      detail: `${parsed.data.provider} storage details save hui — ab "Test Connection" karo`,
+      detail: `${parsed.data.provider} storage details saved — now run "Test Connection"`,
+      detailKey: 'act.storageDetailsSaved',
+      detailParams: { provider: parsed.data.provider },
     });
 
     res.json({ storage });
@@ -76,16 +79,22 @@ router.post(
     if (!existing.provider) throw badRequest('Save the storage details first');
 
     const result = await testConnection();
-    await markTested(result.ok, result.message);
+    await markTested(result.ok, result.key, result.params);
+    const message = await st(req, result.key, result.params);
+    // Activity Log ka `detail` hamesha English fallback hota hai — viewer ki
+    // language wali `message` yahan istemal nahi karte, English wali alag banate hain.
+    const messageEn = await stFor('en', result.key, result.params);
 
     await logActivity(req, {
       action: 'updated',
       module: 'settings',
       item: 'Image Storage',
-      detail: result.ok ? 'Connection test safal raha' : `Connection test fail hua: ${result.message}`,
+      detail: result.ok ? 'Connection test succeeded' : `Connection test failed: ${messageEn}`,
+      detailKey: result.ok ? 'act.storageTestOk' : 'act.storageTestFailed',
+      detailParams: result.ok ? undefined : { message: messageEn },
     });
 
-    res.json({ ok: result.ok, message: result.message, storage: await getSettings() });
+    res.json({ ok: result.ok, message, storage: await getSettings(reqLanguage(req)) });
   })
 );
 
@@ -123,7 +132,9 @@ router.post(
       action: 'created',
       module: 'settings',
       item: 'Image Storage',
-      detail: `Test image bucket me upload karke ${env.brand.name} URL se load karke dikhaya gaya`,
+      detail: `Test image uploaded to the bucket and displayed via the ${env.brand.name} URL`,
+      detailKey: 'act.storageTestUploadShown',
+      detailParams: { brand: env.brand.name },
     });
 
     res.status(201).json({ ok: true, url, imageId: id });
@@ -140,10 +151,11 @@ router.delete(
       action: 'updated',
       module: 'settings',
       item: 'Image Storage',
-      detail: 'Object Storage disconnect kiya gaya — pehle se maujood images nahi hatai gayin',
+      detail: 'Object Storage disconnected — existing images were not removed',
+      detailKey: 'act.storageDisconnected',
     });
 
-    res.json({ storage: await getSettings() });
+    res.json({ storage: await getSettings(reqLanguage(req)) });
   })
 );
 

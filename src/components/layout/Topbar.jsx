@@ -3,12 +3,44 @@ import { Link } from 'react-router-dom';
 
 import { SearchInput } from '../ui/Controls';
 import LanguagePicker from './LanguagePicker';
-import { AccentPicker, ThemeToggle } from './ThemeControls';
+import { ThemeToggle } from './ThemeControls';
 import { useT } from '../../i18n/I18nProvider';
 import { useAuth } from '../../store/AuthProvider';
 import { useApi } from '../../api/useApi';
 import { roleLabel } from '../../utils/roles';
 import { formatRelative } from '../../utils/format';
+
+// Notifications DB me kahin persist nahi hotin — server har baar unhi live
+// events se dobara banata hai (jo abhi bhej rahi hai, jo 7 din me poori hui,
+// jo account "Connected" nahi hai). Isliye "dekh liya" yahin, browser me hi
+// yaad rakhte hain — id sirf campaign/account ka nahi, uske `at` (timestamp)
+// ke saath jodi hui hai, taaki wahi account/campaign baad me phir se koi naya
+// event de (status dobara badle) to woh sach me NAYI notification maani
+// jaaye, purani wali ki tarah chup-chap dab na jaaye.
+const SEEN_KEY = 'mailwave.notifications.seen';
+
+function stampOf(item) {
+  return `${item.id}:${item.at}`;
+}
+
+function loadSeenStamps() {
+  try {
+    const raw = window.localStorage.getItem(SEEN_KEY);
+    return raw ? new Set(JSON.parse(raw)) : new Set();
+  } catch (error) {
+    return new Set();
+  }
+}
+
+function saveSeenStamps(set) {
+  try {
+    // Hamesha ke liye badhte rehne ki jagah, sirf jitni abhi ke liye
+    // zaroori hain (500) rakhte hain — kisi bhi asli session ke liye kaafi.
+    window.localStorage.setItem(SEEN_KEY, JSON.stringify([...set].slice(-500)));
+  } catch (error) {
+    // Private mode ya blocked storage — bas is baar yaad nahi rahega.
+  }
+}
 
 /** Server ke aankde ko screen ka title/text deta hai — dono ek hi jagah. */
 function describeNotification(item, t) {
@@ -30,6 +62,12 @@ export default function Topbar({ title, onOpenMenu, sidebarCollapsed, onToggleSi
   const profileRef = useRef(null);
   const notificationsCall = useApi('/api/stats/notifications');
   const notifications = notificationsCall.data?.notifications ?? [];
+  const [seenStamps, setSeenStamps] = useState(loadSeenStamps);
+  // Panel khulte hi jo dikh raha tha wahi "frozen" rakhte hain, taaki usi
+  // pal seen-mark hone se list khud-ba-khud khaali na dikhne lage — agli
+  // baar kholne par sirf naye items hi bachenge.
+  const [panelSnapshot, setPanelSnapshot] = useState([]);
+  const unreadCount = notifications.filter((item) => !seenStamps.has(stampOf(item))).length;
 
   // Bahar kahin bhi click karte hi khula hua panel band ho jaye — dono
   // dropdown ek hi jagah se sambhalte hain kyunki state ek hi hai.
@@ -52,7 +90,17 @@ export default function Topbar({ title, onOpenMenu, sidebarCollapsed, onToggleSi
   const currentRoleLabel = roleLabel(role, t);
 
   function toggleNotifications() {
-    setOpenPanel((current) => (current === 'notifications' ? null : 'notifications'));
+    setOpenPanel((current) => {
+      if (current === 'notifications') return null;
+      setPanelSnapshot(notifications);
+      setSeenStamps((prevSeen) => {
+        const next = new Set(prevSeen);
+        notifications.forEach((item) => next.add(stampOf(item)));
+        saveSeenStamps(next);
+        return next;
+      });
+      return 'notifications';
+    });
   }
 
   function toggleProfile() {
@@ -93,7 +141,6 @@ export default function Topbar({ title, onOpenMenu, sidebarCollapsed, onToggleSi
 
       <div className="mw-topbar__actions">
         <ThemeToggle />
-        <AccentPicker />
         <LanguagePicker />
 
         <div className="position-relative" ref={notifRef}>
@@ -105,9 +152,9 @@ export default function Topbar({ title, onOpenMenu, sidebarCollapsed, onToggleSi
             aria-expanded={openPanel === 'notifications'}
           >
             <i className="bi bi-bell" />
-            {notifications.length > 0 ? (
+            {unreadCount > 0 ? (
               <span className="mw-iconbtn__badge" aria-hidden="true">
-                {notifications.length > 9 ? '9+' : notifications.length}
+                {unreadCount > 9 ? '9+' : unreadCount}
               </span>
             ) : null}
           </button>
@@ -117,11 +164,11 @@ export default function Topbar({ title, onOpenMenu, sidebarCollapsed, onToggleSi
               <div className="px-3 py-3 border-bottom">
                 <span className="mw-fs-14 mw-fw-700">{t('topbar.notifications')}</span>
               </div>
-              {notifications.length === 0 ? (
+              {panelSnapshot.length === 0 ? (
                 <p className="mw-fs-13 mw-text-muted px-3 py-4 mb-0 text-center">{t('topbar.noNotifications')}</p>
               ) : (
                 <ul className="list-unstyled m-0 p-0 mw-notifpanel__list">
-                  {notifications.map((item) => {
+                  {panelSnapshot.map((item) => {
                     const { title, text } = describeNotification(item, t);
                     return (
                       <li key={item.id} className="px-3 py-3 border-bottom">

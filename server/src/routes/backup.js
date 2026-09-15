@@ -10,6 +10,7 @@ import { z } from 'zod';
 import { currentDriver, one } from '../db/client.js';
 import { asyncHandler, badRequest, notFound } from '../lib/http.js';
 import { logActivity } from '../lib/activity.js';
+import { st } from '../lib/serverI18n.js';
 import { validate } from '../lib/validate.js';
 import { requireModule } from '../middleware/permissions.js';
 import { backupActionLimiter } from '../middleware/actionLimiter.js';
@@ -58,6 +59,7 @@ router.get(
       one("SELECT value FROM settings WHERE key = 'storageLimits'"),
     ]);
     const dbLimitBytes = limitsRow?.value?.databaseBytes ?? null;
+    const storageDescribe = storage.describeKey();
 
     res.json({
       backups,
@@ -81,10 +83,14 @@ router.get(
         usagePercent: backupSettings.maxStorageBytes > 0
           ? Math.min(100, Math.round((usedBytes / backupSettings.maxStorageBytes) * 100))
           : 0,
-        note: `Har ${EVERY_DAYS} din me apne aap backup banta hai. Mahina poora hote hi ek monthly file ban jaati hai. Retention: ${backupSettings.retentionMonths} mahine, storage limit: ${bytesToText(backupSettings.maxStorageBytes)}.`,
+        note: await st(req, 'act.backupScheduleNote', {
+          everyDays: EVERY_DAYS,
+          retentionMonths: backupSettings.retentionMonths,
+          storageLimit: bytesToText(backupSettings.maxStorageBytes),
+        }),
         storage: {
           durable: storage.isDurable(),
-          description: storage.describe(),
+          description: await st(req, storageDescribe.key, storageDescribe.params),
         },
         lastSuccessfulAt: lastGood?.createdAt ?? null,
         pendingMonthlyNotice,
@@ -110,7 +116,9 @@ router.post(
       action: 'created',
       module: 'settings',
       item: backup.name,
-      detail: `Backup banaya gaya (${backup.tableCount ?? '?'} tables, ${backup.rowCount ?? '?'} rows)`,
+      detail: `Backup created (${backup.tableCount ?? '?'} tables, ${backup.rowCount ?? '?'} rows)`,
+      detailKey: 'act.backupCreated',
+      detailParams: { tables: backup.tableCount ?? '?', rows: backup.rowCount ?? '?' },
     });
 
     res.status(201).json({ ok: true, backup, removed: backup.removed ?? [] });
@@ -134,7 +142,8 @@ router.get(
       action: 'exported',
       module: 'settings',
       item: req.params.name,
-      detail: 'Backup download kiya gaya',
+      detail: 'Backup downloaded',
+      detailKey: 'act.backupDownloaded',
     });
 
     res.set({
@@ -158,7 +167,8 @@ router.delete(
       action: 'deleted',
       module: 'settings',
       item: req.params.name,
-      detail: 'Backup hataya gaya',
+      detail: 'Backup deleted',
+      detailKey: 'act.backupDeleted',
     });
 
     res.json({ ok: true });
@@ -208,7 +218,9 @@ router.post(
         action: 'updated',
         module: 'settings',
         item: req.params.name,
-        detail: `Database restore hua — ${result.tables} tables, ${result.rows} rows`,
+        detail: `Database restored — ${result.tables} tables, ${result.rows} rows`,
+        detailKey: 'act.databaseRestored',
+        detailParams: { tables: result.tables, rows: result.rows },
       });
 
       res.json({
@@ -226,7 +238,8 @@ router.post(
       action: 'updated',
       module: 'settings',
       item: req.params.name,
-      detail: 'Restore ka nishaan lagaya — server restart hone par lagega',
+      detail: 'Marked for restore — will apply on server restart',
+      detailKey: 'act.restoreMarked',
     });
 
     res.json({
@@ -277,7 +290,8 @@ router.post(
           action: 'updated',
           module: 'settings',
           item: 'upload',
-          detail: 'Upload ki hui backup already maujood/current jaisi hai — nayi copy nahi jodi',
+          detail: 'Uploaded backup already matches the current database — no new copy added',
+          detailKey: 'act.uploadDuplicate',
         });
 
         res.status(200).json({
@@ -293,7 +307,9 @@ router.post(
         action: 'created',
         module: 'settings',
         item: result.backup.name,
-        detail: `Upload ki hui backup jaanchi aur list me jodi — ${result.backup.tableCount} tables, ${result.backup.rowCount} rows`,
+        detail: `Uploaded backup verified and added to the list — ${result.backup.tableCount} tables, ${result.backup.rowCount} rows`,
+      detailKey: 'act.uploadVerified',
+      detailParams: { tables: result.backup.tableCount, rows: result.backup.rowCount },
       });
 
       res.status(201).json({
@@ -317,7 +333,8 @@ router.post(
       action: 'updated',
       module: 'settings',
       item: 'upload',
-      detail: 'Backup file upload hui — server restart hone par lagegi',
+      detail: 'Backup file uploaded — will apply on server restart',
+      detailKey: 'act.backupFileUploaded',
     });
 
     res.json({

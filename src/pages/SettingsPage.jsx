@@ -1304,12 +1304,12 @@ export default function SettingsPage() {
                         {storage.lastTestMessage ? ` — ${storage.lastTestMessage}` : ''}
                       </span>
                     </div>
-                    <div>
+                    <div className="mt-2">
                       <button type="button" className="btn btn-sm btn-outline-danger" onClick={() => setStorageDisconnectOpen(true)}>
                         {t('set.storageDisconnect')}
                       </button>
                     </div>
-                    <hr className="my-2" />
+                    <hr className="my-3" />
                   </div>
                 ) : null}
 
@@ -1349,7 +1349,7 @@ export default function SettingsPage() {
                       value={storageDraft.region}
                       onChange={(event) => setStorageField('region', event.target.value)}
                     />
-                    <div className="form-text">{activeProviderMeta?.regionHelp}</div>
+                    <div className="form-text">{activeProviderMeta?.regionHelp ? t(activeProviderMeta.regionHelp) : ''}</div>
                   </div>
                   {activeProviderMeta?.needsEndpoint ? (
                     <div className="col-12 col-md-6">
@@ -1361,7 +1361,7 @@ export default function SettingsPage() {
                         value={storageDraft.endpoint}
                         onChange={(event) => setStorageField('endpoint', event.target.value)}
                       />
-                      <div className="form-text">{activeProviderMeta?.endpointHelp}</div>
+                      <div className="form-text">{activeProviderMeta?.endpointHelp ? t(activeProviderMeta.endpointHelp) : ''}</div>
                     </div>
                   ) : null}
                   <div className="col-12 col-md-6">

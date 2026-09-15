@@ -207,7 +207,8 @@ router.post(
       action: 'created',
       module: 'contacts',
       item: body.email,
-      detail: 'Naya contact joda gaya',
+      detail: 'New contact added',
+      detailKey: 'act.contactAdded',
     });
 
     const row = await one(`${SELECT} WHERE c.id = $1`, [id]);
@@ -248,7 +249,8 @@ router.put(
       action: 'updated',
       module: 'contacts',
       item: body.email,
-      detail: 'Contact ki details badli',
+      detail: 'Contact details updated',
+      detailKey: 'act.contactUpdated',
     });
 
     const row = await one(`${SELECT} WHERE c.id = $1`, [req.params.id]);
@@ -270,7 +272,8 @@ router.delete(
       action: 'deleted',
       module: 'contacts',
       item: existing.email,
-      detail: 'Contact hata diya gaya',
+      detail: 'Contact deleted',
+      detailKey: 'act.contactDeleted',
     });
 
     res.json({ ok: true });
@@ -289,7 +292,8 @@ router.post(
       action: 'deleted',
       module: 'contacts',
       item: `${req.body.ids.length} contacts`,
-      detail: 'Ek saath kai contact hataye gaye',
+      detail: 'Multiple contacts deleted in bulk',
+      detailKey: 'act.contactsBulkDeleted',
     });
 
     res.json({ ok: true, deleted: result.affectedRows ?? result.rowCount ?? req.body.ids.length });
@@ -316,7 +320,8 @@ router.post(
       action: 'exported',
       module: 'contacts',
       item: `${rows.length} contacts`,
-      detail: 'CSV download kiya gaya',
+      detail: 'CSV downloaded',
+      detailKey: 'act.csvDownloaded',
     });
 
     res.json({ contacts: rows.map(toApi) });
@@ -358,7 +363,8 @@ router.post(
       action: 'created',
       module: 'contacts',
       item: req.body.name,
-      detail: 'Naya contact group bana',
+      detail: 'New contact group created',
+      detailKey: 'act.groupCreated',
     });
 
     res.status(201).json({ group: { id, name: req.body.name, tone: req.body.tone, count: 0 } });
@@ -381,7 +387,8 @@ router.put(
       action: 'updated',
       module: 'contacts',
       item: req.body.name,
-      detail: 'Group ka naam badla gaya',
+      detail: 'Group name updated',
+      detailKey: 'act.groupRenamed',
     });
 
     const row = await one(
@@ -414,7 +421,8 @@ router.delete(
       action: 'deleted',
       module: 'contacts',
       item: existing.name,
-      detail: 'Group hata diya gaya — contacts wahin rahe, sirf group-tag hata',
+      detail: 'Group deleted — contacts kept, only the group tag was removed',
+      detailKey: 'act.groupDeleted',
     });
 
     res.json({ ok: true });
@@ -608,8 +616,15 @@ router.post(
         module: 'contacts',
         item: `${report.imported} contacts`,
         detail:
-          `Import: ${report.imported} jude, ${report.duplicateInDatabase} pehle se the, ` +
-          `${report.duplicateInFile} file me dobara the, ${report.invalid} galat the`,
+          `Import: ${report.imported} added, ${report.duplicateInDatabase} already existed, ` +
+          `${report.duplicateInFile} duplicated within the file, ${report.invalid} invalid`,
+        detailKey: 'act.contactsImported',
+        detailParams: {
+          added: report.imported,
+          existing: report.duplicateInDatabase,
+          duplicated: report.duplicateInFile,
+          invalid: report.invalid,
+        },
       });
 
       await sendSystemEmail(

@@ -14,6 +14,11 @@ const TONE_BY_STATUS = {
   Connected: 'success',
   'Needs attention': 'warning',
   Pending: 'warning',
+  Testing: 'primary',
+  'Winner Selected': 'success',
+  'Sending Winner': 'primary',
+  Completed: 'success',
+  Cancelled: 'danger',
 };
 
 export default function StatusPill({ status, tone, withDot = true, count }) {

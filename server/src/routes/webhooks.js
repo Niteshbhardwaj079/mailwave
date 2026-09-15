@@ -49,7 +49,9 @@ router.put(
       action: 'updated',
       module: 'settings',
       item: 'webhook',
-      detail: req.body.enabled ? `Webhook chalu kiya: ${req.body.url}` : 'Webhook band kiya',
+      detail: req.body.enabled ? `Webhook enabled: ${req.body.url}` : 'Webhook disabled',
+      detailKey: req.body.enabled ? 'act.webhookEnabled' : 'act.webhookDisabled',
+      detailParams: req.body.enabled ? { url: req.body.url } : undefined,
     });
 
     res.json({ webhook: toApi(config) });
@@ -88,7 +90,8 @@ router.post(
       action: 'updated',
       module: 'settings',
       item: 'webhook',
-      detail: 'Webhook secret badla — purana kaam karna band ho gaya',
+      detail: 'Webhook secret rotated — the old one stopped working',
+      detailKey: 'act.webhookSecretRotated',
     });
 
     // Poora secret SIRF is ek jawab me — dobara kabhi nahi milega.

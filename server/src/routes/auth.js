@@ -92,7 +92,7 @@ const resetLimiter = rateLimit({
   message: {
     error: {
       code: 'rate_limited',
-      message: 'Bahut baar koshish ho chuki.',
+      message: 'Too many attempts.',
     },
   },
 });
@@ -224,6 +224,7 @@ router.post(
       module: 'users',
       item: user.name,
       detail: 'Signed in',
+      detailKey: 'act.signedIn',
     });
 
     if (newDevice) {
@@ -348,7 +349,8 @@ router.put(
       action: 'updated',
       module: 'users',
       item: req.body.name,
-      detail: 'Apni profile badli',
+      detail: 'Updated own profile',
+      detailKey: 'act.profileUpdated',
     });
 
     const user = await one(
@@ -393,6 +395,7 @@ router.post(
       module: 'users',
       item: user.name,
       detail: 'Password reset link requested',
+      detailKey: 'act.passwordResetRequested',
     });
 
     const resetUrl = `${env.appUrl}/reset-password?token=${token}`;
@@ -487,6 +490,7 @@ router.post(
       module: 'users',
       item: user?.name ?? stored.user_id,
       detail: 'Password changed from a reset link',
+      detailKey: 'act.passwordChangedFromReset',
       before: 'Password: unchanged',
       after: 'Password: replaced',
     });
@@ -538,7 +542,8 @@ router.post(
       action: 'updated',
       module: 'users',
       item: user?.name ?? stored.user_id,
-      detail: 'Email confirm ho gaya',
+      detail: 'Email confirmed',
+      detailKey: 'act.emailConfirmed',
       after: `Email: ${stored.new_email}`,
     });
 
@@ -583,6 +588,7 @@ router.post(
       module: 'users',
       item: req.user.name,
       detail: 'Changed their own password',
+      detailKey: 'act.changedOwnPassword',
     });
 
     await notifyPasswordChanged(req, req.user);

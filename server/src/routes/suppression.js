@@ -92,7 +92,16 @@ router.get(
       [...params, limit, offset]
     );
 
-    res.json(paginated(rows.map(toApi), { page, limit }, totalRow?.n ?? 0));
+    // Page ke top par dikhne wale count cards — filter/search se bhale hi
+    // list chhoti ho jaye, yeh hamesha POORI list ki asli ginti dikhate hain.
+    const reasonRows = await many('SELECT reason, count(*)::int AS n FROM suppression GROUP BY reason');
+    const counts = reasonRows.reduce((acc, row) => ({ ...acc, [row.reason]: row.n }), {});
+    const allRow = await one('SELECT count(*)::int AS n FROM suppression');
+
+    res.json({
+      ...paginated(rows.map(toApi), { page, limit }, totalRow?.n ?? 0),
+      counts: { All: allRow?.n ?? 0, ...counts },
+    });
   })
 );
 
@@ -118,7 +127,9 @@ router.post(
       action: 'created',
       module: 'contacts',
       item: email,
-      detail: `Suppression list me haath se jodi (${reason})`,
+      detail: `Manually added to the suppression list (${reason})`,
+      detailKey: 'act.suppressionAdded',
+      detailParams: { reason },
     });
 
     const row = await one(`${SELECT} WHERE s.account_id = '' AND s.email = $1`, [email]);
@@ -149,10 +160,50 @@ router.delete(
       action: 'deleted',
       module: 'contacts',
       item: email,
-      detail: `Suppression list se hataya (tha: ${existing.reason})`,
+      detail: `Removed from the suppression list (was: ${existing.reason})`,
+      detailKey: 'act.suppressionRemoved',
+      detailParams: { reason: existing.reason },
     });
 
     res.status(204).send();
+  })
+);
+
+// --- ek saath kai hatao (table ke tick-box wale bulk action) ------------------
+// Composite key (account_id, email) hone ki wajah se `ids` jaisa simple array
+// nahi chalega — har row apni pehchaan {email, accountId} jodi se deti hai.
+router.post(
+  '/bulk-delete',
+  requireModule('contacts', 'edit'),
+  validate(
+    z.object({
+      items: z
+        .array(
+          z.object({
+            email: z.string().trim().toLowerCase().email(),
+            accountId: z.string().trim().default(''),
+          })
+        )
+        .min(1, 'Choose at least one entry')
+        .max(2000),
+    })
+  ),
+  asyncHandler(async (req, res) => {
+    let removed = 0;
+    for (const { email, accountId } of req.body.items) {
+      const result = await query('DELETE FROM suppression WHERE account_id = $1 AND email = $2', [accountId, email]);
+      removed += result.affectedRows ?? result.rowCount ?? 0;
+    }
+
+    await logActivity(req, {
+      action: 'deleted',
+      module: 'contacts',
+      item: `${removed} suppression entries`,
+      detail: 'Multiple entries removed from the suppression list in bulk',
+      detailKey: 'act.suppressionBulkRemoved',
+    });
+
+    res.json({ ok: true, removed });
   })
 );
 

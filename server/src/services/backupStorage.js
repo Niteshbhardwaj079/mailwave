@@ -39,8 +39,10 @@ function assertSafeName(name) {
  *   read(name)           -> Buffer
  *   delete(name)         -> void
  *   exists(name)         -> boolean
- *   isDurable()          -> boolean   (deploy/restart me bhi bachega?)
- *   describe()           -> string    (UI ko dikhane layak, chhota sa jumla)
+ *   isDurable()          -> boolean            (deploy/restart me bhi bachega?)
+ *   describeKey()        -> {key, params}      (UI ko dikhane layak jumla — i18n key,
+ *                                                asli text nahi, taaki caller apni
+ *                                                (viewer ki) language me translate kar sake)
  */
 
 class LocalDiskStorage {
@@ -85,8 +87,8 @@ class LocalDiskStorage {
     return false;
   }
 
-  describe() {
-    return `Server ki apni disk (${this.dir}) — hosting restart/redeploy karte hi yeh mit sakta hai. Sirf abhi ke liye theek hai, permanent bharosa iske upar mat karo.`;
+  describeKey() {
+    return { key: 'act.storageDescribeLocal', params: { dir: this.dir } };
   }
 }
 
@@ -162,9 +164,9 @@ class S3Storage {
     return true;
   }
 
-  describe() {
+  describeKey() {
     const host = this.config.endpoint || `s3.${this.config.region}.amazonaws.com`;
-    return `S3-compatible storage (${host} / bucket "${this.config.bucket}") — deploy ya restart se nahi mitta.`;
+    return { key: 'act.storageDescribeS3', params: { host, bucket: this.config.bucket } };
   }
 }
 

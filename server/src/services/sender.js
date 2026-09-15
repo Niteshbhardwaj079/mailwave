@@ -22,6 +22,12 @@ import { enqueueWebhookEvent } from './webhooks.js';
 // hai — isliye status database me bhi likha jata hai, sirf yahan nahi.
 const running = new Map();
 
+// A/B test wali campaign ke teen "actively sending" status — normal campaign
+// sirf 'Sending' hi kabhi dekhti hai, A/B campaign apni zindagi me teenon se
+// guzarti hai (pehle test-sample, phir winner blast). Jahan bhi neeche
+// "abhi kya chal raha hai" poochna hai, ismese koi bhi ek ho sakta hai.
+const ACTIVE_SEND_STATUSES = ['Sending', 'Testing', 'Sending Winner'];
+
 export function isRunning(campaignId) {
   return running.has(campaignId);
 }
@@ -178,11 +184,21 @@ async function notifyCampaignFailed(campaignId, error) {
  * `reclaim: true` sirf recoverStuckCampaigns() se aata hai (dekho neeche) —
  * normal callers (Send button, resend, scheduler) kabhi ise true nahi
  * bhejte. Farak sirf claim query me hai: normal path ek campaign ko SIRF
- * tab claim karta hai jab wo abhi 'Sending' NAHI hai (naya start/resume);
- * reclaim path ULTA hai — sirf tab claim karta hai jab wo PEHLE SE 'Sending'
- * hai (server restart ke baad orphan mili hui campaign).
+ * tab claim karta hai jab wo abhi `targetStatus` NAHI hai (naya start/resume);
+ * reclaim path ULTA hai — sirf tab claim karta hai jab wo PEHLE SE
+ * `targetStatus` hai (server restart ke baad orphan mili hui campaign).
+ *
+ * `targetStatus` — normal campaign ke liye hamesha 'Sending' hi rehta hai
+ * (default), isliye koi bhi purana caller kuch pass kiye bina bilkul waisa hi
+ * chalta rehta hai. A/B campaign apne test-sample ko 'Testing' me, aur
+ * winner-blast ko 'Sending Winner' me claim karti hai — routes/campaigns.js
+ * ke A/B routes hi yeh batate hain, baaki poora `run()` loop dono jagah
+ * bilkul EK hi tarah kaam karta hai.
  */
-export async function startCampaign(campaignId, { company = env.brand.company, reclaim = false } = {}) {
+export async function startCampaign(
+  campaignId,
+  { company = env.brand.company, reclaim = false, targetStatus = 'Sending' } = {}
+) {
   if (running.has(campaignId)) return { started: false, reason: 'already_running' };
 
   const campaign = await one('SELECT * FROM campaigns WHERE id = $1', [campaignId]);
@@ -202,16 +218,16 @@ export async function startCampaign(campaignId, { company = env.brand.company, r
     ? await one(
         `UPDATE campaigns
             SET pause_reason = NULL, started_at = COALESCE(started_at, now()), updated_at = now()
-          WHERE id = $1 AND status = 'Sending'
+          WHERE id = $1 AND status = $2
           RETURNING id`,
-        [campaignId]
+        [campaignId, targetStatus]
       )
     : await one(
         `UPDATE campaigns
-            SET status = 'Sending', pause_reason = NULL, started_at = COALESCE(started_at, now()), updated_at = now()
-          WHERE id = $1 AND status != 'Sending'
+            SET status = $2, pause_reason = NULL, started_at = COALESCE(started_at, now()), updated_at = now()
+          WHERE id = $1 AND status != $2
           RETURNING id`,
-        [campaignId]
+        [campaignId, targetStatus]
       );
   if (!claimed) return { started: false, reason: 'already_running' };
 
@@ -248,23 +264,29 @@ export async function startCampaign(campaignId, { company = env.brand.company, r
  * rahi campaign ko bhi "orphan" samajh sakta.
  */
 export async function recoverStuckCampaigns() {
-  const stuck = await many(`SELECT id, name, account_id FROM campaigns WHERE status = 'Sending'`);
+  const stuck = await many(
+    `SELECT id, name, account_id, status FROM campaigns WHERE status = ANY($1)`,
+    [ACTIVE_SEND_STATUSES]
+  );
   const recovered = [];
 
   for (const row of stuck) {
     if (running.has(row.id)) continue; // paranoia — startup par aisा hona hi nahi chahiye
 
     if (!row.account_id) {
-      // Bina account ke resume nahi ho sakti — hamesha 'Sending' dikhne se
+      // Bina account ke resume nahi ho sakti — hamesha atki hui dikhne se
       // behtar hai saaf 'Failed' maar dena.
       await query(`UPDATE campaigns SET status = 'Failed', updated_at = now() WHERE id = $1`, [row.id]);
       console.error(`[sender] "${row.name}" restart ke baad atki thi (koi account nahi) — Failed kar diya.`);
       continue;
     }
 
-    const result = await startCampaign(row.id, { company: env.brand.company, reclaim: true });
+    // targetStatus = row.status khud — reclaim status BADALTA nahi, sirf
+    // confirm karta hai ki abhi bhi wahi hai jahan orphan mili thi (matlab
+    // 'Sending' campaign 'Sending' hi rahegi, 'Testing' wali 'Testing' hi).
+    const result = await startCampaign(row.id, { company: env.brand.company, reclaim: true, targetStatus: row.status });
     if (result.started) {
-      console.log(`[sender] "${row.name}" — server restart se pehle 'Sending' me atki thi, khud-ba-khud dobara chalu ki.`);
+      console.log(`[sender] "${row.name}" — server restart se pehle '${row.status}' me atki thi, khud-ba-khud dobara chalu ki.`);
       recovered.push(row.id);
     } else {
       console.error(`[sender] "${row.name}" ko restart ke baad dobara chalu nahi kar paye (${result.reason}).`);
@@ -280,8 +302,16 @@ export async function pauseCampaign(campaignId) {
 
   // 'manual' — insaan ne roka, isliye scheduler ise kal khud chalu nahi
   // karega. Sirf quota khatam hone wala pause apne aap resume hota hai.
+  //
+  // resume_target_status = status (RHS `status` update se PEHLE wali value
+  // hai) — normal campaign ke liye hamesha 'Sending' hoga, par A/B campaign
+  // 'Testing' ya 'Sending Winner' me se bhi paused ho sakti hai. Isi column
+  // se baad me "Resume" dabane par bilkul WAHI phase wapas milta hai, kabhi
+  // galti se 'Sending' me flip nahi hota.
   await query(
-    `UPDATE campaigns SET status = 'Paused', pause_reason = 'manual', updated_at = now() WHERE id = $1`,
+    `UPDATE campaigns
+        SET status = 'Paused', pause_reason = 'manual', resume_target_status = status, updated_at = now()
+      WHERE id = $1`,
     [campaignId]
   );
   running.delete(campaignId);
@@ -289,7 +319,25 @@ export async function pauseCampaign(campaignId) {
 }
 
 async function run(campaign, account, controller, company) {
+  // A/B campaign ke variants ek hi baar load kar lete hain (id -> row) —
+  // batch-loop ke andar har recipient ke liye dobara DB nahi poochni padti.
+  const variants = new Map();
+  if (campaign.ab_enabled) {
+    const variantRows = await many('SELECT * FROM campaign_variants WHERE campaign_id = $1', [campaign.id]);
+    for (const row of variantRows) variants.set(row.id, row);
+  }
+
+  // Click-tracking links campaign ke apne html SE, aur (content A/B ho to)
+  // har variant ke apne-apne html se bhi chahiye — warna variant B ke ek
+  // link par click track hi nahi hoga. Same URL do jagah mile to ek hi
+  // campaign_links row reuse hoti hai (jaisa collectLinks() vaise bhi karta
+  // hai), per-recipient click_count phir bhi sahi recipient ko hi jaata hai.
   const links = await collectLinks(campaign);
+  for (const variant of variants.values()) {
+    if (!variant.html) continue;
+    const variantLinks = await collectLinks({ ...campaign, html: variant.html });
+    for (const [url, link] of variantLinks) links.set(url, link);
+  }
 
   const unsubSettings = await workspaceSetting('unsubscribe', {});
   const unsubscribeText = unsubSettings.linkText || 'Unsubscribe from these emails';
@@ -302,10 +350,11 @@ async function run(campaign, account, controller, company) {
 
     // Har batch se pehle status dobara padho — kisi ne Pause dabaya ho sakta hai.
     const current = await one('SELECT status FROM campaigns WHERE id = $1', [campaign.id]);
-    if (!current || current.status !== 'Sending') {
+    if (!current || !ACTIVE_SEND_STATUSES.includes(current.status)) {
       running.delete(campaign.id);
       return;
     }
+    campaign.status = current.status;
 
     await resetQuotaIfNewDay(account.id);
     const fresh = await one('SELECT daily_limit, sent_today FROM email_accounts WHERE id = $1', [account.id]);
@@ -316,7 +365,9 @@ async function run(campaign, account, controller, company) {
       // subah quota reset hote hi ise khud chalu kar de — insaan ko roz
       // yaad rakhkar dobara "Resume" dabana na pade.
       await query(
-        `UPDATE campaigns SET status = 'Paused', pause_reason = 'quota', updated_at = now() WHERE id = $1`,
+        `UPDATE campaigns
+            SET status = 'Paused', pause_reason = 'quota', resume_target_status = status, updated_at = now()
+          WHERE id = $1`,
         [campaign.id]
       );
       running.delete(campaign.id);
@@ -334,7 +385,7 @@ async function run(campaign, account, controller, company) {
     // saath), aur JOIN se wahi recipient DO baar aa jata — matlab EK hi
     // insaan ko galti se do baar mail chali jaati.
     const batch = await many(
-      `SELECT r.id, r.email, r.name, r.merge_data
+      `SELECT r.id, r.email, r.name, r.merge_data, r.variant_id
          FROM campaign_recipients r
         WHERE r.campaign_id = $1
           AND r.status = 'Pending'
@@ -370,7 +421,7 @@ async function run(campaign, account, controller, company) {
 
             // Itni der me kisi ne Pause ya Delete kiya ho sakta hai.
             const stillSending = await one('SELECT status FROM campaigns WHERE id = $1', [campaign.id]);
-            if (!stillSending || stillSending.status !== 'Sending') {
+            if (!stillSending || !ACTIVE_SEND_STATUSES.includes(stillSending.status)) {
               running.delete(campaign.id);
               return;
             }
@@ -385,12 +436,28 @@ async function run(campaign, account, controller, company) {
         }
       }
 
+      if (campaign.ab_enabled && campaign.status === 'Testing') {
+        // Test-sample poora bhej diya — ab bas result timer khatam hone
+        // (ya insaan khud winner chuने) ka intezaar hai. "Reserve" wale
+        // recipients abhi bhi status='Reserved' par hain, isliye yeh upar
+        // wala WHERE status='Pending' unhe kabhi chhoo hi nahi sakta —
+        // campaign 'Testing' me hi ruki rehti hai, 'Sent' kabhi nahi banti.
+        running.delete(campaign.id);
+        console.log(`[sender] ${campaign.id}: A/B test-sample bhej di gayi, result ka intezaar hai`);
+        return;
+      }
+
+      // Normal campaign hamesha 'Sent' par khatam hoti hai (jaisa pehle se
+      // hota tha). A/B campaign ka winner-blast phase ('Sending Winner')
+      // apna alag naam paata hai — user ko saaf dikhe ki yeh ek A/B test ka
+      // conclusion tha, kisi normal single-variant send ka nahi.
+      const finishedStatus = campaign.status === 'Sending Winner' ? 'Completed' : 'Sent';
       await query(
-        `UPDATE campaigns SET status = 'Sent', finished_at = now(), updated_at = now() WHERE id = $1`,
-        [campaign.id]
+        `UPDATE campaigns SET status = $2, finished_at = now(), updated_at = now() WHERE id = $1`,
+        [campaign.id, finishedStatus]
       );
       running.delete(campaign.id);
-      console.log(`[sender] ${campaign.id}: poora ho gaya`);
+      console.log(`[sender] ${campaign.id}: poora ho gaya (${finishedStatus})`);
       await notifyCampaignFinished(campaign.id);
       await enqueueWebhookEvent('campaign.finished', { campaignId: campaign.id, campaignName: campaign.name });
       return;
@@ -399,13 +466,29 @@ async function run(campaign, account, controller, company) {
     for (const recipient of batch) {
       if (controller.stop) return;
 
-      const message = buildEmail({ campaign, recipient, links, company, unsubscribeText });
+      // A/B campaign ke recipient ke paas variant ho sakta hai — uske
+      // subject/html/sender fields campaign ke apne fields ko OVERRIDE
+      // karte hain (jo field variant me khaali/null hai wahi campaign se
+      // aati hai). Normal campaign (ab_enabled=false ya variant hi nahi) ke
+      // liye `effectiveCampaign === campaign` — bilkul pehle jaisa hi.
+      const variant = campaign.ab_enabled && recipient.variant_id ? variants.get(recipient.variant_id) : null;
+      const effectiveCampaign = variant
+        ? {
+            ...campaign,
+            subject: variant.subject ?? campaign.subject,
+            html: variant.html ?? campaign.html,
+            sender_name: variant.sender_name ?? campaign.sender_name,
+            reply_to: variant.reply_to ?? campaign.reply_to,
+          }
+        : campaign;
+
+      const message = buildEmail({ campaign: effectiveCampaign, recipient, links, company, unsubscribeText });
 
       try {
         const result = await sendMail(account, {
           to: recipient.email,
-          fromName: campaign.sender_name,
-          replyTo: campaign.reply_to,
+          fromName: effectiveCampaign.sender_name,
+          replyTo: effectiveCampaign.reply_to,
           subject: message.subject,
           html: message.html,
           text: message.text,

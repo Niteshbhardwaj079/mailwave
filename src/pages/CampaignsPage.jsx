@@ -19,7 +19,18 @@ import { useToast } from '../components/ui/ToastProvider';
 import { downloadCampaignReport } from '../utils/campaignReport';
 import FullScreenLoader from '../components/ui/FullScreenLoader';
 
-const STATUSES = ['Sent', 'Sending', 'Scheduled', 'Paused', 'Draft'];
+const STATUSES = [
+  'Sent',
+  'Sending',
+  'Testing',
+  'Winner Selected',
+  'Sending Winner',
+  'Completed',
+  'Scheduled',
+  'Paused',
+  'Draft',
+  'Cancelled',
+];
 
 const ROW_ACTIONS = [
   { key: 'analytics', labelKey: 'camp.viewAnalytics', icon: 'bi-graph-up' },

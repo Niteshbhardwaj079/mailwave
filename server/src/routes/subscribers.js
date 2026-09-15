@@ -94,7 +94,8 @@ router.post(
       action: 'deleted',
       module: 'contacts',
       item: `${rows.length} subscriber`,
-      detail: 'Subscriber list se hataye gaye',
+      detail: 'Removed from the subscriber list',
+      detailKey: 'act.subscriberRemoved',
     });
 
     res.json({ ok: true, removed: rows.length });
@@ -146,7 +147,8 @@ router.post(
       action: 'created',
       module: 'contacts',
       item: email,
-      detail: 'Naya subscriber juda',
+      detail: 'New subscriber added',
+      detailKey: 'act.subscriberAdded',
     });
 
     const row = await one(`${SELECT} WHERE s.id = $1`, [id]);

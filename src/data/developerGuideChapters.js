@@ -683,14 +683,27 @@ export const devGuideChapters = [
           '`Draft` — being edited, nothing scheduled.',
           '`Scheduled` — `scheduler.js` will start it once `scheduled_at` has passed.',
           '`Sending` — `sender.js` is actively working through recipients in batches.',
-          '`Paused` — stopped, either by a person (`pause_reason = \'manual\'`) or automatically because a daily send quota ran out (`pause_reason = \'quota\'`, auto-resumed the next day by the scheduler).',
+          '`Paused` — stopped, either by a person (`pause_reason = \'manual\'`) or automatically because a daily send quota ran out (`pause_reason = \'quota\'`, auto-resumed the next day by the scheduler, or manually via `resume_target_status` — see A/B Testing below).',
           '`Sent` — every recipient reached a terminal state (sent or failed).',
+          'A/B-only statuses: `Testing`, `Winner Selected`, `Sending Winner`, `Completed`, `Cancelled` — see the A/B Testing section.',
         ],
       },
       {
         heading: 'Analytics',
         paragraphs: [
-          '`CampaignAnalyticsPage.jsx` polls `GET /api/campaigns/:id` every 30 seconds while a campaign is `Sending`, showing live batch progress and a time-remaining estimate built from the same `sendEstimate.js` used in the wizard, fed with freshly-refetched account quota data each tick.',
+          '`CampaignAnalyticsPage.jsx` polls `GET /api/campaigns/:id` every 30 seconds while a campaign is `Sending` or `Sending Winner`, showing live batch progress and a time-remaining estimate built from the same `sendEstimate.js` used in the wizard, fed with freshly-refetched account quota data each tick. (Not shown during `Testing` — see below.)',
+        ],
+      },
+      {
+        heading: 'A/B Testing',
+        paragraphs: [
+          'A/B testing is deliberately NOT a separate sending system — it reuses `sender.js`\'s single `run()` loop for every phase. The loop\'s "am I still allowed to keep going" check uses `ACTIVE_SEND_STATUSES = [\'Sending\', \'Testing\', \'Sending Winner\']` instead of a hardcoded status, and `startCampaign(id, { targetStatus })` tells it which phase it\'s claiming. Per-recipient content (subject/html/sender name/reply-to) is resolved into a small `effectiveCampaign` merge object — built from the recipient\'s assigned `campaign_variants` row — right before `buildEmail()`/`sendMail()`. Everything else (batching, suppression checks, bounce handling, retries, quota pausing) is the exact same code path as a normal send.',
+          '`server/src/services/abTesting.js` owns the three things that ARE specific to A/B: (1) `assignTestAudience()` — a one-time, atomic (`ab_test_started_at IS NULL` claim) random split of recipients into the test sample (assigned a `variant_id`, stays `Pending`) vs. the rest (flipped to `Reserved` — invisible to `sender.js`\'s `WHERE status=\'Pending\'` batch query until a winner is picked, so nobody ever gets sent two variants); (2) `variantStats()`/`variantsWithStats()` — live per-variant counts, always recomputed from `campaign_recipients`, never cached; (3) `computeWinner()` — a two-proportion z-test (`twoProportionSignificance()`, Abramowitz & Stegun normal-CDF approximation, no external stats library) that only declares a winner once both `MIN_SAMPLE_PER_VARIANT` (20 sends per variant) AND the campaign\'s configurable `ab_confidence_threshold` are met — otherwise it returns `insufficient_sample` or `not_significant` and the campaign falls back to `Testing` for a human to decide manually. This exists so a couple of extra opens can\'t flip an automatic winner call.',
+          'Every A/B state transition is an atomic `UPDATE ... WHERE status = X RETURNING id` claim (`decideWinner()`: `Testing → Winner Selected`; `sendWinnerToRemainder()`: `Winner Selected → Sending Winner`), so retries and the scheduler\'s tick can never double-decide a winner or double-send the winner blast, no matter how many times they\'re called.',
+          'Pausing mid-A/B-test (manual or quota) is handled by the `campaigns.resume_target_status` column, set in the SAME `UPDATE` that sets `status = \'Paused\'` (`SET resume_target_status = status` — Postgres evaluates the RHS against the pre-update row). Resuming reads it back instead of always assuming `\'Sending\'`, so a paused `Testing` or `Sending Winner` campaign resumes into the correct phase. Normal (non-A/B) campaigns are unaffected — the column is just `\'Sending\'`/null for them.',
+          'The scheduler (`scheduler.js`) has one A/B-specific tick: campaigns with `status=\'Testing\'`, `ab_auto_winner=true`, no winner yet, and `ab_test_ends_at <= now()` get `decideWinner()` called automatically, then `sendWinnerToRemainder()` if `ab_auto_send_winner` is also on — this is the fully hands-off path when nobody manually clicks anything.',
+          'Honesty note (matches the same reasoning used for the Dashboard\'s KPI cards elsewhere in this app): plain SMTP has no ESP webhook, so per-variant `delivered` is an explicit alias of `sent` (never a smaller, fabricated number) and `spamComplaints` is `null`/"N/A" in the UI, never `0`. The winner\'s explanation is stored as `ab_winner_reason_key`/`ab_winner_reason_params` (not a frozen English string) and translated at read time into the viewer\'s language, the same pattern `activity_log.detail_key` uses.',
+          'Frontend: the whole A/B UI lives in `src/components/campaigns/ABTestPanel.jsx`, rendered from `CampaignAnalyticsPage.jsx` when `campaign.ab.enabled` — deliberately not a step in `CampaignWizardPage.jsx`, to avoid touching that wizard\'s step-index logic. A campaign can only turn A/B on while it\'s still `Draft`/`Scheduled` and hasn\'t started its test (`ab_test_started_at IS NULL`); once started, settings and variants lock.',
         ],
       },
       {
@@ -698,10 +711,17 @@ export const devGuideChapters = [
         fileCards: [
           {
             file: 'server/src/routes/campaigns.js',
-            does: 'Campaign CRUD, the wizard\'s save endpoint, schedule/pause/resume, and the `.xlsx` report download.',
-            dependsOn: '`CampaignWizardPage.jsx`, `CampaignsPage.jsx`, `CampaignAnalyticsPage.jsx` on the frontend; `services/sender.js` and `services/scheduler.js` on the backend.',
+            does: 'Campaign CRUD, the wizard\'s save endpoint, schedule/pause/resume, the `.xlsx` report download, and the `/:id/ab/*` routes (settings, variants, stats, start, decide-winner, send-winner, cancel).',
+            dependsOn: '`CampaignWizardPage.jsx`, `CampaignsPage.jsx`, `CampaignAnalyticsPage.jsx`, `ABTestPanel.jsx` on the frontend; `services/sender.js`, `services/scheduler.js`, `services/abTesting.js` on the backend.',
             safe: 'Adding a new field to the campaign record.',
             careful: '`scheduled_at` is stored as `timestamptz` — always send/read full ISO datetime strings with their offset, never a bare local-looking string, or send times will shift when the server\'s own timezone differs from what was intended.',
+          },
+          {
+            file: 'server/src/services/abTesting.js',
+            does: 'Test-audience assignment, live per-variant stats, and the statistical-significance winner calculation. See the A/B Testing section above.',
+            dependsOn: '`sender.js` (`startCampaign()`, `ACTIVE_SEND_STATUSES`), called from `routes/campaigns.js` and `services/scheduler.js`.',
+            safe: 'Adding a new winner metric to `metricFor()` (also add it to the `ab_winner_metric` check constraint if one exists, the zod enum in `routes/campaigns.js`, and the `ab.metric.*` i18n keys).',
+            careful: 'Every status transition here is written as an atomic claim (`UPDATE ... WHERE status = X RETURNING id`) on purpose — do not replace one with a plain read-then-write, or a retried/duplicate call could double-send the winner blast.',
           },
         ],
       },

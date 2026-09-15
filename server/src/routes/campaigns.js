@@ -17,7 +17,15 @@ import { validate } from '../lib/validate.js';
 import { requireAccountAccess, requireModule, roleCanUseAccount } from '../middleware/permissions.js';
 import { campaignActionLimiter } from '../middleware/actionLimiter.js';
 import { pauseCampaign, startCampaign } from '../services/sender.js';
+import {
+  computeWinner,
+  decideWinner,
+  sendWinnerToRemainder,
+  startTest,
+  variantsWithStats,
+} from '../services/abTesting.js';
 import { runDueCampaigns } from '../services/scheduler.js';
+import { reqLanguage, stFor } from '../lib/serverI18n.js';
 import { sendMail } from '../services/mailer.js';
 import { buildEmail } from '../services/render.js';
 import { LANGUAGE_CODES, DEFAULT_LANGUAGE } from '../lib/languages.js';
@@ -145,6 +153,22 @@ function toApi(row) {
     clicked: row.clicked ?? 0,
     bounced: row.bounced ?? 0,
     unsubscribed: row.unsubscribed ?? 0,
+    ab: {
+      enabled: row.ab_enabled ?? false,
+      testType: row.ab_test_type,
+      testPercent: row.ab_test_percent,
+      winnerMetric: row.ab_winner_metric,
+      durationMinutes: row.ab_test_duration_minutes,
+      autoWinner: row.ab_auto_winner,
+      autoSendWinner: row.ab_auto_send_winner,
+      confidenceThreshold: row.ab_confidence_threshold,
+      testStartedAt: row.ab_test_started_at,
+      testEndsAt: row.ab_test_ends_at,
+      winnerVariantId: row.ab_winner_variant_id,
+      winnerDecidedAt: row.ab_winner_decided_at,
+      winnerDecidedBy: row.ab_winner_decided_by,
+      winnerReason: row.ab_winner_reason,
+    },
   };
 }
 
@@ -453,7 +477,8 @@ router.get(
       action: 'exported',
       module: 'campaigns',
       item: built.campaignName,
-      detail: 'Campaign report download kiya gaya',
+      detail: 'Campaign report downloaded',
+      detailKey: 'act.reportDownloaded',
     });
   })
 );
@@ -485,7 +510,8 @@ router.post(
       action: 'created',
       module: 'campaigns',
       item: b.name,
-      detail: 'Naya campaign bana',
+      detail: 'New campaign created',
+      detailKey: 'act.campaignCreated',
     });
 
     const row = await one(`${SELECT} WHERE c.id = $1`, [id]);
@@ -528,7 +554,8 @@ router.put(
       action: 'updated',
       module: 'campaigns',
       item: b.name,
-      detail: 'Draft campaign badla gaya',
+      detail: 'Draft campaign updated',
+      detailKey: 'act.draftUpdated',
     });
 
     const row = await one(`${SELECT} WHERE c.id = $1`, [req.params.id]);
@@ -552,6 +579,9 @@ router.post(
       tag: z.string().trim().optional(),
       groupId: z.string().trim().optional(),
       excludeAlreadyEmailed: z.boolean().optional(),
+      // Diya ho to "match karne wale sabse pehle N" hi jodo — na diya ho
+      // (undefined) to jitne bhi match karein sab jodo, jaisa pehle hota tha.
+      limit: z.number().int().positive().max(50_000).optional(),
     }).optional(),
     people: z.array(z.object({
       email: z.string().email(),
@@ -563,16 +593,29 @@ router.post(
     subscriberIds: z.array(z.string()).optional(),
   })),
   asyncHandler(async (req, res) => {
-    const campaign = await one('SELECT id, name, status, pause_reason, account_id FROM campaigns WHERE id = $1', [req.params.id]);
+    const campaign = await one(
+      'SELECT id, name, status, pause_reason, account_id, ab_enabled FROM campaigns WHERE id = $1',
+      [req.params.id]
+    );
     if (!campaign) throw notFound('This campaign was not found');
-    if (campaign.status === 'Sending') throw badRequest('The campaign is sending — recipients cannot be added right now');
+    if (['Sending', 'Testing', 'Sending Winner'].includes(campaign.status)) {
+      throw badRequest('The campaign is sending — recipients cannot be added right now');
+    }
 
     // Naye log jodne se yeh campaign khud-ba-khud phir chalu ho sakti hai
     // (neeche dekho) — agar aisa hoga, to pehle hi check kar lete hain ki is
     // role ko iske account se bhejne ki ijazat hai, warna recipients jodkar
     // bhi asal me kisi restricted account se bhej dena galat hoga.
+    //
+    // A/B campaign kabhi is generic raaste se auto-start nahi hoti — usko
+    // test-sample assign karne (services/abTesting.js ka startTest()) ka
+    // apna alag route hai, yahan seedha 'Sending' me daalna variants ko
+    // bypass kar deta.
     const manuallyPaused = campaign.status === 'Paused' && campaign.pause_reason === 'manual';
-    const willAutoStart = !manuallyPaused && !['Draft', 'Scheduled', 'Sending'].includes(campaign.status);
+    const willAutoStart =
+      !campaign.ab_enabled &&
+      !manuallyPaused &&
+      !['Draft', 'Scheduled', 'Sending', 'Testing', 'Winner Selected', 'Sending Winner'].includes(campaign.status);
     if (willAutoStart && !(await roleCanUseAccount(req.user.role_key, campaign.account_id))) {
       throw forbidden('Your role cannot use this campaign\'s email account');
     }
@@ -604,12 +647,18 @@ router.post(
       rows = subs.map((s) => ({ email: s.email, name: s.name, data: { company: s.company, city: s.city } }));
     } else if (source === 'filter') {
       const { clause, params: fParams } = buildContactFilterWhere(filter ?? {}, campaign.id);
+      // "Limit to N" — diya ho to sirf pehle N matching contacts jodo. LIMIT
+      // yahin, SQL me lagate hain (poori list la kar JS me kaatne ki jagah),
+      // taaki bade match count (jaise lakhon contacts) par bhi utna hi kaam
+      // ho jitna asal me chahiye.
+      const limitClause = filter?.limit ? ` LIMIT $${fParams.length + 1}` : '';
+      const queryParams = filter?.limit ? [...fParams, filter.limit] : fParams;
       const contacts = await many(
         `SELECT c.id, c.email, c.name, c.company, c.city, c.phone
            FROM contacts c
       LEFT JOIN suppression s ON lower(s.email) = lower(c.email)
-           ${clause}`,
-        fParams
+           ${clause}${limitClause}`,
+        queryParams
       );
       rows = contacts.map((c) => ({
         email: c.email,
@@ -704,10 +753,394 @@ router.post(
       action: 'updated',
       module: 'campaigns',
       item: campaign.name,
-      detail: `${added} log campaign me jode gaye`,
+      detail: `${added} recipients added to the campaign`,
+      detailKey: 'act.recipientsAdded',
+      detailParams: { count: added },
     });
 
     res.json({ added, total: total?.n ?? 0 });
+  })
+);
+
+// -----------------------------------------------------------------------------
+// A/B testing — variant setup, live stats, winner decide/send.
+//
+// Sending ka poora kaam services/sender.js aur abTesting.js karte hain; yahan
+// sirf HTTP validation, permission checks, aur Activity Log likhna hai —
+// bilkul waisa hi jaisa campaign ke baaki routes karte hain.
+// -----------------------------------------------------------------------------
+function variantToApi(row) {
+  return {
+    id: row.id,
+    label: row.label,
+    subject: row.subject,
+    senderName: row.sender_name,
+    replyTo: row.reply_to,
+    templateId: row.template_id,
+    html: row.html,
+    isWinner: row.is_winner,
+  };
+}
+
+// --- A/B settings (enable/disable, test type, split %, winner rule) ---------
+router.put(
+  '/:id/ab',
+  requireModule('campaigns', 'edit'),
+  validate(
+    z.object({
+      enabled: z.boolean(),
+      testType: z.enum(['subject', 'content', 'subject_content', 'sender_name', 'sender_email']).optional().nullable(),
+      testPercent: z.number().int().min(1).max(100).default(20),
+      winnerMetric: z.enum(['open_rate', 'click_rate', 'ctor']).default('open_rate'),
+      durationMinutes: z.number().int().min(5).max(43_200).default(240),
+      autoWinner: z.boolean().default(true),
+      autoSendWinner: z.boolean().default(true),
+      confidenceThreshold: z.number().int().min(50).max(99).default(95),
+    })
+  ),
+  asyncHandler(async (req, res) => {
+    const campaign = await one(
+      'SELECT id, name, ab_test_started_at FROM campaigns WHERE id = $1',
+      [req.params.id]
+    );
+    if (!campaign) throw notFound('This campaign was not found');
+    if (campaign.ab_test_started_at) {
+      throw badRequest('This A/B test has already started — settings cannot be changed now');
+    }
+    if (req.body.enabled && !req.body.testType) throw badRequest('Choose what this test compares');
+
+    await query(
+      `UPDATE campaigns
+          SET ab_enabled = $2, ab_test_type = $3, ab_test_percent = $4, ab_winner_metric = $5,
+              ab_test_duration_minutes = $6, ab_auto_winner = $7, ab_auto_send_winner = $8,
+              ab_confidence_threshold = $9, updated_at = now()
+        WHERE id = $1`,
+      [
+        req.params.id,
+        req.body.enabled,
+        req.body.enabled ? req.body.testType : null,
+        req.body.testPercent,
+        req.body.winnerMetric,
+        req.body.durationMinutes,
+        req.body.autoWinner,
+        req.body.autoSendWinner,
+        req.body.confidenceThreshold,
+      ]
+    );
+
+    await logActivity(req, {
+      action: 'updated',
+      module: 'campaigns',
+      item: campaign.name,
+      detail: req.body.enabled ? 'A/B testing enabled' : 'A/B testing disabled',
+      detailKey: req.body.enabled ? 'act.abEnabled' : 'act.abDisabled',
+    });
+
+    const row = await one(`${SELECT} WHERE c.id = $1`, [req.params.id]);
+    res.json({ campaign: toApi(row) });
+  })
+);
+
+// --- variants (2-4: A/B[/C/D]) ------------------------------------------------
+router.put(
+  '/:id/ab/variants',
+  requireModule('campaigns', 'edit'),
+  validate(
+    z.object({
+      variants: z
+        .array(
+          z.object({
+            label: z.enum(['A', 'B', 'C', 'D']),
+            subject: z.string().trim().max(300).optional().nullable(),
+            senderName: z.string().trim().max(120).optional().nullable(),
+            replyTo: z.string().trim().email('Enter a valid reply-to email address').optional().nullable(),
+            templateId: z.string().trim().optional().nullable(),
+            html: z.string().max(500_000).optional().nullable(),
+          })
+        )
+        .min(2, 'At least 2 variants are needed')
+        .max(4, 'Up to 4 variants are supported'),
+    })
+  ),
+  asyncHandler(async (req, res) => {
+    const campaign = await one(
+      'SELECT id, name, ab_test_started_at FROM campaigns WHERE id = $1',
+      [req.params.id]
+    );
+    if (!campaign) throw notFound('This campaign was not found');
+    if (campaign.ab_test_started_at) {
+      throw badRequest('This A/B test has already started — variants cannot be changed now');
+    }
+
+    // Poori list ek hi PUT se replace hoti hai — frontend ko diff nikaalne
+    // ki zarurat nahi, aur "delete karke phir se banao" hamesha consistent
+    // rehta hai chahe kitni baar save dabaya jaaye.
+    await query('DELETE FROM campaign_variants WHERE campaign_id = $1', [req.params.id]);
+    for (let i = 0; i < req.body.variants.length; i++) {
+      const v = req.body.variants[i];
+      await query(
+        `INSERT INTO campaign_variants (id, campaign_id, label, subject, sender_name, reply_to, template_id, html, sort_order)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+        [
+          newId('var'),
+          req.params.id,
+          v.label,
+          v.subject || null,
+          v.senderName || null,
+          v.replyTo || null,
+          v.templateId || null,
+          v.html || null,
+          i,
+        ]
+      );
+    }
+
+    await logActivity(req, {
+      action: 'updated',
+      module: 'campaigns',
+      item: campaign.name,
+      detail: `A/B variants updated (${req.body.variants.length})`,
+      detailKey: 'act.abVariantsUpdated',
+      detailParams: { count: req.body.variants.length },
+    });
+
+    const variants = await many(
+      'SELECT * FROM campaign_variants WHERE campaign_id = $1 ORDER BY sort_order',
+      [req.params.id]
+    );
+    res.json({ variants: variants.map(variantToApi) });
+  })
+);
+
+// --- live stats + (agar abhi test chal rahi hai) winner-preview --------------
+router.get(
+  '/:id/ab/stats',
+  requireModule('campaigns', 'view'),
+  asyncHandler(async (req, res) => {
+    const campaign = await one('SELECT * FROM campaigns WHERE id = $1', [req.params.id]);
+    if (!campaign) throw notFound('This campaign was not found');
+    if (!campaign.ab_enabled) throw badRequest('This campaign is not an A/B test');
+
+    const variants = await variantsWithStats(req.params.id);
+
+    // Sirf DEKHNE ke liye — yahan se kuch commit nahi hota, koi status nahi
+    // badalta. Insaan ko "abhi tak ke numbers ke hisaab se kya lag raha
+    // hai" dikhane ke liye, "Decide winner" dabane se PEHLE hi.
+    let preview = null;
+    if (!campaign.ab_winner_variant_id && campaign.status === 'Testing') {
+      const result = await computeWinner(req.params.id);
+      preview = {
+        decided: result.decided,
+        reason: result.reason ?? null,
+        confidence: result.confidence ?? null,
+        winnerVariantId: result.winnerVariantId ?? null,
+      };
+    }
+
+    res.json({
+      variants: variants.map((v) => ({ ...variantToApi(v), stats: v.stats })),
+      preview,
+      testStartedAt: campaign.ab_test_started_at,
+      testEndsAt: campaign.ab_test_ends_at,
+      winnerVariantId: campaign.ab_winner_variant_id,
+      winnerReason: campaign.ab_winner_reason_key
+        ? await stFor(reqLanguage(req), campaign.ab_winner_reason_key, campaign.ab_winner_reason_params)
+        : null,
+    });
+  })
+);
+
+// --- test shuru karo (ya Paused se resume) -----------------------------------
+router.post(
+  '/:id/ab/start',
+  campaignActionLimiter,
+  requireModule('campaigns', 'send'),
+  asyncHandler(async (req, res) => {
+    const campaign = await one('SELECT id, name, account_id FROM campaigns WHERE id = $1', [req.params.id]);
+    if (!campaign) throw notFound('This campaign was not found');
+    if (!(await roleCanUseAccount(req.user.role_key, campaign.account_id))) {
+      throw forbidden('Your role cannot use this campaign\'s email account');
+    }
+
+    let result;
+    try {
+      result = await startTest(req.params.id);
+    } catch (error) {
+      throw badRequest(error.message);
+    }
+
+    if (!result.started) {
+      const reasons = {
+        already_running: 'This test is already running',
+        ab_not_enabled: 'A/B testing is not enabled for this campaign',
+        already_decided: 'A winner has already been chosen for this test',
+        invalid_status: 'This campaign cannot start its A/B test right now',
+        no_account: 'This campaign has no email account attached',
+        not_found: 'This campaign was not found',
+      };
+      throw badRequest(reasons[result.reason] ?? 'The A/B test could not be started');
+    }
+
+    await logActivity(req, {
+      action: 'sent',
+      module: 'campaigns',
+      item: campaign.name,
+      detail: 'A/B test started',
+      detailKey: 'act.abTestStarted',
+    });
+
+    res.json({ ok: true });
+  })
+);
+
+// --- winner tay karo (auto agar variantId na diya ho, warna manual) ---------
+router.post(
+  '/:id/ab/decide-winner',
+  requireModule('campaigns', 'send'),
+  validate(z.object({ variantId: z.string().trim().optional() })),
+  asyncHandler(async (req, res) => {
+    const campaign = await one(
+      'SELECT id, name, account_id, ab_auto_send_winner FROM campaigns WHERE id = $1',
+      [req.params.id]
+    );
+    if (!campaign) throw notFound('This campaign was not found');
+    if (!(await roleCanUseAccount(req.user.role_key, campaign.account_id))) {
+      throw forbidden('Your role cannot use this campaign\'s email account');
+    }
+
+    if (req.body.variantId) {
+      const variant = await one(
+        'SELECT id FROM campaign_variants WHERE id = $1 AND campaign_id = $2',
+        [req.body.variantId, req.params.id]
+      );
+      if (!variant) throw badRequest('That variant does not belong to this campaign');
+    }
+
+    const result = await decideWinner(req.params.id, {
+      chosenVariantId: req.body.variantId ?? null,
+      decidedBy: req.body.variantId ? req.user.id : null,
+    });
+
+    if (!result.decided) {
+      res.json({ decided: false, reason: result.reason, confidence: result.confidence ?? null });
+      return;
+    }
+
+    const variant = await one('SELECT label FROM campaign_variants WHERE id = $1', [result.winnerVariantId]);
+
+    await logActivity(req, {
+      action: 'updated',
+      module: 'campaigns',
+      item: campaign.name,
+      detail: result.manual
+        ? `A/B winner manually chosen: Variant ${variant?.label}`
+        : `A/B winner auto-decided: Variant ${variant?.label} (${Math.round(result.confidence ?? 0)}% confidence)`,
+      detailKey: result.manual ? 'act.abWinnerManualLog' : 'act.abWinnerAutoLog',
+      detailParams: result.manual
+        ? { variant: variant?.label }
+        : { variant: variant?.label, confidence: Math.round(result.confidence ?? 0) },
+    });
+
+    // "Automatically send the winning variant" — agar campaign is tarah
+    // configure hai, faisla hote hi turant blast bhi shuru kar dete hain.
+    // Manual "Send Winner" button isi function ko dobara bulata hai —
+    // sendWinnerToRemainder() apne aap khud hi safe hai chahe kitni baar
+    // bhi bulaya jaaye (dekho uska apna comment).
+    let sendResult = null;
+    if (campaign.ab_auto_send_winner) {
+      sendResult = await sendWinnerToRemainder(req.params.id);
+      if (sendResult.started) {
+        await logActivity(req, {
+          action: 'sent',
+          module: 'campaigns',
+          item: campaign.name,
+          detail: 'A/B winner sent to the remaining recipients',
+          detailKey: 'act.abWinnerSent',
+        });
+      }
+    }
+
+    res.json({
+      decided: true,
+      winnerVariantId: result.winnerVariantId,
+      confidence: result.confidence ?? null,
+      sendingStarted: Boolean(sendResult?.started),
+    });
+  })
+);
+
+// --- jeetne wale variant ko baaki sabko bhejo --------------------------------
+router.post(
+  '/:id/ab/send-winner',
+  campaignActionLimiter,
+  requireModule('campaigns', 'send'),
+  asyncHandler(async (req, res) => {
+    const campaign = await one('SELECT id, name, account_id FROM campaigns WHERE id = $1', [req.params.id]);
+    if (!campaign) throw notFound('This campaign was not found');
+    if (!(await roleCanUseAccount(req.user.role_key, campaign.account_id))) {
+      throw forbidden('Your role cannot use this campaign\'s email account');
+    }
+
+    const result = await sendWinnerToRemainder(req.params.id);
+    if (!result.started) {
+      const reasons = {
+        no_winner: 'No winner has been chosen for this test yet',
+        not_ready: 'This test is not ready to send the winner yet',
+        already_running: 'The winner is already being sent',
+        no_account: 'This campaign has no email account attached',
+        not_found: 'This campaign was not found',
+      };
+      throw badRequest(reasons[result.reason] ?? 'Could not send the winning variant');
+    }
+
+    await logActivity(req, {
+      action: 'sent',
+      module: 'campaigns',
+      item: campaign.name,
+      detail: 'A/B winner sent to the remaining recipients',
+      detailKey: 'act.abWinnerSent',
+    });
+
+    res.json({ ok: true });
+  })
+);
+
+// --- A/B test radd karo (test-sample bhej chuke ho to wahi rok dete hain) ---
+router.post(
+  '/:id/ab/cancel',
+  requireModule('campaigns', 'send'),
+  asyncHandler(async (req, res) => {
+    const campaign = await one('SELECT id, name, status, ab_enabled FROM campaigns WHERE id = $1', [req.params.id]);
+    if (!campaign) throw notFound('This campaign was not found');
+    if (!campaign.ab_enabled) throw badRequest('This campaign is not an A/B test');
+    if (['Sent', 'Completed', 'Cancelled'].includes(campaign.status)) {
+      throw badRequest('This test has already finished');
+    }
+
+    await pauseCampaign(campaign.id); // running loop (agar koi hai) ko rok deta hai
+    await query(`UPDATE campaigns SET status = 'Cancelled', pause_reason = NULL, updated_at = now() WHERE id = $1`, [
+      campaign.id,
+    ]);
+    // Jo recipients winner ke liye "Reserved" rakhe the unhe wapas 'Pending'
+    // kar dete hain (variant_id hata kar) — warna wo hamesha ke liye na
+    // 'Sent', na 'Pending', na kuch aur dikhte, aur campaign ke apne hi
+    // numbers (sent+pending+failed+...) kabhi total recipients ke barabar na
+    // aate. Status 'Cancelled' hone se sender loop (ACTIVE_SEND_STATUSES) ko
+    // yeh kisi bhi tarah dobara chalu nahi karega — sirf ginti sahi rehti hai.
+    await query(
+      `UPDATE campaign_recipients SET status = 'Pending', variant_id = NULL WHERE campaign_id = $1 AND status = 'Reserved'`,
+      [campaign.id]
+    );
+
+    await logActivity(req, {
+      action: 'updated',
+      module: 'campaigns',
+      item: campaign.name,
+      detail: 'A/B test cancelled',
+      detailKey: 'act.abTestCancelled',
+    });
+
+    res.json({ ok: true });
   })
 );
 
@@ -755,7 +1188,9 @@ router.post(
       action: 'sent',
       module: 'campaigns',
       item: campaign.name,
-      detail: `Test email ${req.body.to} par bheja`,
+      detail: `Test email sent to ${req.body.to}`,
+      detailKey: 'act.testEmailSentTo',
+      detailParams: { email: req.body.to },
     });
 
     res.json({ ok: true, messageId: result.messageId, previewUrl: result.previewUrl });
@@ -768,10 +1203,21 @@ router.post(
   campaignActionLimiter,
   requireModule('campaigns', 'send'),
   asyncHandler(async (req, res) => {
-    const campaign = await one('SELECT id, name, status, account_id FROM campaigns WHERE id = $1', [req.params.id]);
+    const campaign = await one(
+      'SELECT id, name, status, account_id, ab_enabled, resume_target_status FROM campaigns WHERE id = $1',
+      [req.params.id]
+    );
     if (!campaign) throw notFound('This campaign was not found');
     if (!(await roleCanUseAccount(req.user.role_key, campaign.account_id))) {
       throw forbidden('Your role cannot use this campaign\'s email account');
+    }
+
+    // A/B campaign is generic button se sirf RESUME ho sakti hai (Paused se
+    // wapas), fresh shuru karne ka apna route hai (POST /:id/ab/start) —
+    // wahi variant assignment karta hai, yeh route uske baare me kuch nahi
+    // jaanta.
+    if (campaign.ab_enabled && campaign.status !== 'Paused') {
+      throw badRequest('This is an A/B test campaign — use the A/B test controls to start it');
     }
 
     const count = await one(
@@ -780,7 +1226,11 @@ router.post(
     );
     if ((count?.n ?? 0) === 0) throw badRequest('There is nothing left to send — add recipients first');
 
-    const result = await startCampaign(campaign.id, { company: env.brand.company });
+    // Paused campaign resume ho rahi hai to bilkul WAHI phase (Sending/
+    // Testing/Sending Winner) me wapas jaati hai jahan se ruki thi — kabhi
+    // A/B campaign galti se normal 'Sending' me flip nahi hoti.
+    const targetStatus = campaign.status === 'Paused' && campaign.resume_target_status ? campaign.resume_target_status : 'Sending';
+    const result = await startCampaign(campaign.id, { company: env.brand.company, targetStatus });
     if (!result.started) {
       const reasons = {
         already_running: 'This campaign is already sending',
@@ -794,7 +1244,9 @@ router.post(
       action: 'sent',
       module: 'campaigns',
       item: campaign.name,
-      detail: `Bhejna shuru — ${count.n} log`,
+      detail: `Sending started — ${count.n} recipients`,
+      detailKey: 'act.sendingStarted',
+      detailParams: { count: count.n },
     });
 
     res.json({ ok: true, queued: count.n });
@@ -814,7 +1266,8 @@ router.post(
       action: 'updated',
       module: 'campaigns',
       item: campaign.name,
-      detail: 'Campaign rok diya gaya',
+      detail: 'Campaign paused',
+      detailKey: 'act.campaignPaused',
     });
 
     res.json({ ok: true });
@@ -980,10 +1433,10 @@ router.post(
     const campaign = await one('SELECT id, name, status FROM campaigns WHERE id = $1', [req.params.id]);
     if (!campaign) throw notFound('This campaign was not found');
 
-    if (campaign.status === 'Sending') {
+    if (['Sending', 'Testing', 'Sending Winner'].includes(campaign.status)) {
       throw badRequest('This campaign is currently sending — the time can no longer be changed');
     }
-    if (campaign.status === 'Sent') {
+    if (['Sent', 'Completed'].includes(campaign.status)) {
       throw badRequest('This campaign has already been sent');
     }
 
@@ -1006,7 +1459,9 @@ router.post(
       action: 'updated',
       module: 'campaigns',
       item: campaign.name,
-      detail: at ? `Bhejne ka time set: ${new Date(at).toUTCString()}` : 'Schedule hata diya',
+      detail: at ? `Send time set: ${new Date(at).toUTCString()}` : 'Schedule removed',
+      detailKey: at ? 'act.scheduleSet' : 'act.scheduleRemoved',
+      detailParams: at ? { at: new Date(at).toUTCString() } : undefined,
     });
 
     const row = await one(`${SELECT} WHERE c.id = $1`, [campaign.id]);
@@ -1063,8 +1518,10 @@ router.post(
       item: campaign.name,
       detail:
         req.body.target === 'failed'
-          ? `Failed hue ${affected} logon ko dobara bhejne laga`
-          : `Na khole gaye ${affected} logon ko dobara bhejne laga`,
+          ? `Resending to ${affected} failed recipients`
+          : `Resending to ${affected} recipients who hadn't opened it`,
+      detailKey: req.body.target === 'failed' ? 'act.resendFailed' : 'act.resendUnopened',
+      detailParams: { count: affected },
     });
 
     res.json({ ok: true, affected });
@@ -1168,7 +1625,7 @@ router.post(
       const unsubSettings = await one("SELECT value FROM settings WHERE key = 'unsubscribe'");
       const applyGlobally = Boolean(unsubSettings?.value?.applyGlobally);
 
-      const detailText = `Campaign report se haath se joda gaya: ${campaignName}`;
+      const detailText = `Manually added from campaign report: ${campaignName}`;
       const values = [];
       const params = [];
       rows.forEach((row, index) => {
@@ -1186,10 +1643,16 @@ router.post(
     const affected = kind === 'resend' ? rows.length - skipped : rows.length;
 
     const detail = {
-      resend: 'Dobara bhejne ke liye lagaya',
-      remove: 'Is campaign se hataye gaye',
-      suppress: 'Suppression list me daale gaye',
-      export: 'Download kiye gaye',
+      resend: 'Queued for resend',
+      remove: 'Removed from this campaign',
+      suppress: 'Added to the suppression list',
+      export: 'Downloaded',
+    }[kind];
+    const detailKey = {
+      resend: 'act.bulkResend',
+      remove: 'act.bulkRemove',
+      suppress: 'act.bulkSuppress',
+      export: 'act.bulkExport',
     }[kind];
 
     await logActivity(req, {
@@ -1198,8 +1661,10 @@ router.post(
       item: campaignName || rows[0]?.campaign_id || '—',
       detail:
         kind === 'resend' && skipped > 0
-          ? `${detail} (${affected}), ${skipped} chhod diye (pehle se unsubscribed/suppressed)`
+          ? `${detail} (${affected}), ${skipped} skipped (already unsubscribed/suppressed)`
           : `${detail} (${affected})`,
+      detailKey: kind === 'resend' && skipped > 0 ? 'act.bulkResendSkipped' : detailKey,
+      detailParams: kind === 'resend' && skipped > 0 ? { count: affected, skipped } : { count: affected },
     });
 
     res.json({ ok: true, affected, skipped });
@@ -1213,14 +1678,17 @@ router.delete(
   asyncHandler(async (req, res) => {
     const campaign = await one('SELECT id, name, status FROM campaigns WHERE id = $1', [req.params.id]);
     if (!campaign) throw notFound('This campaign was not found');
-    if (campaign.status === 'Sending') throw badRequest('A running campaign cannot be deleted — pause it first');
+    if (['Sending', 'Testing', 'Sending Winner'].includes(campaign.status)) {
+      throw badRequest('A running campaign cannot be deleted — pause it first');
+    }
 
     await query('DELETE FROM campaigns WHERE id = $1', [campaign.id]);
     await logActivity(req, {
       action: 'deleted',
       module: 'campaigns',
       item: campaign.name,
-      detail: 'Campaign hata diya gaya',
+      detail: 'Campaign deleted',
+      detailKey: 'act.campaignDeleted',
     });
 
     res.json({ ok: true });

@@ -238,7 +238,8 @@ router.post(
       action: 'created',
       module: 'templates',
       item: name,
-      detail: 'Nayi HTML template save hui',
+      detail: 'New HTML template saved',
+      detailKey: 'act.templateSaved',
     });
 
     const row = await one(`${SELECT} WHERE t.id = $1`, [id]);
@@ -278,9 +279,10 @@ router.put(
       action: 'updated',
       module: 'templates',
       item: name,
-      detail: 'Template edit hui',
-      before: existing.name !== name ? `Naam: ${existing.name}` : null,
-      after: existing.name !== name ? `Naam: ${name}` : null,
+      detail: 'Template edited',
+      detailKey: 'act.templateEdited',
+      before: existing.name !== name ? `Name: ${existing.name}` : null,
+      after: existing.name !== name ? `Name: ${name}` : null,
     });
 
     const row = await one(`${SELECT} WHERE t.id = $1`, [req.params.id]);
@@ -319,7 +321,8 @@ router.post(
       action: 'created',
       module: 'templates',
       item: name,
-      detail: original.is_default ? 'Default template se apni copy banayi' : 'Purani template se copy bani',
+      detail: original.is_default ? 'Copied from a default template' : 'Copied from an existing template',
+      detailKey: original.is_default ? 'act.templateCopiedDefault' : 'act.templateCopiedExisting',
     });
 
     const row = await one(`${SELECT} WHERE t.id = $1`, [id]);
@@ -344,7 +347,8 @@ router.delete(
       action: 'deleted',
       module: 'templates',
       item: existing.name,
-      detail: 'Template hata di gayi',
+      detail: 'Template deleted',
+      detailKey: 'act.templateDeleted',
     });
 
     res.json({ ok: true });
