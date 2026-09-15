@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 import { SearchInput } from '../ui/Controls';
 import LanguagePicker from './LanguagePicker';
@@ -7,8 +7,27 @@ import { ThemeToggle } from './ThemeControls';
 import { useT } from '../../i18n/I18nProvider';
 import { useAuth } from '../../store/AuthProvider';
 import { useApi } from '../../api/useApi';
+import { useDebouncedValue } from '../../utils/useDebouncedValue';
 import { roleLabel } from '../../utils/roles';
 import { formatRelative } from '../../utils/format';
+
+const SEARCH_MIN_LENGTH = 2;
+
+/** Ek category ke results, sirf jab kuch mila ho — khaali section kabhi nahi dikhata. */
+function SearchGroup({ titleKey, t, items, onPick }) {
+  if (items.length === 0) return null;
+  return (
+    <div className="mw-searchpanel__group">
+      <span className="mw-searchpanel__grouptitle">{t(titleKey)}</span>
+      {items.map((item) => (
+        <Link key={item.id} to={item.link} className="mw-searchpanel__item" onClick={onPick}>
+          <span className="d-block mw-searchpanel__itemtitle">{item.title}</span>
+          {item.subtitle ? <span className="d-block mw-searchpanel__itemsub">{item.subtitle}</span> : null}
+        </Link>
+      ))}
+    </div>
+  );
+}
 
 // Notifications DB me kahin persist nahi hotin — server har baar unhi live
 // events se dobara banata hai (jo abhi bhej rahi hai, jo 7 din me poori hui,
@@ -55,8 +74,25 @@ function describeNotification(item, t) {
 
 export default function Topbar({ title, onOpenMenu, sidebarCollapsed, onToggleSidebar }) {
   const t = useT();
+  const navigate = useNavigate();
   const { user, role, signOut } = useAuth();
   const [query, setQuery] = useState('');
+  const [searchFocused, setSearchFocused] = useState(false);
+  const searchRef = useRef(null);
+  const debouncedQuery = useDebouncedValue(query.trim(), 250);
+  const searchEnabled = debouncedQuery.length >= SEARCH_MIN_LENGTH;
+  const searchCall = useApi(searchEnabled ? `/api/search?q=${encodeURIComponent(debouncedQuery)}` : null, {
+    deps: [debouncedQuery],
+  });
+  const searchResults = searchCall.data;
+  const searchOpen =
+    searchFocused && query.trim().length >= SEARCH_MIN_LENGTH;
+  const hasAnyResults =
+    searchResults && (searchResults.campaigns.length > 0 || searchResults.contacts.length > 0 || searchResults.templates.length > 0);
+  const firstResultLink = searchResults
+    ? (searchResults.campaigns[0] || searchResults.contacts[0] || searchResults.templates[0])?.link
+    : null;
+
   const [openPanel, setOpenPanel] = useState(null);
   const notifRef = useRef(null);
   const profileRef = useRef(null);
@@ -69,20 +105,41 @@ export default function Topbar({ title, onOpenMenu, sidebarCollapsed, onToggleSi
   const [panelSnapshot, setPanelSnapshot] = useState([]);
   const unreadCount = notifications.filter((item) => !seenStamps.has(stampOf(item))).length;
 
-  // Bahar kahin bhi click karte hi khula hua panel band ho jaye — dono
-  // dropdown ek hi jagah se sambhalte hain kyunki state ek hi hai.
+  // Bahar kahin bhi click karte hi khula hua panel (ya search dropdown) band
+  // ho jaye — teeno ek hi jagah se sambhalte hain.
   useEffect(() => {
-    if (!openPanel) return undefined;
+    if (!openPanel && !searchOpen) return undefined;
 
     function handlePointerDown(event) {
       const insideNotif = notifRef.current?.contains(event.target);
       const insideProfile = profileRef.current?.contains(event.target);
+      const insideSearch = searchRef.current?.contains(event.target);
       if (!insideNotif && !insideProfile) setOpenPanel(null);
+      if (!insideSearch) setSearchFocused(false);
     }
 
     document.addEventListener('mousedown', handlePointerDown);
     return () => document.removeEventListener('mousedown', handlePointerDown);
-  }, [openPanel]);
+  }, [openPanel, searchOpen]);
+
+  function closeSearch() {
+    setSearchFocused(false);
+  }
+
+  function clearAndCloseSearch() {
+    setQuery('');
+    setSearchFocused(false);
+  }
+
+  function handleSearchKeyDown(event) {
+    if (event.key === 'Escape') {
+      closeSearch();
+      event.currentTarget.blur();
+    } else if (event.key === 'Enter' && firstResultLink) {
+      navigate(firstResultLink);
+      clearAndCloseSearch();
+    }
+  }
 
   // Jo abhi sign in hai wahi. Pehle yahan list ka pehla user dikhta tha —
   // yaani doosre logon ko upar kisi aur ka naam dikhta tha.
@@ -135,8 +192,36 @@ export default function Topbar({ title, onOpenMenu, sidebarCollapsed, onToggleSi
 
       <h1 className="mw-topbar__title d-md-none">{title}</h1>
 
-      <div className="mw-topbar__search">
-        <SearchInput id="global-search" value={query} onChange={setQuery} placeholder={t('topbar.search')} />
+      <div className="mw-topbar__search position-relative" ref={searchRef}>
+        <SearchInput
+          id="global-search"
+          value={query}
+          onChange={setQuery}
+          onFocus={() => setSearchFocused(true)}
+          onKeyDown={handleSearchKeyDown}
+          placeholder={t('topbar.search')}
+        />
+
+        {searchOpen ? (
+          <div className="dropdown-menu show p-0 shadow border-0 mt-2 mw-searchpanel">
+            {!searchEnabled ? (
+              <p className="mw-fs-13 mw-text-muted px-3 py-3 mb-0">{t('topbar.searchTypeMore')}</p>
+            ) : searchCall.loading && !searchResults ? (
+              <p className="mw-fs-13 mw-text-muted px-3 py-3 mb-0">
+                <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" />
+                {t('common.loading')}
+              </p>
+            ) : !hasAnyResults ? (
+              <p className="mw-fs-13 mw-text-muted px-3 py-3 mb-0">{t('topbar.searchNoResults', { query })}</p>
+            ) : (
+              <>
+                <SearchGroup titleKey="nav.campaigns" t={t} items={searchResults.campaigns} onPick={clearAndCloseSearch} />
+                <SearchGroup titleKey="nav.contacts" t={t} items={searchResults.contacts} onPick={clearAndCloseSearch} />
+                <SearchGroup titleKey="nav.templates" t={t} items={searchResults.templates} onPick={clearAndCloseSearch} />
+              </>
+            )}
+          </div>
+        ) : null}
       </div>
 
       <div className="mw-topbar__actions">

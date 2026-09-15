@@ -22,6 +22,8 @@ export default {
   'nav.more': 'More',
 
   'topbar.search': 'Search campaigns, contacts, templates…',
+  'topbar.searchTypeMore': 'Keep typing — at least 2 characters to search.',
+  'topbar.searchNoResults': 'No matches for "{query}".',
   'topbar.notifications': 'Notifications',
   'topbar.viewAll': 'View all activity',
   'topbar.noNotifications': 'Nothing new right now.',
@@ -1014,6 +1016,20 @@ export default {
   'guide.c19.s6': 'Search and sort (recent, name, size, last used) to find an older image quickly once your library grows.',
   'guide.c19.s7': 'Where a new upload actually lands — {app}’s own database, or your connected external storage — is controlled from Settings → Image Storage. Editing or cropping an existing image always uses whichever one is active right now; images already uploaded are never automatically moved.',
   'guide.c19.tip': 'Copy Link on any image gives you a ready web address you can paste anywhere — not just inside {app}.',
+
+  'guide.c20.title': 'Run an A/B test',
+  'guide.c20.lede': 'Try two or more versions of a campaign on a slice of your audience, then send the winner to everyone else — automatically or by hand.',
+  'guide.c20.s1': 'Build your campaign the normal way — name, account, subject, template — and save it as a Draft. Do not press Send yet.',
+  'guide.c20.s2': 'Open that campaign from Campaigns, then press "Set up an A/B test" on its Analytics page.',
+  'guide.c20.s3': 'Choose what you are testing: subject line, email content, subject + content, sender name, or the reply-to email address.',
+  'guide.c20.s4': 'Choose your test audience — for example 20%. That slice is split evenly across your variants; everyone else waits for the winner.',
+  'guide.c20.s5': 'Choose how the winner is picked — open rate, click rate, or click-to-open rate — and how long the test should run, from 1 hour up to a custom duration.',
+  'guide.c20.s6': 'Add at least 2 variants (up to 4) and fill in only the field the test type needs — everything else is shared from the base campaign.',
+  'guide.c20.s7': 'Press Start A/B test. The test-sample sends right away; everyone else stays reserved and untouched until a winner is chosen.',
+  'guide.c20.s8': 'Once enough opens or clicks come in — or the test duration ends — a winner is decided automatically, but only once the results are confident enough to trust. Not confident yet? You can always pick a winner yourself from the same page.',
+  'guide.c20.s9': 'The winner is sent to everyone who was still waiting. Nobody ever receives two different versions of the same campaign.',
+  'guide.c20.tip': 'Turn on "Send the winner automatically" when you set the test up, and you will not need to come back and press anything once the test finishes.',
+  'guide.c20.warn': 'Once you press Start A/B test, the test type and variants lock — real recipients are already receiving them, so the setup cannot change mid-test.',
 
   // --- Bulk selection & clean-up (Update 5) ---
   'bulk.selected': '{count} selected',

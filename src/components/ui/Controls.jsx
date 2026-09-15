@@ -1,4 +1,4 @@
-export function SearchInput({ value, onChange, placeholder = 'Search…', id }) {
+export function SearchInput({ value, onChange, placeholder = 'Search…', id, onFocus, onKeyDown }) {
   function handleChange(event) {
     onChange(event.target.value);
   }
@@ -12,6 +12,8 @@ export function SearchInput({ value, onChange, placeholder = 'Search…', id }) 
         className="mw-search__input"
         value={value}
         onChange={handleChange}
+        onFocus={onFocus}
+        onKeyDown={onKeyDown}
         placeholder={placeholder}
         aria-label={placeholder}
       />

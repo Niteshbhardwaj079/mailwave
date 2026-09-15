@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 
 import PageHeader from '../components/ui/PageHeader';
 import { Card, CardBody, CardHead } from '../components/ui/Card';
@@ -42,10 +42,30 @@ export default function ContactsPage() {
   const [status, setStatus] = useState('All');
   const [group, setGroup] = useState('All');
   const [tag, setTag] = useState('All');
-  const [query, setQuery] = useState('');
+  // Header ke global search se yahan aane par ?search= me query mil chuki
+  // hoti hai — box khud-ba-khud usi se bhara hua khulta hai, dobara type
+  // karne ki zarurat nahi.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [query, setQuery] = useState(() => searchParams.get('search') ?? '');
   // Box me turant dikhta hai, par server ko 200ms ruk kar poochte hain — har
   // akshar par ek request bhejna server aur internet dono par bhaari padta hai.
   const search = useDebouncedValue(query, 200);
+
+  // URL me query rakhte hain (replace, taaki search me har akshar par history
+  // na bhare) — page reload/back-forward par bhi search bana rehta hai, aur
+  // link copy-paste karne se doosre ko bhi wahi filter mil jata hai.
+  useEffect(() => {
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        if (query) next.set('search', query);
+        else next.delete('search');
+        return next;
+      },
+      { replace: true }
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query]);
 
   const [addOpen, setAddOpen] = useState(false);
   const [draft, setDraft] = useState(EMPTY_CONTACT);

@@ -154,4 +154,13 @@ export const guideChapters = [
     minutes: 3,
     link: { to: '/media', labelKey: 'nav.media' },
   },
+  {
+    number: 20,
+    key: 'c20',
+    icon: 'bi-signpost-split',
+    steps: ['s1', 's2', 's3', 's4', 's5', 's6', 's7', 's8', 's9'],
+    minutes: 4,
+    link: { to: '/campaigns', labelKey: 'nav.campaigns' },
+    hasWarning: true,
+  },
 ];
