@@ -1,6 +1,8 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 
 import PageLoader from '../ui/PageLoader';
+import EmptyState from '../ui/EmptyState';
+import { useT } from '../../i18n/I18nProvider';
 import { useAuth } from '../../store/AuthProvider';
 
 /**
@@ -11,12 +13,36 @@ import { useAuth } from '../../store/AuthProvider';
  * jata hai ki session hai ya nahi. Us ek pal me `isSignedIn` false hota hai —
  * agar hum turant login par bhej dein, to har refresh par login ki ek jhalak
  * dikhegi aur phir wapas aana padega. Isliye tab tak loader dikhate hain.
+ *
+ * Session check ka jawaab "pata nahi" bhi ho sakta hai (429/network — dekho
+ * AuthProvider.jsx) — us waqt `reconnecting` true hota hai (abhi bhi loader,
+ * bas ek chhota "reconnecting" caption ke saath) ya, bounded retries khatam
+ * hone ke baad, `sessionCheckFailed` true. Dono halat me seedha /login par
+ * NAHI bhejte — session shayad ab bhi valid ho, sirf jawaab nahi mila.
  */
 export default function RequireAuth() {
-  const { isSignedIn, checking } = useAuth();
+  const { isSignedIn, checking, reconnecting, sessionCheckFailed, retrySessionCheck } = useAuth();
+  const t = useT();
   const location = useLocation();
 
-  if (checking) return <PageLoader fullScreen />;
+  if (sessionCheckFailed) {
+    return (
+      <div className="mw-pageloader mw-pageloader--full">
+        <EmptyState
+          icon="bi-wifi-off"
+          title={t('auth.sessionTroubleTitle')}
+          text={t('auth.sessionTroubleText')}
+          action={
+            <button type="button" className="btn btn-primary" onClick={retrySessionCheck}>
+              {t('auth.sessionTroubleRetry')}
+            </button>
+          }
+        />
+      </div>
+    );
+  }
+
+  if (checking) return <PageLoader fullScreen label={reconnecting ? t('auth.reconnecting') : undefined} />;
 
   if (!isSignedIn) {
     // Jo page kholna chahte the wo yaad rakhte hain, taki sign in ke baad

@@ -95,6 +95,11 @@ export function lastRefreshWasExpired() {
   return lastRefreshStatus === 401;
 }
 
+/** Rate-limited (429) — session ke bare me kuch nahi kehta, sirf itna ki abhi bahut requests ja chuki hain. Bounded backoff ke saath dobara koshish ka sahi waqt hai, logout ka nahi. */
+export function lastRefreshWasRateLimited() {
+  return lastRefreshStatus === 429;
+}
+
 async function refreshAccessToken() {
   if (!refreshing) {
     refreshing = fetch(`${BASE}/api/auth/refresh`, {
