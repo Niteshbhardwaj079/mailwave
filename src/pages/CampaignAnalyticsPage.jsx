@@ -585,14 +585,18 @@ export default function CampaignAnalyticsPage() {
         }
       />
 
-      {campaign.ab?.enabled ? (
-        <ABTestPanel
-          campaign={campaign}
-          onChanged={() => {
-            campaignCall.reload();
-          }}
-        />
-      ) : null}
+      {/* ABTestPanel decides for itself whether it has anything to show —
+          the "Set up an A/B test" entry point lives INSIDE it for a Draft/
+          Scheduled campaign that hasn't enabled A/B yet, so it must render
+          unconditionally here. Gating on campaign.ab.enabled would hide that
+          entry point entirely, since nothing could ever enable A/B without
+          first seeing the button that enables it. */}
+      <ABTestPanel
+        campaign={campaign}
+        onChanged={() => {
+          campaignCall.reload();
+        }}
+      />
 
       {sendingProgress ? (
         <Card>

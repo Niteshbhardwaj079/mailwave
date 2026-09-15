@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import PageHeader from '../components/ui/PageHeader';
 import { appConfig } from '../config/appConfig';
@@ -428,9 +428,13 @@ export default function CampaignWizardPage() {
     setStep(index);
   }
 
-  function openConfirm() {
-    // Jahan bhi ruki hai, wahin le jaao aur laal nishaan dikhao — sirf ek
-    // banner me "kuch chhoot gaya" bolna kaafi nahi, dikhna bhi chahiye kahan.
+  /**
+   * Dono "Send" aur "Save as Draft" ke liye ek hi jaanch — jahan bhi ruki
+   * hai, wahin le jaao aur laal nishaan dikhao (sirf ek banner me "kuch
+   * chhoot gaya" bolna kaafi nahi, dikhna bhi chahiye kahan). Sab theek ho to
+   * true deta hai, warna khud hi error dikha kar false de deta hai.
+   */
+  function validateBeforeSubmit() {
     for (let i = 0; i < wizardSteps.length; i += 1) {
       const missing = stepError(i);
       if (missing) {
@@ -438,7 +442,7 @@ export default function CampaignWizardPage() {
         setShowErrors(true);
         toast.error(missing);
         setStep(i);
-        return;
+        return false;
       }
     }
 
@@ -446,14 +450,24 @@ export default function CampaignWizardPage() {
     if (missing) {
       setError(missing);
       toast.error(missing);
-      return;
+      return false;
     }
     setError('');
-    setConfirmOpen(true);
+    return true;
+  }
+
+  function openConfirm() {
+    if (validateBeforeSubmit()) setConfirmOpen(true);
   }
 
   function closeConfirm() {
     setConfirmOpen(false);
+  }
+
+  function handleSaveDraftClick() {
+    // Draft save karne me confirm-sheet ki zarurat nahi — kuch bheja nahi ja
+    // raha, non-destructive hai, seedha save ho jaata hai.
+    if (validateBeforeSubmit()) saveDraft();
   }
 
   /**
@@ -517,6 +531,56 @@ export default function CampaignWizardPage() {
   }
 
   /**
+   * Campaign banata hai (ya edit mode me maujooda Draft update karta hai) aur
+   * log jodta hai — startSending() aur saveDraft() dono isi ek jagah se guzarte
+   * hain, taaki "campaign banao + log jodo" ka tarika dono jagah hamesha ek
+   * jaisa rahe. `sendAt` diya ho to campaign seedha 'Scheduled' bhi ban jaati
+   * hai (backend campaignInput accepts scheduledAt) — bhejna alag step hai.
+   */
+  async function createOrUpdateCampaign(sendAt) {
+    const account = accounts.find((item) => item.email === draft.account);
+    if (!account) throw new ApiError(400, 'bad_request', t('wiz.needAccount'));
+
+    const payload = {
+      scheduledAt: sendAt,
+      name: draft.name.trim(),
+      accountId: account.id,
+      senderName: draft.senderName || null,
+      replyTo: draft.replyTo?.trim() || null,
+      subject: draft.subject.trim(),
+      preheader: draft.preheader?.trim() || null,
+      templateId: draft.templateId || null,
+      html: draft.templateHtml,
+      language: draft.language || 'en',
+      batchSize: Number(draft.batchSize) || 100,
+      batchDelay: Number(draft.batchDelay) || 2,
+      openTracking: Boolean(draft.openTracking),
+      clickTracking: Boolean(draft.clickTracking),
+      subscribeButton: Boolean(draft.subscribeButton),
+    };
+
+    // 1. campaign banao, ya (edit mode me) maujooda Draft update karo
+    const created = isEditing
+      ? await api.put(`/api/campaigns/${editId}`, payload)
+      : await api.post('/api/campaigns', payload);
+
+    const id = created.campaign.id;
+    setCampaignId(id);
+
+    // 2. log jodo — jaha se user ne chuna hai. Edit me agar Draft me pehle
+    // se log jude the, unhe waisa hi rehne dete hain — dobara jodne se
+    // source yaad na hone ki wajah se galat log bhi jud sakte hain.
+    let count = originalRecipientCount;
+    if (count === 0) {
+      const added = await api.post(`/api/campaigns/${id}/recipients`, await recipientPayload());
+      count = added.added ?? added.total ?? 0;
+      setRecipientCount(count);
+    }
+
+    return { campaign: created.campaign, id, count };
+  }
+
+  /**
    * Asli campaign banata hai, log jodta hai, aur bhejna shuru karta hai.
    *
    * Teen alag kaam hain, teen alag request. Beech me kuch fail ho jaye to
@@ -532,48 +596,11 @@ export default function CampaignWizardPage() {
     const sendAt = draft.schedule === 'later' ? toServerTime(draft.scheduleAt) : null;
 
     try {
-      const account = accounts.find((item) => item.email === draft.account);
-      if (!account) throw new ApiError(400, 'bad_request', t('wiz.needAccount'));
-
-      const payload = {
-        scheduledAt: sendAt,
-        name: draft.name.trim(),
-        accountId: account.id,
-        senderName: draft.senderName || null,
-        replyTo: draft.replyTo?.trim() || null,
-        subject: draft.subject.trim(),
-        preheader: draft.preheader?.trim() || null,
-        templateId: draft.templateId || null,
-        html: draft.templateHtml,
-        language: draft.language || 'en',
-        batchSize: Number(draft.batchSize) || 100,
-        batchDelay: Number(draft.batchDelay) || 2,
-        openTracking: Boolean(draft.openTracking),
-        clickTracking: Boolean(draft.clickTracking),
-        subscribeButton: Boolean(draft.subscribeButton),
-      };
-
-      // 1. campaign banao, ya (edit mode me) maujooda Draft update karo
-      const created = isEditing
-        ? await api.put(`/api/campaigns/${editId}`, payload)
-        : await api.post('/api/campaigns', payload);
-
-      const id = created.campaign.id;
-      setCampaignId(id);
-
-      // 2. log jodo — jaha se user ne chuna hai. Edit me agar Draft me pehle
-      // se log jude the, unhe waisa hi rehne dete hain — dobara jodne se
-      // source yaad na hone ki wajah se galat log bhi jud sakte hain.
-      let count = originalRecipientCount;
-      if (count === 0) {
-        const added = await api.post(`/api/campaigns/${id}/recipients`, await recipientPayload());
-        count = added.added ?? added.total ?? 0;
-        setRecipientCount(count);
-      }
+      const { campaign, id, count } = await createOrUpdateCampaign(sendAt);
 
       if (count === 0) {
         setError(t('wiz.noRecipients'));
-        setLive({ ...created.campaign, status: 'Draft' });
+        setLive({ ...campaign, status: 'Draft' });
         return;
       }
 
@@ -582,16 +609,37 @@ export default function CampaignWizardPage() {
         // Campaign pehle hi 'Scheduled' bani hai. Server har minute dekhta
         // rehta hai ki kiska time aa gaya. Yahan kuch aur karne ki zarurat
         // nahi — bas user ko saaf batana hai ki kab jayegi.
-        setLive({ ...created.campaign, status: 'Scheduled', recipients: count });
+        setLive({ ...campaign, status: 'Scheduled', recipients: count });
         toast.success(t('wiz.scheduledToast', { count: formatNumber(count) }));
         return;
       }
 
       await api.post(`/api/campaigns/${id}/send`);
       const fresh = await poll(id);
-      setLive(fresh ?? { ...created.campaign, status: 'Sending' });
+      setLive(fresh ?? { ...campaign, status: 'Sending' });
 
       toast.success(t('wiz.startedToast', { count: formatNumber(count) }));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t('toast.networkError'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /**
+   * Campaign ko sirf Draft me chhod deta hai — kuch nahi bheja jaata, na
+   * schedule hota hai. Isi se A/B test set up karna sambhav hota hai (uski
+   * apni shuruaat sirf Draft/Scheduled campaign par hi ho sakti hai) — seedha
+   * campaign ke Analytics page par le jaate hain, jahan se "Set up an A/B
+   * test" ya normal Send dono aage kiya ja sakta hai.
+   */
+  async function saveDraft() {
+    setBusy(true);
+    setError('');
+    try {
+      const { id, count } = await createOrUpdateCampaign(null);
+      toast.success(t('wiz.savedAsDraftToast', { count: formatNumber(count) }));
+      navigate(`/campaigns/${id}`);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t('toast.networkError'));
     } finally {
@@ -869,6 +917,18 @@ export default function CampaignWizardPage() {
           { label: t('nav.campaigns'), to: '/campaigns' },
           { label: isEditing ? t('camp.editCampaign') : t('dash.createCampaign') },
         ]}
+        actions={
+          // Recipients jodna, A/B test set up karna, poora Analytics — sab
+          // us campaign ke Analytics page par hai, wizard par nahi. Ek draft
+          // edit karte waqt wahan tak ek click me pahunchna chahiye, warna
+          // sirf "..." row action se hi mil pata (aasani se miss ho jaata hai).
+          isEditing ? (
+            <Link to={`/campaigns/${editId}`} className="btn btn-outline-primary">
+              <i className="bi bi-graph-up me-2" />
+              {t('wiz.viewAnalytics')}
+            </Link>
+          ) : null
+        }
       />
 
       {/* Bina email account ke kuch nahi ja sakta — yeh sabse pehle batana
@@ -939,15 +999,21 @@ export default function CampaignWizardPage() {
               <i className="bi bi-arrow-right ms-2" />
             </button>
           ) : (
-            <button
-              type="button"
-              className="btn btn-primary ms-auto ms-md-3"
-              onClick={openConfirm}
-              disabled={busy || accounts.length === 0}
-            >
-              <i className="bi bi-send me-2" />
-              {busy ? t('common.loading') : t('wiz.send')}
-            </button>
+            <div className="d-flex gap-2 ms-auto ms-md-3">
+              <button
+                type="button"
+                className="btn btn-outline-secondary"
+                onClick={handleSaveDraftClick}
+                disabled={busy || accounts.length === 0}
+              >
+                <i className="bi bi-file-earmark me-2" />
+                {busy ? t('common.loading') : t('wiz.saveAsDraft')}
+              </button>
+              <button type="button" className="btn btn-primary" onClick={openConfirm} disabled={busy || accounts.length === 0}>
+                <i className="bi bi-send me-2" />
+                {busy ? t('common.loading') : t('wiz.send')}
+              </button>
+            </div>
           )}
         </div>
       </Card>
