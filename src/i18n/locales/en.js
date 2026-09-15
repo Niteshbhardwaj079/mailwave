@@ -1020,8 +1020,8 @@ export default {
 
   'guide.c20.title': 'Run an A/B test',
   'guide.c20.lede': 'Try two or more versions of a campaign on a slice of your audience, then send the winner to everyone else — automatically or by hand.',
-  'guide.c20.s1': 'Build your campaign the normal way — name, account, subject, template — and save it as a Draft. Do not press Send yet.',
-  'guide.c20.s2': 'Open that campaign from Campaigns, then press "Set up an A/B test" on its Analytics page.',
+  'guide.c20.s1': 'Build your campaign the normal way — name, account, subject, template — then on the last step press "Save as Draft" instead of "Send campaign". This takes you straight to the campaign\'s Analytics page, and nothing is sent yet.',
+  'guide.c20.s2': 'On that Analytics page, press "Set up an A/B test" to configure it.',
   'guide.c20.s3': 'Choose what you are testing: subject line, email content, subject + content, sender name, or the reply-to email address.',
   'guide.c20.s4': 'Choose your test audience — for example 20%. That slice is split evenly across your variants; everyone else waits for the winner.',
   'guide.c20.s5': 'Choose how the winner is picked — open rate, click rate, or click-to-open rate — and how long the test should run, from 1 hour up to a custom duration.',
