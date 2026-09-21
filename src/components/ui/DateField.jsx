@@ -86,38 +86,45 @@ export default function DateField({
   }
 
   return (
-    <DatePicker
-      ref={pickerRef}
-      onCalendarOpen={() => setCalendarOpen(true)}
-      onCalendarClose={() => setCalendarOpen(false)}
-      id={id}
-      selected={selected}
-      onChange={handleChange}
-      locale={datepickerLocale(code, locale)}
-      dateFormat={withTime ? DATETIME_FORMAT : DATE_FORMAT}
-      placeholderText={placeholder ?? (withTime ? 'dd/mm/yyyy hh:mm' : 'dd/mm/yyyy')}
-      minDate={minDate ?? undefined}
-      maxDate={maxDate ?? undefined}
-      showTimeSelect={withTime}
-      timeFormat="HH:mm"
-      timeIntervals={5}
-      timeCaption={t('common.time')}
-      filterTime={withTime ? allowTime : undefined}
-      showMonthDropdown
-      showYearDropdown
-      dropdownMode="select"
-      isClearable={clearable}
-      className={className}
-      wrapperClassName="mw-datefield"
-      popperClassName="mw-datepopper"
-      showPopperArrow={false}
-      // Sheet ya scroll wale dabbe ke andar khulne par kat na jaye — seedha
-      // page ke upar alag se dikhta hai.
-      popperContainer={({ children }) => createPortal(children, document.body)}
-      // Dialog khulte hi pehla field focus hota hai — us par calendar apne
-      // aap na khule; click ya Enter/Neeche-teer se hi khule.
-      preventOpenOnFocus
-      autoComplete="off"
-    />
+    <div className="mw-datefield-shell">
+      <DatePicker
+        ref={pickerRef}
+        onCalendarOpen={() => setCalendarOpen(true)}
+        onCalendarClose={() => setCalendarOpen(false)}
+        id={id}
+        selected={selected}
+        onChange={handleChange}
+        locale={datepickerLocale(code, locale)}
+        dateFormat={withTime ? DATETIME_FORMAT : DATE_FORMAT}
+        placeholderText={placeholder ?? (withTime ? 'dd/mm/yyyy hh:mm' : 'dd/mm/yyyy')}
+        minDate={minDate ?? undefined}
+        maxDate={maxDate ?? undefined}
+        showTimeSelect={withTime}
+        timeFormat="HH:mm"
+        timeIntervals={5}
+        timeCaption={t('common.time')}
+        filterTime={withTime ? allowTime : undefined}
+        showMonthDropdown
+        showYearDropdown
+        dropdownMode="select"
+        isClearable={clearable}
+        className={className}
+        wrapperClassName="mw-datefield"
+        popperClassName="mw-datepopper"
+        showPopperArrow={false}
+        // Sheet ya scroll wale dabbe ke andar khulne par kat na jaye — seedha
+        // page ke upar alag se dikhta hai.
+        popperContainer={({ children }) => createPortal(children, document.body)}
+        // Dialog khulte hi pehla field focus hota hai — us par calendar apne
+        // aap na khule; click ya Enter/Neeche-teer se hi khule.
+        preventOpenOnFocus
+        autoComplete="off"
+      />
+      {/* Sirf mouse ke liye nishaan — keyboard wale input me hi Enter/Neeche-teer
+          se kholte hain, isliye screen reader se chhupa hai. */}
+      <span className="mw-datefield__icon" aria-hidden="true" onClick={() => pickerRef.current?.setOpen(true)}>
+        <i className="bi bi-calendar-event" />
+      </span>
+    </div>
   );
 }

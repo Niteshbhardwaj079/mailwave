@@ -3,12 +3,35 @@
 //
 // Vendor CSS (main.scss me pehle load hoti hai) structure aur position deti hai;
 // yahan sirf:
-//   1. Rang — app ke tokens se, taaki night mode aur accent apne aap chalein.
+//   1. Rang — theme ke tokens se (--mw-primary*, --mw-surface*, ...), isliye
+//      accent colour badalne par aur night mode me calendar apne aap badalta hai.
 //   2. Size — vendor CSS 1rem = 16px maan kar likhi hai, is app me 1rem = 10px
 //      hai, isliye bina yeh sudhare calendar chhota-chhota dikhta.
+//   3. Input ke daayein kinare ka calendar icon.
 // ---------------------------------------------------------------------------
 
-// Input ka dabba poori chaudai le (native input jaisa).
+// Accent ka halka mishran — popup ka border, header ki lakeer wagairah.
+$tint: color-mix(in srgb, var(--mw-primary) 30%, var(--mw-line-strong));
+
+// Input + icon ka dabba (icon isi ke andar daayein kinare par baithta hai).
+.mw-datefield-shell {
+  position: relative;
+  display: block;
+  width: 100%;
+
+  // Icon ke liye daayein taraf jagah (RTL me apne aap ulta).
+  .form-control {
+    padding-inline-end: 4rem;
+  }
+
+  // Bootstrap ka apna "galat" nishaan bhi wahi kinara leta hai — calendar
+  // icon ke upar na chadhe, isliye use hata dete hain (laal border rehta hai).
+  .form-control.is-invalid {
+    background-image: none;
+    padding-inline-end: 4rem;
+  }
+}
+
 .mw-datefield {
   display: block;
   width: 100%;
@@ -18,9 +41,11 @@
     width: 100%;
   }
 
-  // Clear (×) button input ke andar, kinare par.
+  // Clear (×) button — calendar icon ke theek pehle.
   .react-datepicker__close-icon {
-    padding-inline: 0 1rem;
+    right: auto;
+    inset-inline-end: 3.4rem;
+    padding: 0;
 
     &::after {
       background-color: transparent;
@@ -31,6 +56,29 @@
       padding: 0;
       line-height: 2rem;
     }
+
+    &:hover::after {
+      color: var(--mw-danger);
+    }
+  }
+}
+
+.mw-datefield__icon {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 0;
+  width: 4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--mw-muted);
+  font-size: 1.7rem;
+  cursor: pointer;
+  transition: color 0.15s ease;
+
+  &:hover,
+  .mw-datefield-shell:focus-within > & {
+    color: var(--mw-primary);
   }
 }
 
@@ -49,15 +97,16 @@
   font-size: 1.4rem;
   background-color: var(--mw-surface);
   color: var(--mw-ink);
-  border: 1px solid var(--mw-line-strong);
-  border-radius: 1rem;
+  border: 1px solid $tint;
+  border-radius: 1.2rem;
   box-shadow: var(--mw-shadow-lg);
   overflow: hidden;
 }
 
+// Upar ki patti (mahina/saal aur "Time") — accent ke halke rang me.
 .react-datepicker__header {
-  background-color: var(--mw-surface-2);
-  border-bottom: 1px solid var(--mw-line);
+  background-color: var(--mw-primary-soft);
+  border-bottom: 1px solid $tint;
   border-radius: 0;
   padding-top: 1rem;
 }
@@ -65,7 +114,7 @@
 .react-datepicker__current-month,
 .react-datepicker-time__header,
 .react-datepicker-year-header {
-  color: var(--mw-ink);
+  color: var(--mw-primary-dark);
   font-size: 1.5rem;
   font-weight: 700;
 }
@@ -85,15 +134,16 @@
 }
 
 .react-datepicker__day-name {
-  color: var(--mw-muted);
+  color: var(--mw-primary);
   font-weight: 600;
 }
 
 .react-datepicker__day {
   border-radius: 0.8rem;
 
-  &:hover:not(.react-datepicker__day--disabled) {
-    background-color: var(--mw-hover);
+  &:hover:not(.react-datepicker__day--disabled):not(.react-datepicker__day--selected) {
+    background-color: var(--mw-primary-soft);
+    color: var(--mw-primary-dark);
   }
 }
 
@@ -101,9 +151,11 @@
   color: var(--mw-muted-2);
 }
 
+// Aaj ki tarikh — accent ka gola/ring.
 .react-datepicker__day--today {
   font-weight: 700;
-  color: var(--mw-primary);
+  color: var(--mw-primary-dark);
+  box-shadow: inset 0 0 0 1.5px var(--mw-primary);
 }
 
 .react-datepicker__day--selected,
@@ -115,12 +167,19 @@
 
   &:hover {
     background-color: var(--mw-primary-dark);
+    color: var(--mw-on-primary);
   }
 }
 
+// Keyboard se chali hui (par abhi chuni nahi gayi) tarikh.
 .react-datepicker__day--keyboard-selected:not(.react-datepicker__day--selected) {
   background-color: var(--mw-primary-soft);
-  color: var(--mw-ink);
+  color: var(--mw-primary-dark);
+}
+
+.react-datepicker__day--today.react-datepicker__day--selected {
+  color: var(--mw-on-primary);
+  box-shadow: none;
 }
 
 .react-datepicker__day--disabled,
@@ -135,25 +194,31 @@
 .react-datepicker__year-select {
   background-color: var(--mw-surface);
   color: var(--mw-ink);
-  border: 1px solid var(--mw-line-strong);
+  border: 1px solid $tint;
   border-radius: 0.6rem;
   font-size: 1.3rem;
   padding: 0.2rem 0.4rem;
   margin-inline: 0.2rem;
+  accent-color: var(--mw-primary);
+
+  &:focus {
+    outline: 2px solid var(--mw-primary);
+    outline-offset: 1px;
+  }
 }
 
 // Pichhla/agla mahina teer
 .react-datepicker__navigation-icon::before {
-  border-color: var(--mw-muted);
+  border-color: var(--mw-primary);
 }
 
 .react-datepicker__navigation:hover .react-datepicker__navigation-icon::before {
-  border-color: var(--mw-ink);
+  border-color: var(--mw-primary-dark);
 }
 
 // Time ki list (sirf date+time wale picker me)
 .react-datepicker__time-container {
-  border-inline-start: 1px solid var(--mw-line);
+  border-inline-start: 1px solid $tint;
   width: 9rem;
 
   .react-datepicker__time {
@@ -162,14 +227,19 @@
     .react-datepicker__time-box {
       width: 100%;
 
-      ul.react-datepicker__time-list li.react-datepicker__time-list-item {
-        color: var(--mw-ink);
-        font-size: 1.3rem;
-        height: auto;
-        padding: 0.6rem 1rem;
+      ul.react-datepicker__time-list {
+        scrollbar-color: var(--mw-primary) var(--mw-surface-2);
 
-        &:hover:not(.react-datepicker__time-list-item--disabled) {
-          background-color: var(--mw-hover);
+        li.react-datepicker__time-list-item {
+          color: var(--mw-ink);
+          font-size: 1.3rem;
+          height: auto;
+          padding: 0.6rem 1rem;
+
+          &:hover:not(.react-datepicker__time-list-item--disabled):not(.react-datepicker__time-list-item--selected) {
+            background-color: var(--mw-primary-soft);
+            color: var(--mw-primary-dark);
+          }
         }
       }
     }
