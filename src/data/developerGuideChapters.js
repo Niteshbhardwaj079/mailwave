@@ -932,7 +932,7 @@ export const devGuideChapters = [
         facts: [
           ['`name`, `tagline`, `titleSuffix`, `description`', 'App identity shown across the UI and browser tab'],
           ['`logoIcon`', 'A Bootstrap Icons name (e.g. `bi-send-fill`)'],
-          ['`company`, `supportEmail`, `website`, `address`', 'Shown in email footers — `address` is legally required for bulk email in most jurisdictions'],
+          ['`company`, `supportEmail`, `website`, `address`', 'Used in MailWave\'s own system emails (`services/systemMail.js`). They are NOT added to campaign emails: the default campaign footer (`footer()` in `services/render.js`, appended only when the template has no `{{unsubscribe_url}}` of its own) is deliberately just one centered "Unsubscribe from these emails" link — put company/address in the template\'s own Footer (Design tab). Note that a postal address is a legal requirement for marketing email in some jurisdictions (e.g. US CAN-SPAM), so add it there if you send to those regions.'],
           ['`defaultTheme`, `defaultAccent`', 'Initial light/dark mode and accent color, before a visitor picks their own'],
           ['`developerGuide`', 'Boolean — `true` shows this Developer Guide and makes its route reachable; `false` hides the nav link AND makes the route itself resolve to the normal 404 page. See Chapter 21.'],
           ['`securityProtection`', 'Boolean — `true` deters casual right-click / text-select / Ctrl+U / Ctrl+S on the app\'s own screens (not a real security boundary — no website can block an actual screenshot or dev tools). Inputs, the HTML/code editor and every clipboard "Copy" button keep working either way. See `src/utils/useSecurityProtection.js` and the CSS block at the bottom of `src/styles/_utilities.scss`. Default `false`.'],
@@ -1396,7 +1396,7 @@ export const devGuideChapters = [
         list: [
           'Any change to a file under `server/src/`.',
           'Any change to a `server/.env` value.',
-          'A `brand.config.js` change (the backend reads it at process start, for email footers/log lines/system-email content).',
+          'A `brand.config.js` change (the backend reads it at process start, for log lines and system-email content).',
         ],
       },
       {

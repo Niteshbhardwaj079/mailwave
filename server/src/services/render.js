@@ -73,22 +73,21 @@ export function openPixel(recipientId) {
 }
 
 /**
- * Footer — unsubscribe link ke saath.
+ * Footer — sirf ek beech wali "Unsubscribe from these emails" link.
  *
  * Yeh marzi ki cheez nahi hai. Bulk email me unsubscribe link na ho to Gmail
  * aur Outlook aapko spam me daal dete hain, aur kai deshon me yeh gair-kanooni
  * bhi hai.
  *
  * `skipComplianceBlock: true` — jab template ka apna Design-tab "Footer"
- * (company/address/unsubscribe sab kuch) pehle se hi is recipient ka ASLI
- * unsubscribe link bana chuka ho (buildEmail() yeh khud check karta hai).
- * Tab yahan sirf Subscribe button chahiye to wahi jodte hain — poora company/
- * unsubscribe block dobara NAHI, warna email ke neeche do-do footer aur do-do
- * "Unsubscribe" link dikhte (client ne khud dekha, confusing lagta hai).
- * Jab template ka apna unsubscribe link NA ho (purane/freeform templates),
- * yeh hamesha false rehta hai — poora, compliant footer kabhi nahi chhutta.
+ * pehle se hi is recipient ka ASLI unsubscribe link bana chuka ho
+ * (buildEmail() yeh khud check karta hai). Tab yahan sirf Subscribe button
+ * chahiye to wahi jodte hain, unsubscribe line dobara NAHI, warna email ke
+ * neeche do-do "Unsubscribe" link dikhte. Jab template ka apna unsubscribe
+ * link NA ho (purane/freeform templates), yeh hamesha false rehta hai — link
+ * kabhi nahi chhutta.
  */
-export function footer({ recipientId, company, unsubscribeText, subscribeButton, skipComplianceBlock = false }) {
+export function footer({ recipientId, unsubscribeText, subscribeButton, skipComplianceBlock = false }) {
   const unsubUrl = `${env.publicUrl}/t/u/${recipientId}`;
   const subUrl = `${env.publicUrl}/t/s/${recipientId}`;
 
@@ -108,37 +107,17 @@ export function footer({ recipientId, company, unsubscribeText, subscribeButton,
     `;
   }
 
-  // Company, pata, support email, website — sab brand.config.js se.
-  // Yeh sirf dikhane ke liye nahi hai: bulk email me bhejne wale ki pehchaan
-  // aur pata hona kanoonan zaroori hai, aur Gmail/Outlook iske bina spam me
-  // daal dete hain.
-  const brand = env.brand;
-  const line = (text) => (text ? `<p style="margin:0 0 4px">${escapeHtml(text)}</p>` : '');
-
-  const contact = [
-    brand.supportEmail
-      ? `<a href="mailto:${escapeHtml(brand.supportEmail)}" style="color:#6b7280">${escapeHtml(brand.supportEmail)}</a>`
-      : '',
-    brand.website
-      ? `<a href="${escapeHtml(brand.website)}" style="color:#6b7280">${escapeHtml(
-          brand.website.replace(/^https?:\/\//, '')
-        )}</a>`
-      : '',
-  ]
-    .filter(Boolean)
-    .join(' &middot; ');
-
+  // Jab template ka apna unsubscribe link nahi hota, sirf yeh ek line — beech
+  // me, link ke roop me. Company/pata/support email/website yahan jaan-boojh
+  // kar nahi jodte (client ki maang: "baaki kuch nahi"); jise chahiye wo
+  // template ke apne Footer (Design tab) me daal sakta hai.
   return `
-    <div style="margin-top:32px;padding-top:16px;border-top:1px solid #e5e7eb;
-                font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#6b7280;text-align:center">
+    <div style="margin-top:24px;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#6b7280;text-align:center">
       ${subscribeBlock}
-      ${line(company || brand.company)}
-      ${line(brand.address)}
-      ${contact ? `<p style="margin:0 0 6px">${contact}</p>` : ''}
       <p style="margin:0">
-        <a href="${unsubUrl}" style="color:#6b7280;text-decoration:underline">
-          ${escapeHtml(unsubscribeText || 'Unsubscribe from these emails')}
-        </a>
+        <a href="${unsubUrl}" style="color:#6b7280;text-decoration:underline">${escapeHtml(
+          unsubscribeText || 'Unsubscribe from these emails'
+        )}</a>
       </p>
     </div>
   `;
@@ -164,7 +143,7 @@ export function htmlToText(html) {
 /**
  * Sab kuch jodkar ek recipient ke liye final email banata hai.
  */
-export function buildEmail({ campaign, recipient, links, company, unsubscribeText }) {
+export function buildEmail({ campaign, recipient, links, unsubscribeText }) {
   const data = {
     name: recipient.name || '',
     email: recipient.email,
@@ -198,11 +177,11 @@ export function buildEmail({ campaign, recipient, links, company, unsubscribeTex
   // Template ka apna Footer (Design tab) is recipient ka ASLI unsubscribe
   // link pehle se jod chuka hai kya — {{unsubscribe_url}} merge hone ke
   // baad, uska raw text yahin dikhega agar template ne kahin bhi istemal
-  // kiya tha. Agar haan, to neeche system-wala poora footer (company/pata/
-  // ek aur "Unsubscribe" link) dobara nahi jodte — do-do footer/unsubscribe
+  // kiya tha. Agar haan, to neeche system-wala footer (yani
+  // ek aur "Unsubscribe" link) dobara nahi jodte — do-do unsubscribe
   // link dikhna client ko ajeeb aur unprofessional lagta hai. Agar nahi
   // (purane ya freeform Code-tab templates jinme kabhi {{unsubscribe_url}}
-  // istemal hi nahi hua), poora, compliant footer hamesha jodte hain — yeh
+  // istemal hi nahi hua), unsubscribe line hamesha jodte hain — yeh
   // kabhi nahi chhutta, warna spam/legal issue ban jata.
   const hasOwnUnsubscribeLink = html.includes(escapeHtml(data.unsubscribe_url));
 
@@ -218,7 +197,6 @@ export function buildEmail({ campaign, recipient, links, company, unsubscribeTex
 
   html += footer({
     recipientId: recipient.id,
-    company,
     unsubscribeText,
     subscribeButton: campaign.subscribe_button && !hasOwnSubscribeLink,
     skipComplianceBlock: hasOwnUnsubscribeLink,

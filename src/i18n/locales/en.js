@@ -876,9 +876,10 @@ export default {
   'guide.c4.s4': 'To add a picture, open the Images tab, upload the file, then press Insert — a ready image tag is added for you.',
   'guide.c4.s5': 'Watch the right-hand side while you type. That is exactly what the recipient will see.',
   'guide.c4.s6': 'Press Save. Your template now appears in the campaign wizard.',
-  'guide.c4.s7': '“Insert Dynamic Field” drops in a placeholder like {{name}} or {{company}} wherever your cursor is — it fills in with each recipient’s own details when sent. If you build your own Footer with an unsubscribe link, that is the real, working link — {app} never adds a second one on top of it.',
+  'guide.c4.s7': '“Insert Dynamic Field” drops in a placeholder like {{name}} or {{company}} wherever your cursor is — it fills in with each recipient’s own details when sent. If you build your own Footer with an unsubscribe link, that is the real, working link — {app} never adds a second one on top of it. If your template has no unsubscribe link at all, {app} adds just one small centered line at the very bottom — “Unsubscribe from these emails” — and nothing else (no company name, address or other footer text); put those in your own Footer if you want them shown.',
   'guide.c4.s8': 'Preview Template (next to Save) opens a full-screen, comfortable view of exactly what you have right now — unsaved changes included — with its own Desktop/Mobile toggle and a Save button. This is separate from the small Live preview panel next to the editor; neither one changes the other.',
   'guide.c4.s9': 'On the Templates list, use the Template Type filter to show only Custom, HTML Upload, or Drag & Drop templates. Leave nothing checked to see every type your admin currently allows — see Settings for how an admin turns a creation method off workspace-wide.',
+  'guide.c4.s10': 'Sending marketing email to people in the USA (US law: CAN-SPAM), or in other countries with similar rules? You are legally required to show your business’s real postal address in the email. The automatic bottom line {app} adds only contains the unsubscribe link, so put your company name and address in your template’s own Footer (Design tab). This is a legal requirement, not something spam filters check.',
   'guide.c4.tip': 'Write {{name}} where you want each person’s own name. When sending, {app} puts their real name there.',
 
   'guide.c5.lede': 'A campaign is one send: these people, this email, at this time.',
@@ -1040,6 +1041,21 @@ export default {
   'guide.c20.s9': 'The winner is sent to everyone who was still waiting. Nobody ever receives two different versions of the same campaign.',
   'guide.c20.tip': 'Turn on "Send the winner automatically" when you set the test up, and you will not need to come back and press anything once the test finishes.',
   'guide.c20.warn': 'Once you press Start A/B test, the test type and variants lock — real recipients are already receiving them, so the setup cannot change mid-test.',
+
+  'guide.c21.title': 'Keeping your emails out of spam',
+  'guide.c21.lede': 'Spam filters judge who is sending, how the email is built and how people react to it. Here is what usually sends a campaign to spam — and what to do about each cause.',
+  'guide.c21.s1': 'Why it happens: your sending domain is not verified. Without SPF, DKIM and DMARC records, Gmail, Yahoo and Outlook cannot confirm the email really comes from you, and often treat it as suspicious.',
+  'guide.c21.s2': 'Why it happens: bulk email sent from a free personal account (like a free Gmail address). Those accounts have low daily limits and sign mail as gmail.com instead of your business, so bulk sending from them often ends in the spam folder or a blocked account.',
+  'guide.c21.s3': 'Why it happens: a new sender suddenly sends a very large batch. Mailbox providers trust a sender slowly, so thousands of emails on day one from a brand-new address or domain look like a spammer.',
+  'guide.c21.s4': 'Why it happens: a poor list — addresses that do not exist (bounces), old, bought or scraped lists, or people who never agreed to hear from you. Bounces hurt your reputation, and every “Report spam” click hurts it far more. People who cannot find an unsubscribe link often press “Report spam” instead.',
+  'guide.c21.s5': 'Why it happens: the email itself looks like spam — shouting subjects (FREE!!!, URGENT, ALL CAPS), a subject that does not match the content, one big image with almost no text, too many links or shortened links (bit.ly), or broken HTML.',
+  'guide.c21.s6': 'What to do: set up SPF, DKIM and DMARC for the domain you send from (your domain or email host shows how), and send from an address on that domain — for example hello@yourcompany.com — through your host’s SMTP rather than a free personal account.',
+  'guide.c21.s7': 'What to do: warm up slowly. Start with small batches to your most engaged contacts and grow over days or weeks. The batch size and delay settings in {app}, and each account’s daily limit, exist for exactly this.',
+  'guide.c21.s8': 'What to do: keep the list clean and honest. Email only people who agreed to hear from you, keep bounced addresses off the list ({app} suppresses them automatically), never email someone who unsubscribed ({app} blocks that too), and think about dropping contacts who have not opened anything for many months.',
+  'guide.c21.s9': 'What to do: write like a person. A clear, honest subject that matches the email; normal capital letters; mostly real text with images to support it; a few links to your own website; a sender name people recognise; and a reply-to address that works.',
+  'guide.c21.s10': 'What to do: keep the unsubscribe link visible ({app} always adds one when your template has none, and also sends the one-click unsubscribe signal Gmail and Yahoo look for), add your business name and address in your template’s Footer, and send yourself a test first. If it lands in Spam, press “Not spam” and fix the causes above before sending to everyone.',
+  'guide.c21.tip': 'Watch your results after each send. A high bounce rate or many failed emails is an early warning — pause, clean the list and fix the cause before sending again.',
+  'guide.c21.warn': 'No tool can promise inbox delivery — mailbox providers make the final call. Never buy or scrape email lists: it is the fastest way to damage your sending reputation, and in many countries it is illegal.',
 
   // --- Bulk selection & clean-up (Update 5) ---
   'bulk.selected': '{count} selected',

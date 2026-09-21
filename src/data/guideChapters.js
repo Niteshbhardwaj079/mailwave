@@ -27,7 +27,7 @@ export const guideChapters = [
     number: 4,
     key: 'c4',
     icon: 'bi-code-square',
-    steps: ['s1', 's2', 's3', 's4', 's5', 's6', 's7', 's8', 's9'],
+    steps: ['s1', 's2', 's3', 's4', 's5', 's6', 's7', 's8', 's9', 's10'],
     minutes: 4,
     link: { to: '/templates/new', labelKey: 'tpl.create' },
   },
@@ -161,6 +161,14 @@ export const guideChapters = [
     steps: ['s1', 's2', 's3', 's4', 's5', 's6', 's7', 's8', 's9'],
     minutes: 4,
     link: { to: '/campaigns', labelKey: 'nav.campaigns' },
+    hasWarning: true,
+  },
+  {
+    number: 21,
+    key: 'c21',
+    icon: 'bi-shield-exclamation',
+    steps: ['s1', 's2', 's3', 's4', 's5', 's6', 's7', 's8', 's9', 's10'],
+    minutes: 4,
     hasWarning: true,
   },
 ];

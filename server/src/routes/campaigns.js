@@ -1291,12 +1291,14 @@ router.post(
       merge_data: { company: 'Test Company', city: 'Test City', phone: 'Test Phone' },
     };
 
+    // Asli bhejne jaisa hi link text (Settings > Unsubscribe), taaki test email
+    // me bhi wahi line dikhe jo recipients ko jayegi.
+    const unsubSettings = await one(`SELECT value FROM settings WHERE key = 'unsubscribe'`);
     const message = buildEmail({
       campaign,
       recipient: fake,
       links: new Map(),
-      company: account.display_name || '',
-      unsubscribeText: 'Unsubscribe',
+      unsubscribeText: unsubSettings?.value?.linkText || 'Unsubscribe from these emails',
     });
 
     const result = await sendMail(account, {
