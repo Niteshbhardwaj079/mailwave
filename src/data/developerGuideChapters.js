@@ -1214,6 +1214,31 @@ export const devGuideChapters = [
         ],
       },
       {
+        heading: 'What can cost money — and what never does',
+        paragraphs: [
+          'The MailWave code itself needs no paid service. It has no AI, Google, analytics, error-tracking, payment or SMS integration, and the frontend loads no CDN, web font or tracking script — everything is bundled. Every dependency in both `package.json` files is open source. The only calls the backend makes to the outside world are: sending mail through the SMTP account the user connected, the optional S3-compatible storage the user configured, the database, and webhook URLs the user typed in. Any bill therefore comes from the infrastructure chosen around it, never from the app.',
+        ],
+        table: {
+          headers: ['Item', 'Default', 'When a bill can appear'],
+          rows: [
+            ['Mail sending account', 'Whatever SMTP account is connected (Gmail / Zoho / Yahoo / Outlook are free within their own daily limits)', 'High volume on a paid provider — SendGrid, Brevo, Amazon SES and similar charge beyond their free tier. The account\'s own daily limit, not MailWave, is the real ceiling (Gmail is roughly 500/day, which matches the app\'s default per-account limit).'],
+            ['PostgreSQL (`DATABASE_URL`)', 'Managed provider of the operator\'s choice', 'Free tiers cap storage and compute. Uploaded images live INSIDE the database by default (`images.storage_provider = \'db\'`), so a large image library is what fills a free database first.'],
+            ['Backend hosting', 'Render, a VPS or similar', 'A free web service may sleep when idle — and the scheduler, webhook worker and automatic backups are in-process timers, so scheduled campaigns do not fire while it sleeps. Reliable scheduling needs an always-on plan or a VPS. Its disk is also not durable across redeploys (see Render above).'],
+            ['Frontend hosting', 'Any static host', 'Static hosting is normally free at this size; bandwidth limits differ per provider.'],
+            ['Domain names', 'One domain / subdomain per install', 'Yearly domain renewal (a subdomain of a domain already owned costs nothing extra).'],
+            ['Object Storage (Settings > Storage)', 'OFF — images stay in the database', 'Only if an operator connects S3 / R2 / Backblaze / Wasabi / Spaces: storage and bandwidth are billed by that provider, pay-as-you-go.'],
+            ['Backup storage (`BACKUP_STORAGE`)', '`local` — free, on the server\'s own disk', 'Only when set to `s3`, billed by the S3 provider the same way. Local backups are free but die with the disk on hosts like Render.'],
+          ],
+        },
+      },
+      {
+        heading: 'Keeping the bill at zero',
+        list: [
+          'Zero-bill setup, in short: keep Object Storage off and `BACKUP_STORAGE=local`, stay inside the connected mail account\'s free daily limit, and keep the database and hosting on plans whose free limits still cover the workload — accepting the sleeping-backend and non-durable-disk trade-offs above.',
+          'Free-tier limits change over time and differ per provider — always check the provider\'s current pricing page rather than relying on numbers written down here.',
+        ],
+      },
+      {
         heading: 'Not documented because not supported',
         note: {
           tone: 'warning',
@@ -1336,6 +1361,22 @@ export const devGuideChapters = [
           'Build the frontend with `VITE_API_URL` pointed at this client\'s own backend, and deploy both apps following Chapter 19.',
           'Sign in as the new admin and confirm the workspace is empty of any other client\'s data.',
         ],
+      },
+      {
+        heading: 'Starting a new client from your own designed templates and images',
+        paragraphs: [
+          'Instead of `server:seed:clean`, you can hand the new client a copy of YOUR designed default templates and their uploaded images: download a backup from the Backups page, restore it into the new client\'s empty database, then delete the contacts, campaigns, email accounts and other data that must not carry over. Templates and images (stored in the database) come along with the restore.',
+          'Image URLs follow the new domain automatically. A template stores its image URLs as full text (`https://old-domain/files/img/...`), so a restored copy would otherwise keep loading images from the OLD server. `server/src/lib/hostedUrls.js` prevents this: whenever template or campaign HTML leaves the backend — API responses (`toApi` in `routes/templates.js` and `routes/campaigns.js`) and every email built by `buildEmail()` in `services/render.js` — it swaps the host of any `/files/img/...` or `/template-placeholders/...` URL for the current `PUBLIC_URL`. Nothing in the database is rewritten, so no script or migration is needed: set the new client\'s `PUBLIC_URL`, restart, done. Images hosted on any other website are left untouched.',
+        ],
+        list: [
+          'Restoring a backup also brings the old users and their logins — change the admin password immediately, and do not reuse the old installation\'s `JWT_SECRET`.',
+          'With a NEW `JWT_SECRET`, encrypted secrets inside the restored database (connected accounts\' SMTP passwords, Object Storage credentials) can no longer be read. Reconnect the email accounts inside the app. Images stored in the database itself keep working; images that live in Object Storage need Settings > Storage reconnected to the client\'s own bucket and re-uploading, because the restored credentials are unreadable.',
+        ],
+        note: {
+          tone: 'info',
+          icon: 'bi-info-circle',
+          text: 'Only URLs whose path starts with `/files/img/` or `/template-placeholders/` are re-hosted. If you add another kind of hosted file later, extend the pattern in `hostedUrls.js`.',
+        },
       },
       {
         heading: 'New client vs. same client moving hosting — the key difference',

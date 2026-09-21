@@ -8,6 +8,7 @@
 //   4. Unsubscribe link footer me lagana (yeh kanoonan zaroori hai)
 // ---------------------------------------------------------------------------
 import { env } from '../env.js';
+import { rehostUrls } from '../lib/hostedUrls.js';
 
 /**
  * HTML me daalne se pehle har value ko safe banao.
@@ -172,7 +173,9 @@ export function buildEmail({ campaign, recipient, links, unsubscribeText }) {
     ...(recipient.merge_data || {}),
   };
 
-  let html = mergeVariables(campaign.html, data);
+  // Images purane domain ke URL par store hui ho sakti hain (DB kisi doosre
+  // subdomain par restore hua ho) — chalu PUBLIC_URL par le aate hain.
+  let html = mergeVariables(rehostUrls(campaign.html), data);
 
   // Template ka apna Footer (Design tab) is recipient ka ASLI unsubscribe
   // link pehle se jod chuka hai kya — {{unsubscribe_url}} merge hone ke

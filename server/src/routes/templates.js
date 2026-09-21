@@ -26,6 +26,7 @@ import { many, one, query } from '../db/client.js';
 import { asyncHandler, badRequest, notFound, paginated, pagination } from '../lib/http.js';
 import { logActivity } from '../lib/activity.js';
 import { newId } from '../lib/ids.js';
+import { rehostDeep, rehostUrls } from '../lib/hostedUrls.js';
 import { validate } from '../lib/validate.js';
 import { requireModule } from '../middleware/permissions.js';
 import { LANGUAGE_CODES, DEFAULT_LANGUAGE } from '../lib/languages.js';
@@ -70,10 +71,12 @@ function toApi(row) {
     name: row.name,
     category: row.category,
     subject: row.subject,
-    html: row.html,
+    // Images ke URL hamesha chalu domain par (DB kisi aur subdomain par gaya
+    // ho to bhi) — dekho lib/hostedUrls.js.
+    html: rehostUrls(row.html),
     language: row.language,
     isDefault: Boolean(row.is_default),
-    contentSchema: row.content_schema ?? null,
+    contentSchema: row.content_schema ? rehostDeep(row.content_schema) : null,
     source: row.source || 'custom',
     createdBy: row.created_by_name ?? null,
     updated: row.updated_at,

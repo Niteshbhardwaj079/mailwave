@@ -13,6 +13,7 @@ import { env } from '../env.js';
 import { asyncHandler, badRequest, forbidden, notFound, paginated, pagination } from '../lib/http.js';
 import { logActivity } from '../lib/activity.js';
 import { newId } from '../lib/ids.js';
+import { rehostUrls } from '../lib/hostedUrls.js';
 import { validate } from '../lib/validate.js';
 import { requireAccountAccess, requireModule, roleCanUseAccount } from '../middleware/permissions.js';
 import { campaignActionLimiter } from '../middleware/actionLimiter.js';
@@ -127,7 +128,7 @@ function toApi(row) {
     preheader: row.preheader,
     templateId: row.template_id,
     template: row.template_name ?? null,
-    html: row.html,
+    html: rehostUrls(row.html),
     language: row.language,
     batchSize: row.batch_size,
     batchDelay: row.batch_delay,
@@ -901,7 +902,7 @@ function variantToApi(row) {
     senderName: row.sender_name,
     replyTo: row.reply_to,
     templateId: row.template_id,
-    html: row.html,
+    html: rehostUrls(row.html),
     isWinner: row.is_winner,
   };
 }
