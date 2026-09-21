@@ -9,6 +9,9 @@
 // Icon font (plain CSS shipped with the bootstrap-icons package)
 @use 'bootstrap-icons/font/bootstrap-icons.css';
 
+// Date/time picker ka structure (rang/size neeche _datepicker.scss me sudhare gaye hain)
+@use 'react-datepicker/dist/react-datepicker.css';
+
 @use 'bootstrap/scss/bootstrap' with (
   $font-size-root: v.$font-size-root,
   $font-size-base: v.$font-size-base,
@@ -80,4 +83,5 @@
 @use 'charts';
 @use 'pages';
 @use 'features';
+@use 'datepicker';
 @use 'utilities';

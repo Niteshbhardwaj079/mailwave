@@ -32,16 +32,27 @@ export default function StepRecipients({
   showErrors = false,
   filterMatchCount = 0,
   countingRecipients = false,
+  // Draft edit me log pehle se jude hote hain — tab source chunna zaroori nahi.
+  sourceRequired = true,
+  recipientCount = 0,
 }) {
   const t = useT();
   const navigate = useNavigate();
   const { subscribers } = useWorkspace();
   const activeSubscribers = subscribers.filter((item) => item.status === 'Subscribed');
 
+  const sourceMissing = showErrors && sourceRequired && !draft.recipientSource;
   const manualInvalid =
     showErrors && draft.recipientSource === 'manual' && !draft.manualList.trim();
   const existingInvalid =
     showErrors && draft.recipientSource === 'existing' && draft.groups.length === 0;
+  // Group/segment chun liya par usme koi contact hi nahi.
+  const existingEmpty =
+    showErrors &&
+    draft.recipientSource === 'existing' &&
+    draft.groups.length > 0 &&
+    !countingRecipients &&
+    recipientCount === 0;
 
   function handleSubscriberToggle(event) {
     const { id } = event.currentTarget.dataset;
@@ -113,6 +124,12 @@ export default function StepRecipients({
           </button>
         ))}
       </div>
+
+      {sourceMissing ? (
+        <Note tone="warning" icon="bi-exclamation-triangle">
+          {t('wiz.needRecipientSource')}
+        </Note>
+      ) : null}
 
       {draft.recipientSource === 'subscribers' ? (
         <div className="mw-stack--sm d-flex flex-column">
@@ -251,6 +268,12 @@ export default function StepRecipients({
           {existingInvalid ? (
             <Note tone="warning" icon="bi-exclamation-triangle">
               {t('wiz.needGroupOrSegment')}
+            </Note>
+          ) : null}
+
+          {existingEmpty ? (
+            <Note tone="warning" icon="bi-exclamation-triangle">
+              {t('wiz.needRecipients')}
             </Note>
           ) : null}
 

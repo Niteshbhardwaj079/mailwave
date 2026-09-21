@@ -206,6 +206,12 @@ export function buildEmail({ campaign, recipient, links, company, unsubscribeTex
   // kabhi nahi chhutta, warna spam/legal issue ban jata.
   const hasOwnUnsubscribeLink = html.includes(escapeHtml(data.unsubscribe_url));
 
+  // Same idea for Subscribe: agar template me pehle se {{subscribe_url}} ka
+  // link/button hai to footer ka alag "Subscribe" button dobara nahi jodte —
+  // do-do Subscribe button dikhte. (Click-tracking se link badalne se PEHLE
+  // dekhna zaroori hai, warna wo link pehchana nahi jata.)
+  const hasOwnSubscribeLink = html.includes(escapeHtml(data.subscribe_url));
+
   if (campaign.click_tracking && links?.size) {
     html = rewriteLinks(html, { links, recipientId: recipient.id });
   }
@@ -214,7 +220,7 @@ export function buildEmail({ campaign, recipient, links, company, unsubscribeTex
     recipientId: recipient.id,
     company,
     unsubscribeText,
-    subscribeButton: campaign.subscribe_button,
+    subscribeButton: campaign.subscribe_button && !hasOwnSubscribeLink,
     skipComplianceBlock: hasOwnUnsubscribeLink,
   });
 

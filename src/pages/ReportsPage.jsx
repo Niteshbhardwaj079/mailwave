@@ -8,6 +8,7 @@ import PerformanceChart from '../components/charts/PerformanceChart';
 import DeliveryDonut from '../components/charts/DeliveryDonut';
 import CampaignTable from '../components/campaigns/CampaignTable';
 import Sheet from '../components/ui/Sheet';
+import DateField from '../components/ui/DateField';
 import { ApiError, api, qs } from '../api/client';
 import { useApi } from '../api/useApi';
 import { useToast } from '../components/ui/ToastProvider';
@@ -238,23 +239,11 @@ export default function ReportsPage() {
               ) : null}
               <div className="col-12 col-md-6">
                 <label className="form-label" htmlFor="export-from">{t('common.from')}</label>
-                <input
-                  id="export-from"
-                  type="date"
-                  className="form-control"
-                  value={from}
-                  onChange={(event) => setFrom(event.target.value)}
-                />
+                <DateField id="export-from" value={from} onChange={setFrom} clearable />
               </div>
               <div className="col-12 col-md-6">
                 <label className="form-label" htmlFor="export-to">{t('common.to')}</label>
-                <input
-                  id="export-to"
-                  type="date"
-                  className="form-control"
-                  value={to}
-                  onChange={(event) => setTo(event.target.value)}
-                />
+                <DateField id="export-to" value={to} onChange={setTo} clearable />
               </div>
             </div>
             <div className="form-text mt-2">{t('rep.dateHint')}</div>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import HtmlPreview from '../templates/HtmlPreview';
@@ -25,8 +25,34 @@ export default function StepContent({ draft, onChange, showErrors = false }) {
     onChange({ preheader: event.target.value });
   }
 
+  // Button dabane par input ka focus chala jata hai — isliye cursor ki jagah
+  // pehle se yaad rakhte hain (select/blur par), taaki chip wahin jude jahan
+  // user ne cursor rakha tha. Kabhi cursor rakha hi nahi to end me jodte hain.
+  const subjectRef = useRef(null);
+  const caretRef = useRef(null);
+
+  function rememberCaret(event) {
+    caretRef.current = { start: event.target.selectionStart, end: event.target.selectionEnd };
+  }
+
   function insertVariable(event) {
-    onChange({ subject: `${draft.subject}{{${event.currentTarget.dataset.name}}}` });
+    const token = `{{${event.currentTarget.dataset.name}}}`;
+    const value = draft.subject;
+    const caret = caretRef.current;
+    const start = caret ? Math.min(caret.start, value.length) : value.length;
+    const end = caret ? Math.min(caret.end, value.length) : value.length;
+    const position = start + token.length;
+
+    onChange({ subject: value.slice(0, start) + token + value.slice(end) });
+    caretRef.current = { start: position, end: position };
+
+    // Naya value render hone ke baad cursor token ke theek baad rakho.
+    requestAnimationFrame(() => {
+      const input = subjectRef.current;
+      if (!input) return;
+      input.focus();
+      input.setSelectionRange(position, position);
+    });
   }
 
   return (
@@ -43,10 +69,13 @@ export default function StepContent({ draft, onChange, showErrors = false }) {
           </label>
           <input
             id="content-subject"
+            ref={subjectRef}
             type="text"
             className="form-control form-control-lg"
             value={draft.subject}
             onChange={handleSubject}
+            onSelect={rememberCaret}
+            onBlur={rememberCaret}
           />
         </div>
         <div className="col-12">

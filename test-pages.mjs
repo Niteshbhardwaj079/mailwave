@@ -126,7 +126,8 @@ check('sort server par gaya', apiCalls.some((u) => u.includes('sort=name')));
 
 // Naam se sort hua ya nahi — pehli row API ki pehli row jaisi honi chahiye.
 const sortedApi = (await apiCall('GET', '/api/campaigns?sort=name&limit=1')).data?.campaigns?.[0];
-const firstRow = (await page.locator('tbody tr').first().innerText()).split('\n')[0];
+// (Row ka pehla cell ab tick-box hai, isliye naam wale cell se padhte hain.)
+const firstRow = (await page.locator('tbody tr').first().locator('.mw-table__primary').first().innerText()).split('\n')[0];
 check('naam se sort sahi hua', sortedApi ? firstRow.includes(sortedApi.name) : false,
   `${firstRow} vs ${sortedApi?.name}`);
 

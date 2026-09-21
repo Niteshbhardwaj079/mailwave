@@ -1,0 +1,181 @@
+// ---------------------------------------------------------------------------
+// Date/time picker (react-datepicker) — app ke rang aur size me.
+//
+// Vendor CSS (main.scss me pehle load hoti hai) structure aur position deti hai;
+// yahan sirf:
+//   1. Rang — app ke tokens se, taaki night mode aur accent apne aap chalein.
+//   2. Size — vendor CSS 1rem = 16px maan kar likhi hai, is app me 1rem = 10px
+//      hai, isliye bina yeh sudhare calendar chhota-chhota dikhta.
+// ---------------------------------------------------------------------------
+
+// Input ka dabba poori chaudai le (native input jaisa).
+.mw-datefield {
+  display: block;
+  width: 100%;
+
+  .react-datepicker__input-container {
+    display: block;
+    width: 100%;
+  }
+
+  // Clear (×) button input ke andar, kinare par.
+  .react-datepicker__close-icon {
+    padding-inline: 0 1rem;
+
+    &::after {
+      background-color: transparent;
+      color: var(--mw-muted);
+      font-size: 2rem;
+      height: 2rem;
+      width: 2rem;
+      padding: 0;
+      line-height: 2rem;
+    }
+  }
+}
+
+// Filter bar ke andar jo chhoti height wale fields hain, wahan bhi wahi width.
+.mw-filter .mw-datefield {
+  width: 100%;
+}
+
+// Sheet/modal ke bhi upar (Sheet ka z-index 1050+ hai).
+.react-datepicker-popper.mw-datepopper {
+  z-index: 2000;
+}
+
+.react-datepicker {
+  font-family: inherit;
+  font-size: 1.4rem;
+  background-color: var(--mw-surface);
+  color: var(--mw-ink);
+  border: 1px solid var(--mw-line-strong);
+  border-radius: 1rem;
+  box-shadow: var(--mw-shadow-lg);
+  overflow: hidden;
+}
+
+.react-datepicker__header {
+  background-color: var(--mw-surface-2);
+  border-bottom: 1px solid var(--mw-line);
+  border-radius: 0;
+  padding-top: 1rem;
+}
+
+.react-datepicker__current-month,
+.react-datepicker-time__header,
+.react-datepicker-year-header {
+  color: var(--mw-ink);
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.react-datepicker__day-name,
+.react-datepicker__day,
+.react-datepicker__time-name {
+  color: var(--mw-ink);
+}
+
+// Din ke khane thode chaude — kai bhashaon ke din-naam (Hindi, Tamil, Thai...)
+// English ke "Sun" se lambe hote hain (datepickerLocale.js isi chaudai par nirbhar hai).
+.react-datepicker__day-name,
+.react-datepicker__day {
+  width: 3.2rem;
+  line-height: 3.2rem;
+}
+
+.react-datepicker__day-name {
+  color: var(--mw-muted);
+  font-weight: 600;
+}
+
+.react-datepicker__day {
+  border-radius: 0.8rem;
+
+  &:hover:not(.react-datepicker__day--disabled) {
+    background-color: var(--mw-hover);
+  }
+}
+
+.react-datepicker__day--outside-month {
+  color: var(--mw-muted-2);
+}
+
+.react-datepicker__day--today {
+  font-weight: 700;
+  color: var(--mw-primary);
+}
+
+.react-datepicker__day--selected,
+.react-datepicker__day--keyboard-selected,
+.react-datepicker__time-container .react-datepicker__time .react-datepicker__time-box ul.react-datepicker__time-list li.react-datepicker__time-list-item--selected {
+  background-color: var(--mw-primary);
+  color: var(--mw-on-primary);
+  font-weight: 700;
+
+  &:hover {
+    background-color: var(--mw-primary-dark);
+  }
+}
+
+.react-datepicker__day--keyboard-selected:not(.react-datepicker__day--selected) {
+  background-color: var(--mw-primary-soft);
+  color: var(--mw-ink);
+}
+
+.react-datepicker__day--disabled,
+.react-datepicker__time-container .react-datepicker__time .react-datepicker__time-box ul.react-datepicker__time-list li.react-datepicker__time-list-item--disabled {
+  color: var(--mw-muted-2);
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+// Mahina/saal chunne ke <select>
+.react-datepicker__month-select,
+.react-datepicker__year-select {
+  background-color: var(--mw-surface);
+  color: var(--mw-ink);
+  border: 1px solid var(--mw-line-strong);
+  border-radius: 0.6rem;
+  font-size: 1.3rem;
+  padding: 0.2rem 0.4rem;
+  margin-inline: 0.2rem;
+}
+
+// Pichhla/agla mahina teer
+.react-datepicker__navigation-icon::before {
+  border-color: var(--mw-muted);
+}
+
+.react-datepicker__navigation:hover .react-datepicker__navigation-icon::before {
+  border-color: var(--mw-ink);
+}
+
+// Time ki list (sirf date+time wale picker me)
+.react-datepicker__time-container {
+  border-inline-start: 1px solid var(--mw-line);
+  width: 9rem;
+
+  .react-datepicker__time {
+    background-color: var(--mw-surface);
+
+    .react-datepicker__time-box {
+      width: 100%;
+
+      ul.react-datepicker__time-list li.react-datepicker__time-list-item {
+        color: var(--mw-ink);
+        font-size: 1.3rem;
+        height: auto;
+        padding: 0.6rem 1rem;
+
+        &:hover:not(.react-datepicker__time-list-item--disabled) {
+          background-color: var(--mw-hover);
+        }
+      }
+    }
+  }
+}
+
+.react-datepicker__input-time-container {
+  color: var(--mw-ink);
+}

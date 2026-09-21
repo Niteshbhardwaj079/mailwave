@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import PageHeader from '../components/ui/PageHeader';
@@ -6,6 +6,7 @@ import { useDebouncedValue } from '../utils/useDebouncedValue';
 import { Card } from '../components/ui/Card';
 import Pagination from '../components/ui/Pagination';
 import PageSizePicker from '../components/ui/PageSizePicker';
+import BulkBar, { SelectAllCheckbox } from '../components/ui/BulkBar';
 import { SearchInput } from '../components/ui/Controls';
 import FilterSelect, { FilterBar } from '../components/ui/FilterSelect';
 import { useT } from '../i18n/I18nProvider';
@@ -13,8 +14,9 @@ import StatusPill from '../components/ui/StatusPill';
 import EmptyState from '../components/ui/EmptyState';
 import Sheet from '../components/ui/Sheet';
 import { useServerList } from '../api/useServerList';
+import { useBulkSelection } from '../utils/useBulkSelection';
 import { formatDate, formatNumber, percent } from '../utils/format';
-import { ApiError, api } from '../api/client';
+import { ApiError, api, qs } from '../api/client';
 import { useToast } from '../components/ui/ToastProvider';
 import { downloadCampaignReport } from '../utils/campaignReport';
 import FullScreenLoader from '../components/ui/FullScreenLoader';
@@ -39,6 +41,8 @@ const ROW_ACTIONS = [
   { key: 'failed', labelKey: 'camp.resendFailed', icon: 'bi-arrow-clockwise' },
   { key: 'report', labelKey: 'camp.exportReport', icon: 'bi-download' },
 ];
+
+const NO_IDS = [];
 
 const SORTS = [
   { value: 'date', labelKey: 'common.date' },
@@ -81,6 +85,79 @@ export default function CampaignsPage() {
   });
 
   const campaigns = pager.visible;
+
+  // --- chunna (tick-box) ----------------------------------------------------
+  // Header ka tick-box sirf is page ko chunta hai; "Select all N" poore filter
+  // ki saari campaigns (server se id mangwa kar) — bilkul Contacts page jaisa.
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  const pageIds = useMemo(() => campaigns.map((item) => item.id), [campaigns]);
+
+  // Server se aaye saare id, us filter ke saath jiske liye mangwaye the —
+  // filter badalte hi key nahi milti, isliye purane id apne aap bekaar ho
+  // jate hain (alag se "bhool jao" karne ki zarurat nahi).
+  const filterKey = `${search.trim()}|${status}`;
+  const [fetchedIds, setFetchedIds] = useState({ key: '', ids: [] });
+  const allIds = fetchedIds.key === filterKey ? fetchedIds.ids : NO_IDS;
+
+  const bulk = useBulkSelection(pageIds, allIds.length ? allIds : pageIds);
+
+  const fetchAllIds = useCallback(async () => {
+    try {
+      const data = await api.get(
+        `/api/campaigns/ids${qs({ search: search.trim(), status: status === 'All' ? '' : status })}`
+      );
+      if (data.capped) toast.warning(t('con.selectAllCapped', { max: formatNumber(data.max) }));
+      setFetchedIds({ key: filterKey, ids: data.ids ?? [] });
+      return data.ids ?? [];
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : t('toast.networkError'));
+      return [];
+    }
+  }, [search, status, filterKey, toast, t]);
+
+  async function handleSelectAll() {
+    const ids = allIds.length ? allIds : await fetchAllIds();
+    bulk.selectExactly(ids);
+  }
+
+  function handleRowCheck(event) {
+    bulk.toggleOne(event.currentTarget.dataset.id);
+  }
+
+  // Tick-box par click ka asar poori row (jo campaign kholti hai) par na jaye.
+  function stopRowClick(event) {
+    event.stopPropagation();
+  }
+
+  function askBulkDelete() {
+    if (bulk.selectedIds.length > 0) setBulkDeleteOpen(true);
+  }
+
+  async function handleBulkDelete() {
+    const ids = bulk.selectedIds;
+    if (ids.length === 0) return;
+
+    setBulkDeleting(true);
+    try {
+      const result = await api.post('/api/campaigns/bulk-delete', { ids });
+      bulk.clear();
+      setFetchedIds({ key: '', ids: [] });
+      pager.reload();
+      setBulkDeleteOpen(false);
+      // Chalti hui campaigns server nahi hatata — kitni hati, kitni nahi, saaf batate hain.
+      if (result.skipped > 0) {
+        toast.warning(t('camp.bulkDeleteDoneSkipped', { deleted: result.deleted, skipped: result.skipped }));
+      } else {
+        toast.success(t('camp.bulkDeleteDone', { count: result.deleted }));
+      }
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : t('toast.networkError'));
+    } finally {
+      setBulkDeleting(false);
+    }
+  }
 
   // Har status ke aage POORI list ki ginti — server se aati hai, kyunki screen
   // ke paas ab sirf ek page hota hai.
@@ -188,6 +265,20 @@ export default function CampaignsPage() {
       />
 
       <Card flush>
+        <BulkBar
+          count={bulk.count}
+          total={bulk.total}
+          pageCount={pageIds.length}
+          onSelectAll={handleSelectAll}
+          onClear={bulk.clear}
+          actions={
+            <button type="button" className="btn btn-sm btn-outline-danger" onClick={askBulkDelete}>
+              <i className="bi bi-trash3 me-2" />
+              {t('bulk.delete')}
+            </button>
+          }
+        />
+
         <FilterBar onClear={clearFilters} clearLabel={t('common.clear')}>
           <div className="mw-filterbar__search">
             <SearchInput value={query} onChange={setQuery} placeholder={t('camp.searchPlaceholder')} />
@@ -224,6 +315,14 @@ export default function CampaignsPage() {
               <table className="mw-table mw-table--clickable">
                 <thead>
                   <tr>
+                    <th scope="col" className="mw-table__check">
+                      <SelectAllCheckbox
+                        checked={bulk.allVisibleSelected}
+                        indeterminate={bulk.someVisibleSelected}
+                        onChange={bulk.toggleAllVisible}
+                        label={t('bulk.selectAllRows')}
+                      />
+                    </th>
                     <th scope="col">{t('nav.campaigns')}</th>
                     <th scope="col">{t('camp.sender')}</th>
                     <th scope="col" className="mw-table__num">{t('camp.recipients')}</th>
@@ -244,6 +343,16 @@ export default function CampaignsPage() {
                       data-status={campaign.status}
                       onClick={openCampaign}
                     >
+                      <td className="mw-table__check" onClick={stopRowClick}>
+                        <input
+                          type="checkbox"
+                          className="form-check-input mw-rowcheck"
+                          checked={bulk.isSelected(campaign.id)}
+                          data-id={campaign.id}
+                          onChange={handleRowCheck}
+                          aria-label={`${t('bulk.select')} ${campaign.name}`}
+                        />
+                      </td>
                       <td>
                         <div className="mw-table__primary">{campaign.name}</div>
                         {campaign.template ? (
@@ -290,8 +399,16 @@ export default function CampaignsPage() {
 
             <div className="mw-reclist p-3">
               {campaigns.map((campaign) => (
-                <div key={campaign.id} className="mw-rec">
+                <div key={campaign.id} className={`mw-rec ${bulk.isSelected(campaign.id) ? 'is-selected' : ''}`.trim()}>
                   <div className="mw-rec__top">
+                    <input
+                      type="checkbox"
+                      className="form-check-input mw-rowcheck mw-rec__check"
+                      checked={bulk.isSelected(campaign.id)}
+                      data-id={campaign.id}
+                      onChange={handleRowCheck}
+                      aria-label={`${t('bulk.select')} ${campaign.name}`}
+                    />
                     <button
                       type="button"
                       className="mw-rec__title mw-rec__titlebtn"
@@ -470,6 +587,32 @@ export default function CampaignsPage() {
             </div>
           </>
         ) : null}
+      </Sheet>
+
+      <Sheet
+        open={bulkDeleteOpen}
+        title={t('camp.bulkDeleteTitle', { count: formatNumber(bulk.count) })}
+        onClose={() => setBulkDeleteOpen(false)}
+      >
+        <p className="mw-fs-14 mw-text-muted mb-4">{t('camp.bulkDeleteText')}</p>
+        <div className="d-flex gap-2">
+          <button
+            type="button"
+            className="btn btn-outline-secondary flex-fill"
+            onClick={() => setBulkDeleteOpen(false)}
+            disabled={bulkDeleting}
+          >
+            {t('common.cancel')}
+          </button>
+          <button
+            type="button"
+            className="btn btn-danger flex-fill"
+            onClick={handleBulkDelete}
+            disabled={bulkDeleting}
+          >
+            {bulkDeleting ? t('common.loading') : t('common.delete')}
+          </button>
+        </div>
       </Sheet>
 
       {downloadingReport ? (

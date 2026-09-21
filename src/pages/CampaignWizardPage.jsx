@@ -23,6 +23,7 @@ import { useApi } from '../api/useApi';
 import { useToast } from '../components/ui/ToastProvider';
 import { formatDateTime, formatNumber, percentValue } from '../utils/format';
 import { isValidEmail, parseContactFilterLimit } from '../utils/validation';
+import { templateHasSubscribeUrl } from '../utils/templateTokens';
 
 const INITIAL_DRAFT = {
   name: '',
@@ -31,7 +32,10 @@ const INITIAL_DRAFT = {
   replyTo: '',
   subject: '',
   preheader: '',
-  recipientSource: 'all',
+  // Jaan-boojh kar khaali — kuch chune bina Continue nahi hota (dekho
+  // stepError). Pehle yahan 'all' tha: kisi card par click kiye bina bhi
+  // campaign SAARE contacts ko chali jaati.
+  recipientSource: '',
   manualList: '',
   groups: [],
   subscriberIds: [],
@@ -73,13 +77,23 @@ function toLocalInputValue(isoValue) {
   return `${when.getFullYear()}-${pad(when.getMonth() + 1)}-${pad(when.getDate())}T${pad(when.getHours())}:${pad(when.getMinutes())}`;
 }
 
-/** Manual list ke box me likhe email nikalta hai. */
+/**
+ * Manual list ke box me likhe email nikalta hai.
+ *
+ * "Amit Kumar <amit@example.com>" jaisi line me naam aur email alag kiye jate
+ * hain (box ka placeholder yahi format dikhata hai) — naam {{name}} me jata hai.
+ */
 function parseManualList(text) {
   return String(text || '')
     .split(/[\n,;]+/)
     .map((line) => line.trim())
     .filter((line) => line.includes('@'))
-    .map((email) => ({ email }));
+    .map((entry) => {
+      const match = entry.match(/^(.*?)<\s*([^<>\s]+@[^<>\s]+)\s*>$/);
+      if (!match) return { email: entry };
+      const name = match[1].trim().replace(/^["']+|["']+$/g, '').trim();
+      return name ? { email: match[2], name } : { email: match[2] };
+    });
 }
 
 export default function CampaignWizardPage() {
@@ -246,6 +260,17 @@ export default function CampaignWizardPage() {
     }));
   }, [templates, accounts]);
 
+  // Template me {{subscribe_url}} pehle se ho to "Subscribe button jodo" ka
+  // option Settings step me dikhta hi nahi (StepSettings) — us par pehle se
+  // On raha (jaise pehle kisi doosri template par chuna tha, ya purani Draft
+  // me) to use bhi Off kar dete hain, warna chhupa hua On email me do-do
+  // Subscribe button laga deta aur Review me galat "On" dikhta.
+  useEffect(() => {
+    if (draft.subscribeButton && templateHasSubscribeUrl(draft.templateHtml)) {
+      setDraft((current) => ({ ...current, subscribeButton: false }));
+    }
+  }, [draft.subscribeButton, draft.templateHtml]);
+
   /**
    * "Kitne logon tak jayega" — asli ginti, server se.
    *
@@ -267,6 +292,14 @@ export default function CampaignWizardPage() {
   const selectedIsSegment = selectedExistingId.startsWith('seg_');
 
   useEffect(() => {
+    // Kuch chuna hi nahi — koi bhi ginti/request nahi. (Edit me Draft ke
+    // pehle se jude log hi "kitne jayenge" hain.)
+    if (!draft.recipientSource) {
+      setWillReach(originalRecipientCount);
+      setFilterMatchCount(0);
+      return undefined;
+    }
+
     if (draft.recipientSource === 'manual') {
       setWillReach(parseManualList(draft.manualList).length);
       return undefined;
@@ -338,6 +371,7 @@ export default function CampaignWizardPage() {
     segments,
     draft.contactFilter,
     draft.subscriberIds,
+    originalRecipientCount,
   ]);
 
   /** Screen ka naam server ke naam me badalta hai. */
@@ -487,11 +521,23 @@ export default function CampaignWizardPage() {
     }
 
     if (index === 1) {
+      // Kuch chuna hi nahi to aage nahi badhne dete. Sirf Draft edit me chhoot
+      // hai jisme log pehle se jude hain — wahan source yaad nahi rehta
+      // (createOrUpdateCampaign unhe dobara jodta hi nahi).
+      if (!draft.recipientSource) {
+        return originalRecipientCount > 0 ? '' : t('wiz.needRecipientSource');
+      }
       if (draft.recipientSource === 'manual' && parseManualList(draft.manualList).length === 0) {
         return t('wiz.needRecipients');
       }
       if (draft.recipientSource === 'existing' && draft.groups.length === 0) {
         return t('wiz.needGroupOrSegment');
+      }
+      // Chuna hua group/segment khaali ho to bhi koi email nahi jayegi. Ginti
+      // abhi aa hi rahi ho (server se) to yahan rokte nahi — bhejte waqt
+      // "koi recipient nahi" wali aakhri jaanch pakad leti hai.
+      if (draft.recipientSource === 'existing' && !countingRecipients && willReach === 0) {
+        return t('wiz.needRecipients');
       }
       if (draft.recipientSource === 'subscribers' && draft.subscriberIds.length === 0) {
         return t('wiz.needRecipients');
@@ -675,7 +721,9 @@ export default function CampaignWizardPage() {
       };
     }
 
-    return { source: 'all' };
+    // Yahan tak koi source nahi pahuncha — stepError() isse pehle hi rok deta
+    // hai. Phir bhi "chupchap saare contacts" jaisa khatarnak default nahi.
+    throw new ApiError(400, 'bad_request', t('wiz.needRecipientSource'));
   }
 
   /**
@@ -961,6 +1009,8 @@ export default function CampaignWizardPage() {
               contactGroups={contactGroups}
               segments={segments}
               showErrors={showErrors}
+              sourceRequired={originalRecipientCount === 0}
+              recipientCount={willReach}
             />
           ) : null}
           {step === 2 ? (

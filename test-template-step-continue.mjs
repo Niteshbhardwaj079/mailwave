@@ -31,7 +31,10 @@ await page.fill('#campaign-subject', 'Test subject');
 await page.getByRole('button', { name: /continue/i }).first().click();
 await page.waitForTimeout(1200);
 
-// Step 2 (Recipients) — just continue through
+// Step 2 (Recipients) — a source must be chosen before Continue works
+// ("All contacts" = every subscribed contact), then continue through.
+await page.locator('.mw-option[data-key="filter"]').click();
+await page.waitForTimeout(1200);
 await page.getByRole('button', { name: /continue/i }).first().click();
 await page.waitForTimeout(1200);
 

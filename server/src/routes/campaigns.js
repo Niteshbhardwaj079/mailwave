@@ -209,29 +209,37 @@ const SELECT = `
     LEFT JOIN templates t ON t.id = c.template_id
 `;
 
+/**
+ * List aur "Select all" (neeche /ids) dono ka filter ek hi jagah — taaki jo
+ * rows screen par filter se dikhti hain, "Select all" bilkul wahi chune.
+ */
+function buildCampaignListFilter(queryParams) {
+  const status = String(queryParams.status ?? '').trim();
+  const search = String(queryParams.search ?? '').trim();
+
+  const where = [];
+  const params = [];
+
+  if (status && status !== 'all' && status !== 'All') {
+    params.push(status);
+    where.push(`c.status = $${params.length}`);
+  }
+
+  if (search) {
+    // Campaign ke naam se bhi, aur jis account se bheja gaya us email se bhi.
+    params.push(`%${search.toLowerCase()}%`);
+    where.push(`(lower(c.name) LIKE $${params.length} OR lower(a.email) LIKE $${params.length})`);
+  }
+
+  return { clause: where.length ? `WHERE ${where.join(' AND ')}` : '', params };
+}
+
 // --- list -------------------------------------------------------------------
 router.get(
   '/',
   requireModule('campaigns', 'view'),
   asyncHandler(async (req, res) => {
-    const status = String(req.query.status ?? '').trim();
-    const search = String(req.query.search ?? '').trim();
-
-    const where = [];
-    const params = [];
-
-    if (status && status !== 'all' && status !== 'All') {
-      params.push(status);
-      where.push(`c.status = $${params.length}`);
-    }
-
-    if (search) {
-      // Campaign ke naam se bhi, aur jis account se bheja gaya us email se bhi.
-      params.push(`%${search.toLowerCase()}%`);
-      where.push(`(lower(c.name) LIKE $${params.length} OR lower(a.email) LIKE $${params.length})`);
-    }
-
-    const clause = where.length ? `WHERE ${where.join(' AND ')}` : '';
+    const { clause, params } = buildCampaignListFilter(req.query);
 
     // Sort ka naam kabhi seedha SQL me nahi jodte — sirf inhi teen me se ek
     // chunte hain. Warna koi bhi apni marzi ka SQL yahan ghusa sakta hai.
@@ -269,6 +277,78 @@ router.get(
       campaigns: rows.map(toApi),
       counts: { All: allRow?.n ?? 0, ...counts },
     });
+  })
+);
+
+/**
+ * Filter se match hone wali SAARI campaigns ke sirf id — "Select all" ke liye.
+ * Screen par sirf ek page dikhta hai, isliye baaki pages ke id browser ke
+ * paas nahi hote (bilkul contacts ke /ids jaisa). `/:id` se PEHLE likha hai.
+ */
+const MAX_SELECT_ALL = 5_000;
+
+router.get(
+  '/ids',
+  requireModule('campaigns', 'view'),
+  asyncHandler(async (req, res) => {
+    const { clause, params } = buildCampaignListFilter(req.query);
+
+    const rows = await many(
+      `SELECT c.id FROM campaigns c
+         LEFT JOIN email_accounts a ON a.id = c.account_id
+         ${clause}
+        ORDER BY c.created_at DESC
+        LIMIT $${params.length + 1}`,
+      [...params, MAX_SELECT_ALL]
+    );
+    const totalRow = await one(
+      `SELECT count(*)::int AS n FROM campaigns c
+         LEFT JOIN email_accounts a ON a.id = c.account_id ${clause}`,
+      params
+    );
+    const total = totalRow?.n ?? 0;
+
+    res.json({ ids: rows.map((row) => row.id), total, capped: total > MAX_SELECT_ALL, max: MAX_SELECT_ALL });
+  })
+);
+
+/**
+ * Ek saath kai campaigns hatao (list ke tick-box wala bulk action).
+ *
+ * Ek-ek campaign ki tarah hi: chalti hui (Sending/Testing/Sending Winner)
+ * campaign kabhi nahi hatti. Baaki hat jati hain, aur chalti hui ginti me
+ * `skipped` ke roop me wapas aati hain — screen ko saaf bata sakein ki kitni
+ * hati aur kitni nahi. Status ki jaanch DELETE ke andar hi hai (alag SELECT
+ * nahi), taaki jaanch aur hatane ke beech koi campaign chalu ho jaye to bhi
+ * wo nahi hatti.
+ */
+router.post(
+  '/bulk-delete',
+  requireModule('campaigns', 'delete'),
+  validate(z.object({ ids: z.array(z.string()).min(1, 'Choose at least one campaign').max(MAX_SELECT_ALL) })),
+  asyncHandler(async (req, res) => {
+    const removed = await many(
+      `DELETE FROM campaigns
+        WHERE id = ANY($1)
+          AND status NOT IN ('Sending', 'Testing', 'Sending Winner')
+      RETURNING id`,
+      [req.body.ids]
+    );
+    const deleted = removed.length;
+    const skipped = req.body.ids.length - deleted;
+
+    if (deleted > 0) {
+      await logActivity(req, {
+        action: 'deleted',
+        module: 'campaigns',
+        item: `${deleted} campaigns`,
+        detail: 'Multiple campaigns deleted in bulk',
+        detailKey: 'act.campaignsBulkDeleted',
+        detailParams: { count: deleted },
+      });
+    }
+
+    res.json({ ok: true, deleted, skipped });
   })
 );
 
@@ -563,6 +643,44 @@ router.put(
   })
 );
 
+/**
+ * Seedhi list (type ki hui, ya segment se) aur subscribers me aksar sirf email
+ * (aur kabhi naam) hota hai. Agar wahi address Contacts me pehle se hai, to
+ * uska naam/company/phone/city yahin se bhar dete hain — warna email me
+ * {{name}}, {{company}}, {{phone}}, {{city}} khaali chale jate.
+ *
+ * Jo value pehle se di hui hai (jaise type karte waqt naam likha) wo hamesha
+ * jeetti hai; Contact sirf khaali jagah bharta hai.
+ */
+async function fillFromContacts(rows) {
+  const emails = [...new Set(rows.map((row) => String(row.email).toLowerCase()))];
+  if (emails.length === 0) return rows;
+
+  const byEmail = new Map();
+  const LOOKUP_CHUNK = 5000;
+  for (let i = 0; i < emails.length; i += LOOKUP_CHUNK) {
+    const found = await many(
+      `SELECT lower(email) AS email_key, name, company, city, phone
+         FROM contacts WHERE lower(email) = ANY($1)`,
+      [emails.slice(i, i + LOOKUP_CHUNK)]
+    );
+    for (const contact of found) {
+      if (!byEmail.has(contact.email_key)) byEmail.set(contact.email_key, contact);
+    }
+  }
+
+  return rows.map((row) => {
+    const contact = byEmail.get(String(row.email).toLowerCase());
+    if (!contact) return row;
+
+    const data = { ...(row.data ?? {}) };
+    for (const key of ['company', 'city', 'phone']) {
+      if (!data[key] && contact[key]) data[key] = contact[key];
+    }
+    return { ...row, name: row.name || contact.name || null, data };
+  });
+}
+
 // --- recipients jodo --------------------------------------------------------
 // Paanch tarike: seedhi list, ek group, subscribers, saare (all), ya
 // "All Contacts" filter (shehar/tag/group/search + already-emailed hatao).
@@ -624,7 +742,9 @@ router.post(
     let rows = [];
 
     if (source === 'list') {
-      rows = (people ?? []).map((p) => ({ email: p.email, name: p.name ?? null, data: p.data ?? {} }));
+      rows = await fillFromContacts(
+        (people ?? []).map((p) => ({ email: p.email, name: p.name ?? null, data: p.data ?? {} }))
+      );
     } else if (source === 'subscribers') {
       // subscriberIds bheja hi nahi gaya (undefined) to sab "Subscribed" log
       // jate hain. Bheja gaya hai — chahe khaali array hi ho — to sirf wahi
@@ -644,7 +764,11 @@ router.post(
            ${where}`,
         params
       );
-      rows = subs.map((s) => ({ email: s.email, name: s.name, data: { company: s.company, city: s.city } }));
+      // Subscribers ke paas phone hota hi nahi (aur company/city bhi khaali
+      // ho sakte hain) — Contacts me wahi email ho to wahin se bhar do.
+      rows = await fillFromContacts(
+        subs.map((s) => ({ email: s.email, name: s.name, data: { company: s.company, city: s.city } }))
+      );
     } else if (source === 'filter') {
       const { clause, params: fParams } = buildContactFilterWhere(filter ?? {}, campaign.id);
       // "Limit to N" — diya ho to sirf pehle N matching contacts jodo. LIMIT
@@ -1164,7 +1288,7 @@ router.post(
       id: 'test',
       email: req.body.to,
       name: req.user.name,
-      merge_data: { company: 'Test Company', city: 'Test City' },
+      merge_data: { company: 'Test Company', city: 'Test City', phone: 'Test Phone' },
     };
 
     const message = buildEmail({

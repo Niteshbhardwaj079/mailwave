@@ -99,8 +99,12 @@ await page.fill('#campaign-subject, input[name="subject"]', 'Hello {{name}}, tes
 await page.getByRole('button', { name: /continue/i }).first().click();
 await page.waitForTimeout(1500);
 
-// Step 2 — recipients. Screen par asli ginti dikhni chahiye.
+// Step 2 — recipients. Ab koi source chunna zaroori hai (bina chune Continue
+// nahi hota) — "All contacts" (filter, koi shart nahi) = saare subscribed log,
+// wahi jo recipient-count?source=all ginta hai. Screen par asli ginti dikhni chahiye.
 body = await page.locator('body').innerText();
+await page.locator('.mw-option[data-key="filter"]').click();
+await page.waitForTimeout(1200); // ginti server se aati hai
 await page.getByRole('button', { name: /continue/i }).first().click();
 await page.waitForTimeout(1000);
 

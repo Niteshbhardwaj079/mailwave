@@ -9,6 +9,7 @@ import { Note, SearchInput } from '../components/ui/Controls';
 import FilterSelect, { FilterBar } from '../components/ui/FilterSelect';
 import EmptyState from '../components/ui/EmptyState';
 import Sheet from '../components/ui/Sheet';
+import DateField from '../components/ui/DateField';
 import BulkBar, { SelectAllCheckbox } from '../components/ui/BulkBar';
 import { useBulkSelection } from '../utils/useBulkSelection';
 import { useT } from '../i18n/I18nProvider';
@@ -309,13 +310,13 @@ export default function ActivityLogPage() {
               <i className="bi bi-calendar-minus" aria-hidden="true" />
               {t('common.from')}
             </label>
-            <input
+            <DateField
               id="log-from"
-              type="date"
               className="form-control mw-filter__select"
               value={customFrom}
               max={customTo || undefined}
-              onChange={(event) => setCustomFrom(event.target.value)}
+              onChange={setCustomFrom}
+              clearable
             />
           </div>
           <div className="mw-filter">
@@ -323,13 +324,13 @@ export default function ActivityLogPage() {
               <i className="bi bi-calendar-plus" aria-hidden="true" />
               {t('common.to')}
             </label>
-            <input
+            <DateField
               id="log-to"
-              type="date"
               className="form-control mw-filter__select"
               value={customTo}
               min={customFrom || undefined}
-              onChange={(event) => setCustomTo(event.target.value)}
+              onChange={setCustomTo}
+              clearable
             />
           </div>
           {/* Kitni rows dikhani hain — filter ke bagal me. */}

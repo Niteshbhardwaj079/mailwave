@@ -3,6 +3,7 @@ import StatusPill from '../ui/StatusPill';
 import HtmlPreview from '../templates/HtmlPreview';
 import { useT } from '../../i18n/I18nProvider';
 import { formatNumber } from '../../utils/format';
+import { templateHasSubscribeUrl } from '../../utils/templateTokens';
 import { findLanguage } from '../../i18n/languages';
 
 export default function StepReview({ draft, recipientCount = 0, onSend }) {
@@ -50,7 +51,9 @@ export default function StepReview({ draft, recipientCount = 0, onSend }) {
             <KeyValue label={t('rev.batchWait')}>{t('rev.minutes', { count: draft.batchDelay })}</KeyValue>
             <KeyValue label={t('send.openTracking')}>{onOff(draft.openTracking)}</KeyValue>
             <KeyValue label={t('send.clickTracking')}>{onOff(draft.clickTracking)}</KeyValue>
-            <KeyValue label={t('send.subscribeButton')}>{onOff(draft.subscribeButton)}</KeyValue>
+            {templateHasSubscribeUrl(draft.templateHtml) ? null : (
+              <KeyValue label={t('send.subscribeButton')}>{onOff(draft.subscribeButton)}</KeyValue>
+            )}
             <KeyValue label={t('rev.schedule')}>{scheduleSummary}</KeyValue>
           </div>
         </div>

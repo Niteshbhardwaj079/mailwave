@@ -1,10 +1,12 @@
 import { Note, Required } from '../ui/Controls';
+import DateField from '../ui/DateField';
 import { batchOptions } from '../../data/constants';
 import { formatNumber } from '../../utils/format';
 import { estimateSendTime, formatEstimate } from '../../utils/sendEstimate';
+import { templateHasSubscribeUrl } from '../../utils/templateTokens';
 import { useT } from '../../i18n/I18nProvider';
 
-/** Native picker ko beeta hua din/waqt dikhane hi nahi dete. */
+/** Picker ko beeta hua din/waqt chunne hi nahi dete. */
 function minScheduleValue() {
   const now = new Date();
   const pad = (n) => String(n).padStart(2, '0');
@@ -43,8 +45,8 @@ export default function StepSettings({ draft, onChange, recipientCount = 0, acco
     onChange({ schedule: event.currentTarget.dataset.key });
   }
 
-  function handleScheduleAt(event) {
-    onChange({ scheduleAt: event.target.value });
+  function handleScheduleAt(value) {
+    onChange({ scheduleAt: value });
   }
 
   function toggleOpen() {
@@ -191,35 +193,40 @@ export default function StepSettings({ draft, onChange, recipientCount = 0, acco
         </div>
       </div>
 
-      <div>
-        <p className="mw-fs-14 mw-fw-700 mb-2">{t('send.subscribeButton')}</p>
+      {/* Template me {{subscribe_url}} pehle se hai to uska apna Subscribe
+          link/button jayega — alag se button jodne ka option yahan dikhana hi
+          nahi (do-do Subscribe button ho jate). */}
+      {templateHasSubscribeUrl(draft.templateHtml) ? null : (
+        <div>
+          <p className="mw-fs-14 mw-fw-700 mb-2">{t('send.subscribeButton')}</p>
 
-        <div className="mw-switchrow">
-          <div className="mw-switchrow__body">
-            <div className="mw-switchrow__title">{t('send.subscribeTitle')}</div>
-            <p className="mw-switchrow__desc mb-0">{t('send.subscribeDesc')}</p>
+          <div className="mw-switchrow">
+            <div className="mw-switchrow__body">
+              <div className="mw-switchrow__title">{t('send.subscribeTitle')}</div>
+              <p className="mw-switchrow__desc mb-0">{t('send.subscribeDesc')}</p>
+            </div>
+            <div className="form-check form-switch">
+              <input
+                className="form-check-input"
+                type="checkbox"
+                role="switch"
+                id="subscribe-button"
+                checked={draft.subscribeButton}
+                onChange={toggleSubscribe}
+              />
+              <label className="form-check-label visually-hidden" htmlFor="subscribe-button">
+                {t('send.subscribeButton')}
+              </label>
+            </div>
           </div>
-          <div className="form-check form-switch">
-            <input
-              className="form-check-input"
-              type="checkbox"
-              role="switch"
-              id="subscribe-button"
-              checked={draft.subscribeButton}
-              onChange={toggleSubscribe}
-            />
-            <label className="form-check-label visually-hidden" htmlFor="subscribe-button">
-              {t('send.subscribeButton')}
-            </label>
-          </div>
+
+          {draft.subscribeButton ? (
+            <Note tone="success" icon="bi-braces">
+              {t('send.subscribeNote')}
+            </Note>
+          ) : null}
         </div>
-
-        {draft.subscribeButton ? (
-          <Note tone="success" icon="bi-braces">
-            {t('send.subscribeNote')}
-          </Note>
-        ) : null}
-      </div>
+      )}
 
       <div>
         <p className="mw-fs-14 mw-fw-700 mb-2">{t('send.whenTitle')}</p>
@@ -253,9 +260,9 @@ export default function StepSettings({ draft, onChange, recipientCount = 0, acco
                 {t('send.dateTime')}
                 <Required />
               </label>
-              <input
+              <DateField
                 id="schedule-at"
-                type="datetime-local"
+                withTime
                 className={`form-control ${scheduleInvalid ? 'is-invalid' : ''}`.trim()}
                 value={draft.scheduleAt}
                 onChange={handleScheduleAt}
