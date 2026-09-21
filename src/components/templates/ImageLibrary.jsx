@@ -170,7 +170,7 @@ export default function ImageLibrary({ onInsert, onPick }) {
       onInsert?.(
         `\n<img src="${escapeAttr(url)}" alt="${escapeAttr(
           name
-        )}" width="560" style="display:block;max-width:100%;border-radius:8px" />\n`
+        )}" style="display:block;width:auto" />\n`
       );
     }
     if (id) touchImage(id);
